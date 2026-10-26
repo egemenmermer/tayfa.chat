@@ -54,7 +54,7 @@ it('keeps placeholders and wording consistent across catalog groups', () => {
       if (expected.some((name) => !placeholders(other).includes(name)))
         problems.push(`dropped placeholder in "${source}"`);
       const turkish = texts(message).find((text) =>
-        /[çğıöşüÇĞİÖŞÜ]/.test(text.replace(/Kıraathane|Türkçe|Tayfa'?/g, '')),
+        /[çğıöşüÇĞİÖŞÜ]/.test(text.replace(/Türkçe|Tayfa'?/g, '')),
       );
       if (turkish) problems.push(`Turkish left in the English for "${source}": ${turkish}`);
     }

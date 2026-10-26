@@ -22,14 +22,14 @@ Bu paket, **gerçek Tayfa masaüstü istemcilerini** (Electron main + görünüm
 
 [Doğrulama seviyeleri](DEVELOPMENT.md#doğrulama-seviyeleri) içinde bu paket **3. seviyedir: servis entegrasyonu**. Birim testlerinden (1) ve tek pencereli açılış kontrolünden (2) farklı olarak şunları gerçek bileşenlerle sınar:
 
-| Kanıtlanan | Nasıl |
-| --- | --- |
-| Gerçek Stoat hesabı, oturum, ağ geçidi olayları | Sabit `ghcr.io/stoatchat/*:v0.15.5` imajları, iki veya daha fazla ayrı Electron profili |
-| Davet bağlantısıyla kayıt, kişi sınırı ve iptal | Gerçek erişim servisi (`access.cjs`), kalıcı davet defteri ve `/davet` sayfası |
-| Üyelik/izin sınırları | Topluluk dışı gerçek hesap; erişim ve Activities servislerinin 4xx yanıtları |
-| Ses ve kamera aktarımı | Erişim servisinin LiveKit yetkisi, LiveKit v1.9.12 SFU, WebRTC `inbound-rtp` paket sayıları |
-| Ortak etkinlik durumu | PostgreSQL kullanan gerçek Activities servisi; iki istemci arasında anket ve oy |
-| Yerel tercihler ve oturum geri yükleme | Aynı profille uygulamayı kapatıp yeniden açma |
+| Kanıtlanan                                      | Nasıl                                                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Gerçek Stoat hesabı, oturum, ağ geçidi olayları | Sabit `ghcr.io/stoatchat/*:v0.15.5` imajları, iki veya daha fazla ayrı Electron profili     |
+| Davet bağlantısıyla kayıt, kişi sınırı ve iptal | Gerçek erişim servisi (`access.cjs`), kalıcı davet defteri ve `/davet` sayfası              |
+| Üyelik/izin sınırları                           | Topluluk dışı gerçek hesap; erişim ve Activities servislerinin 4xx yanıtları                |
+| Ses ve kamera aktarımı                          | Erişim servisinin LiveKit yetkisi, LiveKit v1.9.12 SFU, WebRTC `inbound-rtp` paket sayıları |
+| Ortak etkinlik durumu                           | PostgreSQL kullanan gerçek Activities servisi; iki istemci arasında anket ve oy             |
+| Yerel tercihler ve oturum geri yükleme          | Aynı profille uygulamayı kapatıp yeniden açma                                               |
 
 **Kanıtlamaz:**
 
@@ -59,16 +59,16 @@ pnpm e2e
 
 Sık kullanılan komutlar:
 
-| Komut | Amaç |
-| --- | --- |
-| `pnpm e2e` | Tüm paketi çalıştırır |
-| `pnpm e2e specs/chat.spec.ts` | Tek dosya |
-| `pnpm e2e --grep "voice"` | Başlığa göre süzme |
-| `pnpm e2e:report` | Son HTML raporunu açar |
-| `pnpm e2e:stack status` | Konteyner durumu ve sağlık yoklamaları |
-| `pnpm e2e:stack logs access` | Bir servisin son günlükleri |
-| `pnpm e2e:stack down` | Konteynerleri durdurur, veriyi korur |
-| `pnpm e2e:stack reset` | Konteynerleri, birimleri, sırları ve çalışma dosyalarını siler |
+| Komut                         | Amaç                                                           |
+| ----------------------------- | -------------------------------------------------------------- |
+| `pnpm e2e`                    | Tüm paketi çalıştırır                                          |
+| `pnpm e2e specs/chat.spec.ts` | Tek dosya                                                      |
+| `pnpm e2e --grep "voice"`     | Başlığa göre süzme                                             |
+| `pnpm e2e:report`             | Son HTML raporunu açar                                         |
+| `pnpm e2e:stack status`       | Konteyner durumu ve sağlık yoklamaları                         |
+| `pnpm e2e:stack logs access`  | Bir servisin son günlükleri                                    |
+| `pnpm e2e:stack down`         | Konteynerleri durdurur, veriyi korur                           |
+| `pnpm e2e:stack reset`        | Konteynerleri, birimleri, sırları ve çalışma dosyalarını siler |
 
 İstemciler varsayılan olarak **görünmez (headless)** çalışır: pencere açılmaz, Dock'ta veya menü çubuğunda simge çıkmaz, odak çalınmaz ve fare olayları pencereye ulaşmaz. Böylece paket çalışırken bilgisayarı kullanmaya devam edebilirsin. Pencereleri izlemek için `ROOMS_E2E_HEADED=1 pnpm e2e` kullan. Her test kendi pencerelerini kapatır ve profil klasörlerini siler.
 
@@ -110,24 +110,24 @@ tests/e2e/
 
 Yığın, [üretim düzenini](SELF_HOSTING.md) loopback üzerinde yeniden kurar. Compose proje adı `rooms-e2e`'dir; geliştirme Stoat kurulumuyla (`.local/stoat`, `rooms-stoat`) çakışmaz.
 
-| Servis | İmaj | Rol |
-| --- | --- | --- |
-| `database`, `redis`, `rabbit`, `minio`, `createbuckets` | mongo:8, valkey 9, rabbitmq 4, pgsty/silo, pgsty/mc | Stoat altyapısı |
-| `api`, `events`, `autumn`, `january` | `ghcr.io/stoatchat/*:v0.15.5` | Sabit, değiştirilmemiş Stoat |
-| `caddy` | caddy:2 | Üretimdeki herkese açık rotalar; doğrudan hesap oluşturmayı 403 ile reddeder |
-| `access` | node:22.22.0 + `dist-services/access.cjs` | Kayıt aracısı, üyelik ve medya yetkisi |
-| `activities` + `postgres` | node:22.22.0 + `dist-services/activities.cjs`, postgres:17 | Yetkili etkinlik durumu |
-| `livekit` | livekit/livekit-server:v1.9.12 | Üretimdeki sürümle aynı SFU |
+| Servis                                                  | İmaj                                                       | Rol                                                                          |
+| ------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `database`, `redis`, `rabbit`, `minio`, `createbuckets` | mongo:8, valkey 9, rabbitmq 4, pgsty/silo, pgsty/mc        | Stoat altyapısı                                                              |
+| `api`, `events`, `autumn`, `january`                    | `ghcr.io/stoatchat/*:v0.15.5`                              | Sabit, değiştirilmemiş Stoat                                                 |
+| `caddy`                                                 | caddy:2                                                    | Üretimdeki herkese açık rotalar; doğrudan hesap oluşturmayı 403 ile reddeder |
+| `access`                                                | node:22.22.0 + `dist-services/access.cjs`                  | Kayıt aracısı, üyelik ve medya yetkisi                                       |
+| `activities` + `postgres`                               | node:22.22.0 + `dist-services/activities.cjs`, postgres:17 | Yetkili etkinlik durumu                                                      |
+| `livekit`                                               | livekit/livekit-server:v1.9.12                             | Üretimdeki sürümle aynı SFU                                                  |
 
 Adresler (hepsi `127.0.0.1`):
 
-| Port | Amaç |
-| --- | --- |
-| 4100 | Topluluk adresi `http://127.0.0.1:4100` (Caddy). İstemciye girilen adres budur. |
-| 4101 | Ham Stoat API. Yalnız test düzenlemesi için; herkese açık vekil hesap oluşturmayı engeller. |
-| 4102 | MongoDB. Hesap davetleri bu bağlantıyla eklenir. |
-| 7880 | LiveKit sinyali. Görünüm sürecinin CSP'si yerel LiveKit'e yalnız bu porttan izin verir; bu yüzden aynı anda başka yerel LiveKit çalışamaz. |
-| 4181/tcp, 51000–51020/udp | LiveKit medya. ICE adayları `127.0.0.1` olarak duyurulur. |
+| Port                      | Amaç                                                                                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 4100                      | Topluluk adresi `http://127.0.0.1:4100` (Caddy). İstemciye girilen adres budur.                                                            |
+| 4101                      | Ham Stoat API. Yalnız test düzenlemesi için; herkese açık vekil hesap oluşturmayı engeller.                                                |
+| 4102                      | MongoDB. Hesap davetleri bu bağlantıyla eklenir.                                                                                           |
+| 7880                      | LiveKit sinyali. Görünüm sürecinin CSP'si yerel LiveKit'e yalnız bu porttan izin verir; bu yüzden aynı anda başka yerel LiveKit çalışamaz. |
+| 4181/tcp, 51000–51020/udp | LiveKit medya. ICE adayları `127.0.0.1` olarak duyurulur.                                                                                  |
 
 Sırlar (`RabbitMQ`, `MinIO`, `PostgreSQL`, LiveKit anahtarı, dosya şifreleme anahtarı, VAPID) ilk `up` sırasında rastgele üretilir, `.local/e2e/stack/` altında 0600 izinle saklanır ve hiçbir zaman yazdırılmaz. `reset` hepsini siler.
 
@@ -144,38 +144,38 @@ Kayıt üretimde olduğu gibi davetle sınırlıdır (`invite_only = true`). Tes
 
 ## Kapsam
 
-| Alan | Dosya | Doğrulanan davranış |
-| --- | --- | --- |
-| Oturum | `auth.spec.ts` | İlk giriş, profil adımı ve üst sistemde kaydedilen görünen ad; yanlış şifre; yeniden açılışta oturum; çıkış sonrası oturumun unutulması |
-| Kayıt | `registration.spec.ts` | Tek bağlantıyla iki kişinin **Kayıt ol** sekmesinden hesap açıp topluluğa düşmesi ve defterde iki kullanım; tek kişilik (`maxUses: 1`) bağlantının ikinci kişiyi reddi; iptal edilmiş bağlantının reddi (iptal doğrudan defterde yapılır, **Davetler** sekmesi sınanmaz); bağlantıdan açılan kayıt ekranında davet alanının gizlenmesi; `/davet` sayfasının beş istekte de 200, `no-store` ve `rooms://` bağlantısıyla dönmesi ve defterin değişmemesi; vekilin doğrudan hesap oluşturmayı reddetmesi |
-| Sohbet | `chat.spec.ts` | İki yönlü canlı mesaj; düzenle/sil yayılımı; başkasının mesajını silememe; iki üyenin ortak reaksiyonu, sayımı ve üst sistemde emojinin kendisiyle saklanması; yeniden açılışta geçmiş |
-| Kanallar | `channels.spec.ts` | Sahibin oluşturduğu metin/ses kanallarının üyeye canlı düşmesi; üst sistemde ses yeteneği; art arda oluşturmanın 5 sn içinde bitmesi; menüden yeniden adlandırma ve silme; üyeye yetki açıklaması |
-| Arkadaşlar ve DM | `friends-dm.spec.ts` | `ad#1234` ile istek, kabul, özel mesaj alışverişi; arkadaş olmayana kuralın açıklanması |
-| Erişim | `access-control.spec.ts` | Topluluk dışı hesabın odaları görmemesi; medya/etkinlik servislerinin üye olmayanı reddi; 5 dakikalık medya yetkisi; görünüm sürecinde Node ve sahte IPC olmaması |
-| Ses | `voice.spec.ts` | Katılımcıların birbirini görmesi; mikrofonun açılıp karşı tarafa ses paketlerinin ulaşması; kamera görüntüsü; sayfa değişiminde görüşmenin sürmesi; ayrılma |
-| Etkinlikler | `activities.spec.ts` | Anket oluşturma, oy ve sayım; yeni veya boş odada anket formunun açılması; yeni odanın beklemeden yüklenmesi; Kıraathane oyun kartları |
-| Tercihler | `settings.spec.ts` | Görünüm ayarının açık kayıtla saklanıp yeniden açılışta korunması; kaydedilmemiş değişikliğin geri alınması |
+| Alan             | Dosya                    | Doğrulanan davranış                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Oturum           | `auth.spec.ts`           | İlk giriş, profil adımı ve üst sistemde kaydedilen görünen ad; yanlış şifre; yeniden açılışta oturum; çıkış sonrası oturumun unutulması                                                                                                                                                                                                                                                                                                                                                               |
+| Kayıt            | `registration.spec.ts`   | Tek bağlantıyla iki kişinin **Kayıt ol** sekmesinden hesap açıp topluluğa düşmesi ve defterde iki kullanım; tek kişilik (`maxUses: 1`) bağlantının ikinci kişiyi reddi; iptal edilmiş bağlantının reddi (iptal doğrudan defterde yapılır, **Davetler** sekmesi sınanmaz); bağlantıdan açılan kayıt ekranında davet alanının gizlenmesi; `/davet` sayfasının beş istekte de 200, `no-store` ve `rooms://` bağlantısıyla dönmesi ve defterin değişmemesi; vekilin doğrudan hesap oluşturmayı reddetmesi |
+| Sohbet           | `chat.spec.ts`           | İki yönlü canlı mesaj; düzenle/sil yayılımı; başkasının mesajını silememe; iki üyenin ortak reaksiyonu, sayımı ve üst sistemde emojinin kendisiyle saklanması; yeniden açılışta geçmiş                                                                                                                                                                                                                                                                                                                |
+| Kanallar         | `channels.spec.ts`       | Sahibin oluşturduğu metin/ses kanallarının üyeye canlı düşmesi; üst sistemde ses yeteneği; art arda oluşturmanın 5 sn içinde bitmesi; menüden yeniden adlandırma ve silme; üyeye yetki açıklaması                                                                                                                                                                                                                                                                                                     |
+| Arkadaşlar ve DM | `friends-dm.spec.ts`     | `ad#1234` ile istek, kabul, özel mesaj alışverişi; arkadaş olmayana kuralın açıklanması                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Erişim           | `access-control.spec.ts` | Topluluk dışı hesabın odaları görmemesi; medya/etkinlik servislerinin üye olmayanı reddi; 5 dakikalık medya yetkisi; görünüm sürecinde Node ve sahte IPC olmaması                                                                                                                                                                                                                                                                                                                                     |
+| Ses              | `voice.spec.ts`          | Katılımcıların birbirini görmesi; mikrofonun açılıp karşı tarafa ses paketlerinin ulaşması; kamera görüntüsü; sayfa değişiminde görüşmenin sürmesi; ayrılma                                                                                                                                                                                                                                                                                                                                           |
+| Etkinlikler      | `activities.spec.ts`     | Anket oluşturma, oy ve sayım; yeni veya boş odada anket formunun açılması; yeni odanın beklemeden yüklenmesi; Oyunlar sayfasındaki oyun kartları                                                                                                                                                                                                                                                                                                                                                      |
+| Tercihler        | `settings.spec.ts`       | Görünüm ayarının açık kayıtla saklanıp yeniden açılışta korunması; kaydedilmemiş değişikliğin geri alınması                                                                                                                                                                                                                                                                                                                                                                                           |
 
 Kapsam dışı ve neden:
 
-| Alan | Neden |
-| --- | --- |
-| Ekran paylaşımı | macOS Ekran Kaydı izni gerekir; `voice.spec.ts` içinde nedeniyle atlanır |
-| Sinema salonu / YouTube | İsteğe bağlı sinema servisi gerekir; YouTube oynatıcısı yalnız HTTPS topluluk kaynağında açılır |
-| DJ / müzik | Ayrı müzik servisi, kaynak köprüsü ve sağlayıcı erişimi |
-| Agent, HostOps, uzaktan kontrol | Ayrı yetkili servisler ve fiziksel onay akışları |
-| Oyunların oynanması | Masalar 2–4 oyunculu sıra ister; yalnız masa durumu sınanır. Kurallar `tests/games*.test.ts` içinde |
-| Dosya ekleri | Yerel dosya seçme iletişim kutusu; sonraki aşamada `dialog` main sürecinde değiştirilerek eklenebilir |
+| Alan                            | Neden                                                                                                 |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Ekran paylaşımı                 | macOS Ekran Kaydı izni gerekir; `voice.spec.ts` içinde nedeniyle atlanır                              |
+| Sinema salonu / YouTube         | İsteğe bağlı sinema servisi gerekir; YouTube oynatıcısı yalnız HTTPS topluluk kaynağında açılır       |
+| DJ / müzik                      | Ayrı müzik servisi, kaynak köprüsü ve sağlayıcı erişimi                                               |
+| Agent, HostOps, uzaktan kontrol | Ayrı yetkili servisler ve fiziksel onay akışları                                                      |
+| Oyunların oynanması             | Masalar 2–4 oyunculu sıra ister; yalnız masa durumu sınanır. Kurallar `tests/games*.test.ts` içinde   |
+| Dosya ekleri                    | Yerel dosya seçme iletişim kutusu; sonraki aşamada `dialog` main sürecinde değiştirilerek eklenebilir |
 
 ## Bulunan hatalar
 
 Paket ilk çalıştırmada aşağıdaki ürün hatalarını buldu. Testler gerçek beklentiyi yazar ve `test.fail` ile işaretlidir: hata sürdükçe paket yeşil kalır, hata düzeltildiğinde test **beklenmedik şekilde geçer** ve paket kırmızıya döner. O zaman `test.fail` satırını kaldır ve tablodaki satırı **Düzeltildi** olarak işaretle.
 
-| Hata | Test | Ayrıntı |
-| --- | --- | --- |
-| **Düzeltildi:** Reaksiyonlar gerçek Stoat'ta çalışmıyordu | `chat.spec.ts` › reactions | Seçici `2764` gibi kod noktası kimlikleri gönderiyordu; Stoat v0.15.5 bunu `400 InvalidOperation` ile reddeder. Artık seçici emojinin kendisini (`❤️`) gönderir, IPC ve bağdaştırıcı yalnız Unicode emoji veya özel emoji ULID'si kabul eder (`SOCIAL_REACTION_PATTERN`), bağdaştırıcı yolu URL olarak kodlar. Test `test.fail` olmadan geçer ve üst sistemdeki anahtarı da doğrular. |
-| **Düzeltildi:** Yeni veya boş odada anket açılamıyordu | `activities.spec.ts` › fresh voice room | "Yeni anket" katılımcı kaydında `canCreate === true` arıyordu. İstemci etkinlik odasına yalnız `send()` içinde katılır, servis 30 sn hareketsiz katılımcıyı düşürür; yeni veya boş odada kayıt olmadığı için sahip dahil kimse formu açamıyordu. `Together.tsx` artık Games ve Cinema gibi yalnız servis açıkça `canCreate: false` bildirdiğinde engeller. `send()` önce `join` gönderir, yetkiyi `poll.create` sırasında servis denetler. Testteki `join` geçici çözümü kaldırıldı. Birim testi: `together-poll-permissions.test.tsx`. |
-| **Düzeltildi:** Yeni odada etkinlik görünümü 20 sn bekliyordu | `activities.spec.ts` › loads promptly | Oda henüz yüklenmemişken `refreshEntry` `afterRevision=0` gönderiyordu. Hiç kullanılmamış oda revizyon 0'da olduğundan sunucu isteği `waitMs=20000` boyunca bekletiyordu (ölçülen 20 052 ms). Bilinen revizyon yokken `activity.ts` artık anlık görüntüyü hemen ister; uzun yoklama ondan sonra başlar. Birim testi: `activity-cache-lifecycle.test.tsx`. |
+| Hata                                                          | Test                                       | Ayrıntı                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Düzeltildi:** Reaksiyonlar gerçek Stoat'ta çalışmıyordu     | `chat.spec.ts` › reactions                 | Seçici `2764` gibi kod noktası kimlikleri gönderiyordu; Stoat v0.15.5 bunu `400 InvalidOperation` ile reddeder. Artık seçici emojinin kendisini (`❤️`) gönderir, IPC ve bağdaştırıcı yalnız Unicode emoji veya özel emoji ULID'si kabul eder (`SOCIAL_REACTION_PATTERN`), bağdaştırıcı yolu URL olarak kodlar. Test `test.fail` olmadan geçer ve üst sistemdeki anahtarı da doğrular.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **Düzeltildi:** Yeni veya boş odada anket açılamıyordu        | `activities.spec.ts` › fresh voice room    | "Yeni anket" katılımcı kaydında `canCreate === true` arıyordu. İstemci etkinlik odasına yalnız `send()` içinde katılır, servis 30 sn hareketsiz katılımcıyı düşürür; yeni veya boş odada kayıt olmadığı için sahip dahil kimse formu açamıyordu. `Together.tsx` artık Games ve Cinema gibi yalnız servis açıkça `canCreate: false` bildirdiğinde engeller. `send()` önce `join` gönderir, yetkiyi `poll.create` sırasında servis denetler. Testteki `join` geçici çözümü kaldırıldı. Birim testi: `together-poll-permissions.test.tsx`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **Düzeltildi:** Yeni odada etkinlik görünümü 20 sn bekliyordu | `activities.spec.ts` › loads promptly      | Oda henüz yüklenmemişken `refreshEntry` `afterRevision=0` gönderiyordu. Hiç kullanılmamış oda revizyon 0'da olduğundan sunucu isteği `waitMs=20000` boyunca bekletiyordu (ölçülen 20 052 ms). Bilinen revizyon yokken `activity.ts` artık anlık görüntüyü hemen ister; uzun yoklama ondan sonra başlar. Birim testi: `activity-cache-lifecycle.test.tsx`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Düzeltildi:** Kanal oluşturma ara sıra 10–20 sn takılıyordu | `channels.spec.ts` › back-to-back creation | Etkinlik uzun yoklaması hipotezi **reddedildi**: ana süreçteki `fetch` ölçümünde uzun yoklama paralel sürüyor, diğer istekler milisaniyeler içinde dönüyordu. Kök neden Stoat'un `servers:<id>` hız sınırı kovasıdır (10 sn'de 5 çağrı). Her oluşturma POST'a ek olarak beş `GET /servers/:id` harcıyordu: `refreshChannels` listesi, ağ geçidi olaylarının (ChannelCreate/ServerUpdate → SOCIAL_REFRESH) tetiklediği üç tam yenileme ve ServerUpdate'in geçersiz kıldığı kanal izni okuması. Kova bitince bağdaştırıcı sonraki isteği pencere sıfırlanana kadar (~10 sn, bazen iki kez) bekletiyordu. Ağ geçidi bağlıyken `listChannels` artık Ready/ServerUpdate ile güncel tutulan kanal listesini kullanır; her kanal yine ayrı okunur ve erişim orada denetlenir. Oluşturma ve silme bu önbelleği hemen günceller. Yalnız kanal listesi veya görünüm alanları değişen ServerUpdate kanal erişimini yeniden denetletmez. Oluşturma başına sunucu kovası çağrısı 6'dan 1'e indi. Üst sistem sınırı geçerliliğini korur: 10 sn içinde 5'ten fazla kanal oluşturmak yine bekler. Birim testleri: `stoat-channel-list-cache.test.ts`, `stoat-channel-update-stability.test.ts`. |
 
 ## Yeni test yazmak
@@ -220,13 +220,13 @@ Kurallar:
 
 ## Sorun giderme
 
-| Belirti | Çözüm |
-| --- | --- |
-| `The local e2e stack is not ready` | `pnpm e2e:stack up`; sürerse `pnpm e2e:stack status` ve ilgili servisin günlükleri |
-| `The desktop app is not built` | `pnpm build` |
-| `Docker is not running` | Docker Desktop'ı başlat |
-| `port is already allocated` (7880 veya 4100) | Başka yerel LiveKit veya servis kapat; `lsof -nP -iTCP:7880 -sTCP:LISTEN` |
-| Ses testinde "Unable to connect to the media server" | LiveKit 7880'de dinlemiyor veya CSP dışı bir adres verilmiş; `pnpm e2e:stack status` |
+| Belirti                                                  | Çözüm                                                                                                                                                                                         |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `The local e2e stack is not ready`                       | `pnpm e2e:stack up`; sürerse `pnpm e2e:stack status` ve ilgili servisin günlükleri                                                                                                            |
+| `The desktop app is not built`                           | `pnpm build`                                                                                                                                                                                  |
+| `Docker is not running`                                  | Docker Desktop'ı başlat                                                                                                                                                                       |
+| `port is already allocated` (7880 veya 4100)             | Başka yerel LiveKit veya servis kapat; `lsof -nP -iTCP:7880 -sTCP:LISTEN`                                                                                                                     |
+| Ses testinde "Unable to connect to the media server"     | LiveKit 7880'de dinlemiyor veya CSP dışı bir adres verilmiş; `pnpm e2e:stack status`                                                                                                          |
 | Hesap oluşturmada veya girişte `429` / "Çok fazla işlem" | Stoat, vekil arkasındaki tüm oturumsuz istekler için tek bir giriş kovası kullanır (10 sn'de 15). `StoatApi` ve giriş yardımcısı bekleyip yeniden dener; sürerse `ROOMS_E2E_WORKERS=2` kullan |
-| Headless testte görünmeyen bir sorunu izlemek | `ROOMS_E2E_HEADED=1 pnpm e2e specs/<dosya>.spec.ts` |
-| Garip, kalıcı durum | `pnpm e2e:stack reset && pnpm e2e:stack up` |
+| Headless testte görünmeyen bir sorunu izlemek            | `ROOMS_E2E_HEADED=1 pnpm e2e specs/<dosya>.spec.ts`                                                                                                                                           |
+| Garip, kalıcı durum                                      | `pnpm e2e:stack reset && pnpm e2e:stack up`                                                                                                                                                   |

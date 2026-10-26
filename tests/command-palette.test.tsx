@@ -37,7 +37,7 @@ it('lists the destinations under the names the sidebar and launcher use', () => 
     'Arkadaşlar',
     'Bildirimler',
     'Dosyalar',
-    'Kıraathane',
+    'Oyunlar',
     'Beyaz tahta',
     'Anketler',
     'Asistan',
@@ -69,11 +69,22 @@ it('moves the active option with the arrow keys and opens it with Enter', () => 
   expect(screen.getByTestId('where').textContent).toBe('/settings');
 });
 
+it('still finds the Games page under its old name', () => {
+  const { input } = show();
+  for (const old of ['kıraathane', 'kiraathane', 'KIRAATHANE']) {
+    fireEvent.change(input, { target: { value: old } });
+    expect(labels()).toHaveLength(1);
+    expect(labels()[0]).toContain('Oyunlar');
+  }
+  fireEvent.keyDown(input, { key: 'Enter' });
+  expect(screen.getByTestId('where').textContent).toBe('/games');
+});
+
 it('matches Turkish dotted and dotless i in either case', () => {
   const { input } = show();
   fireEvent.change(input, { target: { value: 'KIRAATHANE' } });
   expect(labels()).toHaveLength(1);
-  expect(labels()[0]).toContain('Kıraathane');
+  expect(labels()[0]).toContain('Oyunlar');
   fireEvent.change(input, { target: { value: 'bİldİrİm' } });
   expect(labels()[0]).toContain('Bildirimler');
   fireEvent.keyDown(input, { key: 'Enter' });

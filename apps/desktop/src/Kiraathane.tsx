@@ -57,10 +57,10 @@ export function Kiraathane({
         : t('Oynanıyor');
   const reason = !ready ? t('Masa bağlantısı bekleniyor.') : blocked;
   return (
-    <section className="kh" aria-label={t('Kıraathane')}>
+    <section className="kh" aria-label={t('Oyunlar')}>
       <header className="kh-head">
         <div>
-          <h1>{t('Kıraathane')}</h1>
+          <h1>{t('Oyunlar')}</h1>
           <p>{t('Arkadaşlarınla sanal fişle oyna. Odada aynı anda bir masa açık olur.')}</p>
         </div>
         <button className="button secondary" onClick={onHistory}>

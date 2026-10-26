@@ -151,7 +151,7 @@ test('two real Stoat desktop accounts exchange events and join one authorized ro
     await other.evaluate((id) => (window as any).rooms.media.presenter(id, 'acquire'), channelId);
     await other.evaluate((id) => (window as any).rooms.media.presenter(id, 'release'), channelId);
     await owner.evaluate(() => (location.hash = '/games'));
-    await expect(owner.getByRole('heading', { name: 'Kıraathane', exact: true })).toBeVisible();
+    await expect(owner.getByRole('heading', { name: 'Oyunlar', exact: true })).toBeVisible();
     await expect(
       owner.getByRole('button', { name: 'Sesten ayrıl', exact: true }).first(),
     ).toBeVisible();

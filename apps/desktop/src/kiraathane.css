@@ -1,4 +1,4 @@
-/* Kıraathane lobby: the app's own surfaces, a little green felt, drawn pieces instead of photos. */
+/* Games lobby: the app's own surfaces, a little green felt, drawn pieces instead of photos. */
 .main-view:has(> .kh) {
   overflow-y: auto;
 }

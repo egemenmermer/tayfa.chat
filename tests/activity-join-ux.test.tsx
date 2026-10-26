@@ -146,7 +146,7 @@ it('lets a newcomer join a running activity in one click without end-for-everyon
   expect(screen.queryByText(/herkes adına bitir/)).toBeNull();
   expect(screen.queryByRole('button', { name: /Bitir ve etkinlik seç/ })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Etkinliği bitir' })).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Kıraathane' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Oyunlar' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Katıl' }));
   expect(screen.getByTestId('route').textContent).toBe('/voice?view=share');
 });

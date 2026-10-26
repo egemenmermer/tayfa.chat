@@ -19,7 +19,7 @@ export const games: Catalog = {
   'eski Sinema oturumu': 'Old Cinema session',
   'ekran paylaşımı': 'Screen share',
   'bir etkinlik': 'Another activity',
-  '← Kıraathaneye dön': '← Back to Kıraathane',
+  '← Oyunlara dön': '← Back to Games',
   'Yerel görsel örnekte gerçek oyun işlemi kapalı':
     'Game actions are turned off in the local visual example',
   'Bu koltuk artık dolu. Başka bir koltuk seç.': 'That seat is taken now. Pick another one.',
@@ -139,7 +139,7 @@ export const games: Catalog = {
   'Yalnızca sunucunun açtığı eller görünür. Katlanmış eller diğer oyunculara gösterilmez.':
     'Only hands opened by the server are shown. Folded hands aren’t shown to other players.',
   'Masayı kapat': 'Close table',
-  'Kıraathaneye dön': 'Back to Kıraathane',
+  'Oyunlara dön': 'Back to Games',
   'Masa işlemleri': 'Table actions',
   'Masadan kalk?': 'Leave the table?',
   'El sürerken kalkarsan elini bot bitirir, sonra koltuğun boşalır.':
@@ -539,7 +539,7 @@ export const games: Catalog = {
   'Oyuncu bekliyor': 'Waiting for player',
   'El bitti, yenisi başlayabilir': 'Hand over, a new one can start',
   Oynanıyor: 'In play',
-  Kıraathane: 'Kıraathane',
+  Oyunlar: 'Games',
   'Arkadaşlarınla sanal fişle oyna. Odada aynı anda bir masa açık olur.':
     'Play with your friends using play chips. A room can have one table open at a time.',
   'Masalar yükleniyor…': 'Loading tables…',
