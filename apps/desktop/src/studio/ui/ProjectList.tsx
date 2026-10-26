@@ -254,7 +254,7 @@ function CreateProject({
         />
         <div className="flex flex-col gap-1.5">
           <span id="studio-template-label" className="text-caption-1-medium text-text-secondary">
-            {t('Başlangıç')}
+            {t('Başlangıç şablonu')}
           </span>
           <SegmentedControl
             aria-labelledby="studio-template-label"

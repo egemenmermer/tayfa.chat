@@ -1,8 +1,7 @@
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { RiHashtag, RiVolumeUpLine } from '@remixicon/react';
 import { Button } from '@boardui/base/button';
-import { BoardUiRoot } from '@boardui/foundations/root';
 import { useCommunity } from '../../community';
 import { t } from '../../i18n';
 import { useRealtime } from '../../realtime';
@@ -17,6 +16,7 @@ import {
 import type { StudioEditorModel, StudioProjectsApi } from './model';
 import { ProjectList } from './ProjectList';
 import { StudioEditor } from './StudioEditor';
+import { StudioSurface } from './StudioSurface';
 import { createLiveTransport } from './transport';
 
 const realApi: StudioProjectsApi = {
@@ -24,17 +24,6 @@ const realApi: StudioProjectsApi = {
   create: createStudioProject,
   remove: removeStudioProject,
 };
-
-/** BoardUI region + page background shared by every Studio screen. */
-export function StudioSurface({ children }: { children: ReactNode }) {
-  return (
-    <BoardUiRoot>
-      <div className="flex h-full min-h-0 flex-1 flex-col bg-background-full text-text-primary">
-        {children}
-      </div>
-    </BoardUiRoot>
-  );
-}
 
 /** `/studio`, `/studio/:roomId` and `/studio/:roomId/:projectId`. */
 export default function StudioPage() {
