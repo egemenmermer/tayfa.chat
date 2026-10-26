@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { isRendererPermissionAllowed, type PermissionContext } from '../apps/desktop/electron/permissions';
+import {
+  isRendererPermissionAllowed,
+  type PermissionContext,
+} from '../apps/desktop/electron/permissions';
 
 const app = 'file:///Applications/Tayfa.app/Contents/Resources/app.asar/dist/index.html';
 const trusted: PermissionContext = {
@@ -24,8 +27,14 @@ describe('renderer web permissions', () => {
   it('denies MIDI to frames, other windows and untrusted origins', () => {
     expect(isRendererPermissionAllowed('midi', { ...trusted, isMainFrame: false })).toBe(false);
     expect(isRendererPermissionAllowed('midi', { ...trusted, ownWindow: false })).toBe(false);
-    expect(isRendererPermissionAllowed('midi', { ...trusted, requestingUrl: undefined })).toBe(false);
-    expect(isRendererPermissionAllowed('midi', { ...trusted, requestingUrl: 'https://example.com/' })).toBe(false);
-    expect(isRendererPermissionAllowed('midi', { ...trusted, contentsUrl: 'https://example.com/' })).toBe(false);
+    expect(isRendererPermissionAllowed('midi', { ...trusted, requestingUrl: undefined })).toBe(
+      false,
+    );
+    expect(
+      isRendererPermissionAllowed('midi', { ...trusted, requestingUrl: 'https://example.com/' }),
+    ).toBe(false);
+    expect(
+      isRendererPermissionAllowed('midi', { ...trusted, contentsUrl: 'https://example.com/' }),
+    ).toBe(false);
   });
 });

@@ -18,7 +18,7 @@ const csp = (await readFile(join(root, 'apps/desktop/index.html'), 'utf8')).matc
 if (!csp) throw new Error('The app CSP was not found in apps/desktop/index.html.');
 await writeFile(
   join(out, 'probe.worklet.js'),
-  `class StudioProbe extends AudioWorkletProcessor{process(_i,outputs){for(const channel of outputs[0])channel.fill(0.5);return true;}}registerProcessor('studio-probe',StudioProbe);`,
+  `/*${' '.repeat(5000)}*/class StudioProbe extends AudioWorkletProcessor{process(_i,outputs){for(const channel of outputs[0])channel.fill(0.5);return true;}}registerProcessor('studio-probe',StudioProbe);`,
 );
 await writeFile(
   join(out, 'renderer.ts'),
@@ -26,6 +26,7 @@ await writeFile(
 import {createStudioEngine} from '${root}/apps/desktop/src/studio/engine/engine';
 import {demoSong} from '${root}/apps/desktop/src/studio/engine/schedule';
 import {encodeWav, rms} from '${root}/apps/desktop/src/studio/engine/wav';
+import probeWorklet from './probe.worklet.js?url&no-inline';
 const violations: unknown[] = [];
 const rejections: string[] = [];
 document.addEventListener('securitypolicyviolation', (e) => violations.push({directive: e.effectiveDirective, blocked: e.blockedURI}));
@@ -67,8 +68,9 @@ async function run() {
   // (b) native addModule from a blob: URL, (c) native addModule from a same-origin file emitted by vite.
   r.toneWorkletLive = await settle(async () => { const f = new Tone.FeedbackCombFilter(); await sleep(1500); const loaded = !!(f as any)._worklet; f.dispose(); if (!loaded) throw new Error('worklet node never created'); return 'loaded'; });
   r.toneFreeverbOffline = await settle(async () => { const b = await Tone.Offline(() => { const v = new Tone.Freeverb({roomSize: 0.7, wet: 1}).toDestination(); new Tone.Oscillator(220).connect(v).start(0); }, 1, 2, 44100); return {rms: rms([b.getChannelData(0)])}; });
+  r.mvpEffectsOffline = await settle(async () => { const b = await Tone.Offline(async () => { const reverb = new Tone.Reverb({decay: 1.5, wet: 0.5}).toDestination(); await reverb.ready; const delay = new Tone.FeedbackDelay('8n', 0.3).connect(reverb); const eq = new Tone.EQ3(-2, 0, 3).connect(delay); new Tone.Synth().connect(eq).triggerAttackRelease(220, 0.5, 0); }, 1.5, 2, 44100); return {rms: rms([b.getChannelData(0), b.getChannelData(1)])}; });
   r.nativeBlobWorklet = await settle(async () => { const c = new OfflineAudioContext(1, 4410, 44100); await timeout(c.audioWorklet.addModule(URL.createObjectURL(new Blob([processorSource], {type: 'text/javascript'}))), 3000); return 'loaded'; });
-  r.nativeSelfWorklet = await settle(async () => { const url = new URL('./probe.worklet.js', import.meta.url).href; const c = new OfflineAudioContext(1, 4410, 44100); await timeout(c.audioWorklet.addModule(url), 3000); new AudioWorkletNode(c, 'studio-probe').connect(c.destination); const b = await c.startRendering(); return {url: url.replace(/^.*\\//, ''), rms: rms([b.getChannelData(0)])}; });
+  r.nativeSelfWorklet = await settle(async () => { const url = new URL(probeWorklet, location.href).href; const c = new OfflineAudioContext(1, 4410, 44100); await timeout(c.audioWorklet.addModule(url), 3000); new AudioWorkletNode(c, 'studio-probe').connect(c.destination); const b = await c.startRendering(); return {url: url.replace(/^.*\\//, ''), rms: rms([b.getChannelData(0)])}; });
   // Live playback, muted: proves the transport clock runs; latencies read once the context is running.
   Tone.getDestination().mute = true;
   r.live = await settle(async () => { await engine.play(4); await sleep(1500); const s = engine.stats(); const seconds = Tone.getTransport().seconds; engine.stop(); return {...s, transportSeconds: Math.round(seconds * 1000) / 1000}; });
@@ -114,7 +116,8 @@ const page=new URL('file://'+__dirname+'/ui/index.html').href;
 const isTrusted=(url:string)=>url.split('#')[0]===page;
 const g=globalThis as any;g.__permissionLog=[];g.__phase='current';
 // 'baseline' replays the handler as it was before the spike: the same predicate without 'midi'.
-const allowed=(permission:string,context:Parameters<typeof isRendererPermissionAllowed>[1])=>!(g.__phase==='baseline'&&permission==='midi')&&isRendererPermissionAllowed(permission,context);
+// 'sysex-experiment' grants midiSysex in this harness only, to record what such a grant would expose.
+const allowed=(permission:string,context:Parameters<typeof isRendererPermissionAllowed>[1])=>(g.__phase==='sysex-experiment'&&permission==='midiSysex')||(!(g.__phase==='baseline'&&permission==='midi')&&isRendererPermissionAllowed(permission,context));
 app.whenReady().then(()=>{
  const win=new BrowserWindow({show:false,width:800,height:600,webPreferences:{preload:__dirname+'/preload.cjs',contextIsolation:true,sandbox:true,nodeIntegration:false,webSecurity:true,backgroundThrottling:false}});
  const ctx=(contents:Electron.WebContents|null,details:{isMainFrame:boolean;requestingUrl?:string})=>{const ownWindow=!!contents&&contents===win.webContents;return {isMainFrame:details.isMainFrame,requestingUrl:details.requestingUrl,contentsUrl:ownWindow?contents.getURL():'',ownWindow,isTrusted};};
@@ -160,13 +163,13 @@ try {
     Buffer.from(await page.evaluate(() => window.__wav ?? ''), 'base64'),
   );
   const midi = {};
-  for (const phase of ['baseline', 'current']) {
+  for (const phase of ['baseline', 'current', 'sysex-experiment']) {
     await app.evaluate((_electron, value) => {
       globalThis.__phase = value;
     }, phase);
     midi[phase] = await page.evaluate(() => window.__midi(false));
+    if (phase === 'current') midi.sysex = await page.evaluate(() => window.__midi(true));
   }
-  midi.sysex = await page.evaluate(() => window.__midi(true));
   midi.permissionLog = await app.evaluate(() => globalThis.__permissionLog);
   result.midi = midi;
   assert.equal(result.fatal, undefined, String(result.fatal));
@@ -175,8 +178,22 @@ try {
   assert.equal(result.wav.decodedChannels, 2);
   assert.equal(result.wav.decodedFrames, result.wav.frames);
   assert.ok(result.wav.decodedRms > 0.01, 'decoded WAV is silent');
-  assert.equal(result.midi.current.ok, true, 'Web MIDI denied by the current handler');
+  assert.ok(
+    result.mvpEffectsOffline.ok && result.mvpEffectsOffline.value.rms > 0.01,
+    'MVP effects',
+  );
+  assert.ok(
+    result.live.ok && result.live.value.playedNotes > 0,
+    'live playback triggered no notes',
+  );
+  // The app predicate never grants midiSysex (Web MIDI itself is reported, not asserted: see status note).
   assert.equal(result.midi.sysex.ok, false, 'MIDI SysEx must stay denied');
+  assert.ok(
+    midi.permissionLog.every(
+      (entry) =>
+        entry.permission !== 'midiSysex' || entry.phase === 'sysex-experiment' || !entry.ok,
+    ),
+  );
   result.status = 'PASS';
 } finally {
   await app.close();

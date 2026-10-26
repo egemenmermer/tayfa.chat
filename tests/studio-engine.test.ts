@@ -35,7 +35,10 @@ describe('Studio WAV export', () => {
   });
 
   it('interleaves frames and clips samples to the 16-bit range', () => {
-    const wav = encodeWav([new Float32Array([0, 2, -0.5]), new Float32Array([1, -3, Number.NaN])], 48000);
+    const wav = encodeWav(
+      [new Float32Array([0, 2, -0.5]), new Float32Array([1, -3, Number.NaN])],
+      48000,
+    );
     const view = new DataView(wav.buffer);
     const samples = Array.from({ length: 6 }, (_, i) => view.getInt16(44 + i * 2, true));
     expect(samples).toEqual([0, 32767, 32767, -32768, -16384, 0]);
@@ -94,7 +97,6 @@ describe('Studio scheduling math', () => {
       [0, 0.5, 60],
       [1.5, 2, 64], // notes may ring over the loop restart (beat 3 → 7)
       [3, 0.5, 60], // second pass; its beat-3 note would start at beat 9, past the end
-
     ]);
     expect(notes[0].velocity).toBe(1);
     expect(notes[1].velocity).toBeCloseTo(1 / 127, 10);
@@ -104,7 +106,14 @@ describe('Studio scheduling math', () => {
     const song: SpikeSong = {
       tempo: 60,
       beatsPerBar: 4,
-      parts: [{ id: 'pad', instrument: 'poly', loopBeats: 4, notes: [{ beat: 2, length: 8, pitch: 60, velocity: 90 }] }],
+      parts: [
+        {
+          id: 'pad',
+          instrument: 'poly',
+          loopBeats: 4,
+          notes: [{ beat: 2, length: 8, pitch: 60, velocity: 90 }],
+        },
+      ],
     };
     expect(expandSong(song, 1).map((note) => [note.time, note.duration])).toEqual([[2, 2]]);
   });

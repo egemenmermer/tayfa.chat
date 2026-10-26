@@ -4,14 +4,17 @@ const HEADER_BYTES = 44;
 
 /** Interleaves planar float channels (−1…1, clipped) into a canonical RIFF/WAVE 16-bit PCM file. */
 export function encodeWav(channels: readonly Float32Array[], sampleRate: number): Uint8Array {
-  if (channels.length < 1 || channels.length > 8) throw new RangeError('A WAV export needs 1–8 channels.');
+  if (channels.length < 1 || channels.length > 8)
+    throw new RangeError('A WAV export needs 1–8 channels.');
   if (!Number.isInteger(sampleRate) || sampleRate < 3000 || sampleRate > 384000)
     throw new RangeError(`Unsupported sample rate: ${sampleRate}`);
   const frames = channels[0].length;
-  if (channels.some((channel) => channel.length !== frames)) throw new RangeError('Channels differ in length.');
+  if (channels.some((channel) => channel.length !== frames))
+    throw new RangeError('Channels differ in length.');
   const blockAlign = channels.length * 2;
   const dataBytes = frames * blockAlign;
-  if (HEADER_BYTES + dataBytes > 0xffffffff) throw new RangeError('Render is too long for a WAV file.');
+  if (HEADER_BYTES + dataBytes > 0xffffffff)
+    throw new RangeError('Render is too long for a WAV file.');
   const bytes = new Uint8Array(HEADER_BYTES + dataBytes);
   const view = new DataView(bytes.buffer);
   const ascii = (offset: number, text: string) => {
@@ -34,7 +37,11 @@ export function encodeWav(channels: readonly Float32Array[], sampleRate: number)
   for (let frame = 0; frame < frames; frame += 1) {
     for (const channel of channels) {
       const sample = Math.max(-1, Math.min(1, Number.isNaN(channel[frame]) ? 0 : channel[frame]));
-      view.setInt16(offset, sample < 0 ? Math.round(sample * 0x8000) : Math.round(sample * 0x7fff), true);
+      view.setInt16(
+        offset,
+        sample < 0 ? Math.round(sample * 0x8000) : Math.round(sample * 0x7fff),
+        true,
+      );
       offset += 2;
     }
   }

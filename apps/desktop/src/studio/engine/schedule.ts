@@ -47,11 +47,15 @@ export const MIN_TEMPO = 40;
 export const MAX_TEMPO = 240;
 
 export function beatsToSeconds(beats: number, tempo: number): number {
-  if (!(tempo >= MIN_TEMPO && tempo <= MAX_TEMPO)) throw new RangeError(`Tempo out of range: ${tempo}`);
+  if (!(tempo >= MIN_TEMPO && tempo <= MAX_TEMPO))
+    throw new RangeError(`Tempo out of range: ${tempo}`);
   return (beats * 60) / tempo;
 }
 
-export function barsToSeconds(bars: number, song: Pick<SpikeSong, 'tempo' | 'beatsPerBar'>): number {
+export function barsToSeconds(
+  bars: number,
+  song: Pick<SpikeSong, 'tempo' | 'beatsPerBar'>,
+): number {
   return beatsToSeconds(bars * song.beatsPerBar, song.tempo);
 }
 
@@ -70,8 +74,13 @@ export function drumVoice(pitch: number): DrumVoice | null {
  * Expands every part's loop over `bars` bars into absolute, time-sorted notes. Notes that start at or
  * after the end are dropped; notes that would ring past the end are shortened to end exactly there.
  */
-export function expandSong(song: SpikeSong, bars: number, partIds?: readonly string[]): ScheduledNote[] {
-  if (!Number.isInteger(bars) || bars < 1) throw new RangeError(`Bars must be a positive integer: ${bars}`);
+export function expandSong(
+  song: SpikeSong,
+  bars: number,
+  partIds?: readonly string[],
+): ScheduledNote[] {
+  if (!Number.isInteger(bars) || bars < 1)
+    throw new RangeError(`Bars must be a positive integer: ${bars}`);
   const totalBeats = bars * song.beatsPerBar;
   const out: ScheduledNote[] = [];
   for (const part of song.parts) {
@@ -94,15 +103,22 @@ export function expandSong(song: SpikeSong, bars: number, partIds?: readonly str
       }
     }
   }
-  return out.sort((a, b) => a.time - b.time || a.partId.localeCompare(b.partId) || a.pitch - b.pitch);
+  return out.sort(
+    (a, b) => a.time - b.time || a.partId.localeCompare(b.partId) || a.pitch - b.pitch,
+  );
 }
 
 /** A 4/4 groove used by the spike harness: four-on-the-floor drums, a root bass line, triad chords. */
 export function demoSong(tempo = 120): SpikeSong {
   const drums: SpikeNote[] = [];
-  for (let beat = 0; beat < 4; beat += 1) drums.push({ beat, length: 0.25, pitch: 36, velocity: 120 });
-  drums.push({ beat: 1, length: 0.25, pitch: 38, velocity: 110 }, { beat: 3, length: 0.25, pitch: 38, velocity: 110 });
-  for (let step = 0; step < 8; step += 1) drums.push({ beat: step / 2, length: 0.125, pitch: 42, velocity: step % 2 ? 70 : 95 });
+  for (let beat = 0; beat < 4; beat += 1)
+    drums.push({ beat, length: 0.25, pitch: 36, velocity: 120 });
+  drums.push(
+    { beat: 1, length: 0.25, pitch: 38, velocity: 110 },
+    { beat: 3, length: 0.25, pitch: 38, velocity: 110 },
+  );
+  for (let step = 0; step < 8; step += 1)
+    drums.push({ beat: step / 2, length: 0.125, pitch: 42, velocity: step % 2 ? 70 : 95 });
   const roots = [45, 41, 36, 43]; // A2 F2 C2 G2: Am F C G
   const bass = roots.flatMap((root, bar) => [
     { beat: bar * 4, length: 1.5, pitch: root, velocity: 110 },
@@ -114,7 +130,9 @@ export function demoSong(tempo = 120): SpikeSong {
     [53, 57, 60],
     [48, 52, 55],
     [55, 59, 62],
-  ].flatMap((pitches, bar) => pitches.map((pitch) => ({ beat: bar * 4, length: 3.5, pitch, velocity: 80 })));
+  ].flatMap((pitches, bar) =>
+    pitches.map((pitch) => ({ beat: bar * 4, length: 3.5, pitch, velocity: 80 })),
+  );
   return {
     tempo,
     beatsPerBar: 4,

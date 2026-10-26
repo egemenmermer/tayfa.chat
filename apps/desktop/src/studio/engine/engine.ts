@@ -1,7 +1,14 @@
 // Studio audio engine core (spike). Tone.js on Web Audio; every client renders locally.
 // Tone is imported lazily: importing the `tone` entry creates the default AudioContext and its clock at
 // module load, which must not happen at app start or on routes that never open the Studio.
-import { barsToSeconds, drumVoice, expandSong, midiToFrequency, type ScheduledNote, type SpikeSong } from './schedule';
+import {
+  barsToSeconds,
+  drumVoice,
+  expandSong,
+  midiToFrequency,
+  type ScheduledNote,
+  type SpikeSong,
+} from './schedule';
 
 type ToneModule = typeof import('tone');
 
@@ -25,7 +32,10 @@ export interface EngineStats {
 export interface StudioEngine {
   play(bars: number): Promise<void>;
   stop(): void;
-  renderOffline(bars: number, options?: { partIds?: readonly string[]; tailSeconds?: number; sampleRate?: number }): Promise<RenderResult>;
+  renderOffline(
+    bars: number,
+    options?: { partIds?: readonly string[]; tailSeconds?: number; sampleRate?: number },
+  ): Promise<RenderResult>;
   stats(): EngineStats;
   dispose(): void;
 }
@@ -66,7 +76,14 @@ function createVoices(Tone: ToneModule): Voices {
     oscillator: { type: 'sawtooth' },
     filter: { Q: 2, type: 'lowpass', rolloff: -24 },
     envelope: { attack: 0.005, decay: 0.2, sustain: 0.6, release: 0.15 },
-    filterEnvelope: { attack: 0.005, decay: 0.15, sustain: 0.3, release: 0.2, baseFrequency: 120, octaves: 3 },
+    filterEnvelope: {
+      attack: 0.005,
+      decay: 0.15,
+      sustain: 0.3,
+      release: 0.2,
+      baseFrequency: 120,
+      octaves: 3,
+    },
     volume: -6,
   }).connect(channel(-2));
   const poly = new Tone.PolySynth(Tone.Synth, {
@@ -115,7 +132,12 @@ export async function createStudioEngine(
   // The default context is always a realtime Tone Context here; BaseContext lacks the clock accessors.
   const context = Tone.getContext() as InstanceType<ToneModule['Context']>;
   const defaultClock = context.clockSource;
-  if (options.clockSource) context.clockSource = options.clockSource;
+  // Tone's default 'worker' clock runs a blob: Worker. The app CSP has no blob: in worker-src, and the
+  // blocked Worker fails asynchronously, so Tone never falls back and live playback stays silent
+  // (spike run: 0 notes in 1.5 s). The main window sets backgroundThrottling: false, so a timeout
+  // clock keeps its pace without widening the CSP.
+  const clockSource = options.clockSource ?? 'timeout';
+  if (context.clockSource !== clockSource) context.clockSource = clockSource;
   if (options.lookAhead !== undefined) context.lookAhead = options.lookAhead;
   let live: Voices | null = null;
   let playedNotes = 0;
@@ -155,13 +177,18 @@ export async function createStudioEngine(
         2,
         sampleRate,
       );
-      const channels = Array.from({ length: buffer.numberOfChannels }, (_, i) => buffer.getChannelData(i));
+      const channels = Array.from({ length: buffer.numberOfChannels }, (_, i) =>
+        buffer.getChannelData(i),
+      );
       return { channels, sampleRate: buffer.sampleRate };
     },
     stats() {
       const raw = context.rawContext as unknown as { baseLatency?: number; outputLatency?: number };
       return {
-        clockSource: `${defaultClock}${options.clockSource ? `→${context.clockSource}` : ''}`,
+        clockSource:
+          defaultClock === context.clockSource
+            ? defaultClock
+            : `${defaultClock}→${context.clockSource}`,
         state: context.state,
         sampleRate: context.sampleRate,
         lookAhead: context.lookAhead,

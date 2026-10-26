@@ -19,7 +19,10 @@ export interface PermissionContext {
   isTrusted: (url: string) => boolean;
 }
 
-export function isRendererPermissionAllowed(permission: string, context: PermissionContext): boolean {
+export function isRendererPermissionAllowed(
+  permission: string,
+  context: PermissionContext,
+): boolean {
   return (
     context.isMainFrame &&
     context.ownWindow &&
