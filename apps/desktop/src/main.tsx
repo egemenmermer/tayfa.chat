@@ -9,6 +9,8 @@ import App from './App';
 import './reference-shell.css';
 import './design-components.css';
 import './interaction-quality.css';
+// BoardUI (Tailwind) styles apply only inside BoardUI regions; see boardui/foundations/globals.css.
+import './boardui/foundations/globals.css';
 import { installInputModality } from './input-modality';
 import { queryClient as client } from './query-client';
 // A file dropped outside a drop target must never navigate the app window to that file.

@@ -17,6 +17,11 @@ Bağımlılıkların kendi lisansları geçerlidir. Tam sürümler için kurulu 
 - PostgreSQL Node sürücüsü / MIT: https://github.com/brianc/node-postgres
 - MongoDB Node sürücüsü / Apache-2.0: https://github.com/mongodb/node-mongodb-native
 - Lucide / ISC: https://github.com/lucide-icons/lucide
+- BoardUI ücretsiz katmanı / MIT: https://github.com/BoardUI/boardui. Tayfa renklerine uyarlanmış kaynak `apps/desktop/src/boardui/` altındadır; telif ve izin metni aynı klasördeki `LICENSE` dosyasındadır. BoardUI Pro ayrı ticari lisanslıdır (https://www.boardui.com/license): kaynağı bu depoda bulunmaz, yalnız özel alt modülden derlenmiş paketle dağıtılır ve paket kaynak haritası içermez.
+- Tailwind CSS / MIT: https://github.com/tailwindlabs/tailwindcss (derleme aracı; pakete yalnız üretilen CSS girer).
+- React Aria ve React Aria Components / Apache-2.0: https://github.com/adobe/react-spectrum
+- tailwind-merge / MIT: https://github.com/dcastil/tailwind-merge
+- Remix Icon (`@remixicon/react`) / Remix Icon License 1.0: https://github.com/Remix-Design/RemixIcon. Uygulama içi simge olarak kullanılabilir; simgeler logo veya marka işareti yapılamaz ve tek başına simge paketi olarak dağıtılamaz.
 - Playwright / Apache-2.0: https://github.com/microsoft/playwright
 
 Değiştirilmeden kendi sunucunda çalışan Stoat ve resmî kurulum ayarı ayrı AGPL-3.0 bileşenleridir: https://github.com/stoatchat/stoatchat ve https://github.com/stoatchat/self-hosted. Tam imaj/kaynak sürümü için [Stoat rehberine](../infra/stoat/README.md) ve yerel sabitleme kayıtlarına bakın. Karşılık gelen kaynak/lisans bağlantılarını kullanıcıya açık tutun. Yayın öncesi geçerli kaynak dağıtım yükümlülüklerini inceleyin; süreçleri ayırmak tek başına hukuki sonuç değildir.

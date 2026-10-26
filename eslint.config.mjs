@@ -15,6 +15,8 @@ export default [
       'upstream/**',
       'test-results/**',
       'playwright-report/**',
+      // Private BoardUI Pro submodule (official builds only); linted in its own repository.
+      'apps/desktop/src/boardui-pro/**',
     ],
   },
   {

@@ -1,0 +1,69 @@
+/*
+ * BoardUI for Tayfa: the Tailwind v4 entry stylesheet, imported once by main.tsx.
+ *
+ * Existing Tayfa screens must not change when this loads, so it differs from BoardUI's own globals:
+ * - No preflight and no global html/body/input rules: only Tailwind's theme layer, BoardUI's theme
+ *   (mapped to Tayfa tokens, theme.css) and the utilities.
+ * - Utilities are generated only for class names found in the BoardUI, BoardUI Pro (or fallback) and
+ *   Studio folders (`source(none)` plus the @source lines), never from the rest of the app.
+ * - Utilities apply only inside a BoardUI region (`[data-boardui]`, rendered by <BoardUiRoot>; React
+ *   Aria overlays portal into one too). Tayfa already uses class names that are Tailwind utilities
+ *   (`p-2` seats on the poker table, `.hidden`, `.invisible` presence…); outside a region those stay
+ *   untouched. Utilities are unlayered on purpose: Tayfa's element rules in styles.css (`button {
+ *   background: none; border: 0 }`) are unlayered and would beat anything inside a cascade layer.
+ * tests/boardui-licence-guard.test.ts keeps these rules in place.
+ */
+@layer theme;
+@import 'tailwindcss/theme.css' layer(theme);
+@import './theme.css';
+@import './typography.css';
+
+@source '..';
+@source '../../boardui-pro';
+@source '../../boardui-pro-fallback';
+@source '../../studio';
+@source '../../dev/BoardUiFixture.tsx';
+
+/* Dark is Tayfa's default; `dark:` applies everywhere except inside a [data-theme='light'] scope. */
+@custom-variant dark (&:not(:where([data-theme='light'], [data-theme='light'] *)));
+@custom-variant rtl (&:dir(rtl));
+@custom-variant ltr (&:dir(ltr));
+
+@scope ([data-boardui]) {
+  /*
+   * The preflight resets BoardUI controls rely on, inside regions only (zero specificity, so every
+   * utility wins).
+   */
+  :where(*),
+  :where(*)::before,
+  :where(*)::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+  }
+  :where(button, input, select, textarea) {
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    border-radius: 0;
+    background-color: transparent;
+  }
+  :where(ol, ul, menu) {
+    list-style: none;
+  }
+  :where(img, svg, video, canvas) {
+    display: block;
+    vertical-align: middle;
+  }
+  ::placeholder {
+    opacity: 1;
+    color: var(--color-text-placeholder);
+  }
+  /* Tayfa dims every disabled control to 0.38 (styles.css); BoardUI draws its own disabled states. */
+  :is(button, input, select, textarea):disabled {
+    opacity: 1;
+  }
+
+  @tailwind utilities source(none);
+}

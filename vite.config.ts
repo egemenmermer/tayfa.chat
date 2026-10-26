@@ -1,6 +1,8 @@
 import { roomsAliases } from './tooling/aliases';
+import { boardUiResolver } from './tooling/boardui-resolver';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 const referenceRoot = process.env.ROOMS_REFERENCE_ROOT;
@@ -43,8 +45,11 @@ export default defineConfig({
   worker: { format: 'es' },
   root: 'apps/desktop',
   base: './',
-  plugins: [react(), referenceAssets],
+  // Tailwind only serves BoardUI: apps/desktop/src/boardui/foundations/globals.css imports no preflight
+  // and scans only the BoardUI and Studio folders, so existing screens keep their own CSS.
+  plugins: [boardUiResolver(), react(), tailwindcss(), referenceAssets],
   resolve: { alias: roomsAliases },
   server: { port: 5173, strictPort: true },
-  build: { outDir: '../../dist', emptyOutDir: true },
+  // Source maps stay off: shipped builds must not carry the (private) BoardUI Pro source.
+  build: { outDir: '../../dist', emptyOutDir: true, sourcemap: false },
 });
