@@ -22,10 +22,15 @@ async function main() {
     ? new PostgresActivityRepository(pool)
     : await FileActivityRepository.open(process.env.ROOMS_ACTIVITY_DATA ?? '.local/activities');
   if (repository instanceof PostgresActivityRepository) await repository.initialize();
-  const studio = pool
+  let studio: FileStudioStore | PostgresStudioStore | undefined = pool
     ? new PostgresStudioStore(pool)
     : new FileStudioStore(join(process.env.ROOMS_ACTIVITY_DATA ?? '.local/activities', 'studio'));
-  if (studio instanceof PostgresStudioStore) await studio.initialize();
+  if (studio instanceof PostgresStudioStore)
+    await studio.initialize().catch(() => {
+      // Studio is optional: games, polls and the whiteboard keep running without its routes.
+      console.error('ROOMS Studio storage unavailable; Studio routes are disabled.');
+      studio = undefined;
+    });
   const reader = process.env.ROOMS_SOCIAL_READ_MONGO_URL
     ? new StoatAuthorizationReader(process.env.ROOMS_SOCIAL_READ_MONGO_URL)
     : null;
