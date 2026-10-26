@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { RiHashtag, RiVolumeUpLine } from '@remixicon/react';
 import { Button } from '@boardui/base/button';
@@ -18,6 +18,7 @@ import { ProjectList } from './ProjectList';
 import { StudioEditor } from './StudioEditor';
 import { StudioSurface } from './StudioSurface';
 import { createLiveTransport } from './transport';
+import { useOwnedTransport } from './use-owned-transport';
 
 const realApi: StudioProjectsApi = {
   list: listStudioProjects,
@@ -134,8 +135,7 @@ function OpenProject({ roomId, projectId }: { roomId: string; projectId: string 
   );
   // The session outlives this screen on purpose (store.ts); opening is a no-op when it is already open.
   useEffect(() => openStudioProject(roomId, projectId), [roomId, projectId]);
-  const transport = useMemo(() => createLiveTransport(), []);
-  useEffect(() => () => transport.dispose(), [transport]);
+  const transport = useOwnedTransport(createLiveTransport);
   const model: StudioEditorModel = {
     status: view?.status ?? 'connecting',
     doc: view?.doc ?? null,
@@ -151,6 +151,7 @@ function OpenProject({ roomId, projectId }: { roomId: string; projectId: string 
     clearError: () => studioActions.clearError(),
     retry: () => openStudioProject(roomId, projectId),
   };
+  if (!transport) return null;
   return (
     <StudioEditor
       model={model}

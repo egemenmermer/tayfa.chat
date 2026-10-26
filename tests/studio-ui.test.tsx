@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import {
@@ -20,6 +21,7 @@ import { ProjectList } from '../apps/desktop/src/studio/ui/ProjectList';
 import { StudioEditor } from '../apps/desktop/src/studio/ui/StudioEditor';
 import { TrackHeaders } from '../apps/desktop/src/studio/ui/TrackHeaders';
 import type { StudioTransport } from '../apps/desktop/src/studio/ui/transport';
+import { useOwnedTransport } from '../apps/desktop/src/studio/ui/use-owned-transport';
 
 // jsdom lacks these; React Aria overlays and the BoardUI menus use them.
 class NoopResizeObserver {
@@ -323,6 +325,77 @@ describe('Studio transport and editor frame', () => {
     expect(screen.getByRole('alert').textContent).toContain('Bu proje silinmiş');
     fireEvent.click(screen.getByRole('button', { name: 'Yeniden dene' }));
     expect(retry).toHaveBeenCalled();
+  });
+});
+
+describe('Studio playback wiring', () => {
+  it('shows the position the engine reported, even though position() moves on every read', () => {
+    let clock = 0;
+    let listener: ((beat: number, playing: boolean) => void) | null = null;
+    const transport = {
+      ...fakeTransport(),
+      position: vi.fn(() => (clock += 0.01)),
+      onPosition: vi.fn((next: (beat: number, playing: boolean) => void) => {
+        listener = next;
+        return () => {
+          listener = null;
+        };
+      }),
+    };
+    render(<StudioEditor model={fakeModel()} transport={transport} onBack={() => {}} />);
+    act(() => listener!(5, true));
+    expect(screen.getByRole('status', { name: 'Konum (ölçü:vuruş)' }).textContent).toBe('2:2');
+    fireEvent.click(screen.getByRole('button', { name: 'Durdur' }));
+    expect(transport.stop).toHaveBeenCalled();
+    // A handful of reads, not a render loop.
+    expect(transport.position.mock.calls.length).toBeLessThan(10);
+  });
+
+  it('gives a StrictMode remount a live transport, disposing only the discarded one', () => {
+    const created: ReturnType<typeof fakeTransport>[] = [];
+    const create = () => {
+      const transport = fakeTransport();
+      created.push(transport);
+      return transport;
+    };
+    let current: StudioTransport | null = null;
+    function Probe() {
+      current = useOwnedTransport(create);
+      return null;
+    }
+    const view = render(
+      <StrictMode>
+        <Probe />
+      </StrictMode>,
+    );
+    expect(created).toHaveLength(2);
+    expect(created[0]!.dispose).toHaveBeenCalled();
+    expect(current).toBe(created[1]);
+    expect(created[1]!.dispose).not.toHaveBeenCalled();
+    view.unmount();
+    expect(created[1]!.dispose).toHaveBeenCalled();
+  });
+
+  it('opens with the project name in edit mode once the project has loaded', () => {
+    const transport = fakeTransport();
+    const view = render(
+      <StudioEditor
+        model={fakeModel({ doc: null, status: 'connecting' })}
+        transport={transport}
+        onBack={() => {}}
+        startRenaming
+      />,
+    );
+    const loaded = fakeModel();
+    view.rerender(
+      <StudioEditor model={loaded} transport={transport} onBack={() => {}} startRenaming />,
+    );
+    const field = screen.getByRole('textbox', { name: 'Proje adı' });
+    fireEvent.change(field, { target: { value: 'Yeni ad' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect(loaded.dispatch).toHaveBeenCalledWith([
+      { op: 'project.set', field: 'name', value: 'Yeni ad' },
+    ]);
   });
 });
 

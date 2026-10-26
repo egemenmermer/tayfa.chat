@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   RiArrowGoBackLine,
   RiArrowGoForwardLine,
@@ -8,7 +8,7 @@ import {
   RiRepeatLine,
   RiStopFill,
 } from '@remixicon/react';
-import type { StudioOp, StudioProject } from '@rooms/studio';
+import type { StudioOp, StudioProject, StudioTimeSignature } from '@rooms/studio';
 import { Button } from '@boardui/base/button';
 import { Dropdown, DropdownPopover, DropdownTrigger } from '@boardui/base/dropdown';
 import { IconButton } from '@boardui/base/icon-button';
@@ -36,11 +36,17 @@ export interface LoopSetting {
   endBar: number;
 }
 
+/** The last position the engine reported; a fresh `position()` call would differ on every read while playing. */
 function usePlayhead(transport: StudioTransport) {
-  return useSyncExternalStore(
-    (notify) => transport.onPosition(() => notify()),
-    () => `${transport.position()}|${transport.playing() ? 1 : 0}`,
-  );
+  const [state, setState] = useState(() => ({
+    beat: transport.position(),
+    playing: transport.playing(),
+  }));
+  useEffect(() => {
+    setState({ beat: transport.position(), playing: transport.playing() });
+    return transport.onPosition((beat, playing) => setState({ beat, playing }));
+  }, [transport]);
+  return state;
 }
 
 const toggleClass = (on: boolean) =>
@@ -68,9 +74,6 @@ export interface TransportBarProps {
 export function TransportBar(props: TransportBarProps) {
   const { doc, readOnly, transport, dispatch } = props;
   const editReason = readOnly ? t('Bu projeyi düzenleme iznin yok.') : null;
-  const playhead = usePlayhead(transport);
-  const [beatText, playingFlag] = playhead.split('|');
-  const playing = playingFlag === '1';
   const bars = projectBars(doc.lengthBeats, doc.timeSignature);
 
   return (
@@ -79,37 +82,7 @@ export function TransportBar(props: TransportBarProps) {
       aria-label={t('Çalma kontrolleri')}
       className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-separator-border bg-background-secondary-default px-4 py-2"
     >
-      <div className="flex items-center gap-1.5">
-        {playing ? (
-          <Button size="small" leadingIcon={RiStopFill} onClick={() => transport.stop()}>
-            {t('Durdur')}
-          </Button>
-        ) : (
-          <Button
-            size="small"
-            leadingIcon={RiPlayFill}
-            onClick={() =>
-              void transport
-                .play()
-                .catch((error: unknown) =>
-                  props.onError(
-                    error instanceof Error && error.name === 'AbortError'
-                      ? t('Çalma durduruldu.')
-                      : t('Ses başlatılamadı. Ses çıkış aygıtını denetleyip yeniden dene.'),
-                  ),
-                )
-            }
-          >
-            {t('Çal')}
-          </Button>
-        )}
-        <output
-          aria-label={t('Konum (ölçü:vuruş)')}
-          className="min-w-[56px] rounded-lg bg-background-inner-default px-2 py-1 text-center font-mono text-body-medium text-text-primary tabular-nums"
-        >
-          {formatPosition(Number(beatText), doc.timeSignature)}
-        </output>
-      </div>
+      <PlayControls transport={transport} signature={doc.timeSignature} onError={props.onError} />
 
       <div className="flex items-center gap-1">
         <IconButton
@@ -292,8 +265,54 @@ function LoopRange({
 }
 
 /** Loop region in beats for the engine, or null when the loop is off. */
-export function loopRegion(loop: LoopSetting, doc: StudioProject) {
+export function loopRegion(loop: LoopSetting, doc: Pick<StudioProject, 'timeSignature'>) {
   if (!loop.on) return null;
   const perBar = barBeats(doc.timeSignature);
   return { startBeat: (loop.startBar - 1) * perBar, endBeat: (loop.endBar - 1) * perBar };
+}
+
+/** Play/stop and the position readout: the only part of the bar that renders at the engine's ~30 Hz. */
+function PlayControls({
+  transport,
+  signature,
+  onError,
+}: {
+  transport: StudioTransport;
+  signature: StudioTimeSignature;
+  onError(message: string): void;
+}) {
+  const { beat, playing } = usePlayhead(transport);
+  return (
+    <div className="flex items-center gap-1.5">
+      {playing ? (
+        <Button size="small" leadingIcon={RiStopFill} onClick={() => transport.stop()}>
+          {t('Durdur')}
+        </Button>
+      ) : (
+        <Button
+          size="small"
+          leadingIcon={RiPlayFill}
+          onClick={() =>
+            void transport
+              .play()
+              .catch((error: unknown) =>
+                onError(
+                  error instanceof Error && error.name === 'AbortError'
+                    ? t('Çalma durduruldu.')
+                    : t('Ses başlatılamadı. Ses çıkış aygıtını denetleyip yeniden dene.'),
+                ),
+              )
+          }
+        >
+          {t('Çal')}
+        </Button>
+      )}
+      <output
+        aria-label={t('Konum (ölçü:vuruş)')}
+        className="min-w-[56px] rounded-lg bg-background-inner-default px-2 py-1 text-center font-mono text-body-medium text-text-primary tabular-nums"
+      >
+        {formatPosition(beat, signature)}
+      </output>
+    </div>
+  );
 }

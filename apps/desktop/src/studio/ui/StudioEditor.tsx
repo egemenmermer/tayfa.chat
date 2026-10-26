@@ -8,7 +8,7 @@ import { Input } from '@boardui/base/input';
 import { Tooltip, TooltipTrigger } from '@boardui/base/tooltip';
 import type { StudioPresence } from '../../../../../packages/shared-contracts/src/studio';
 import { t } from '../../i18n';
-import { initials, presenceColorIndex, trackColor } from './music';
+import { initials, parseSignature, presenceColorIndex, signatureKey, trackColor } from './music';
 import type { StudioEditorModel } from './model';
 import { STUDIO_TRACK_ROW_HEIGHT, TrackHeaders } from './TrackHeaders';
 import { loopRegion, TransportBar, type LoopSetting } from './TransportBar';
@@ -54,9 +54,12 @@ export function StudioEditor({
   const [metronome, setMetronome] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // Only the loop and the meter move the loop region; other edits must not reschedule a running transport.
+  const meter = doc ? signatureKey(doc.timeSignature) : null;
   useEffect(() => {
-    if (doc) transport.setLoop(loopRegion(loop, doc));
-  }, [transport, loop, doc?.timeSignature, doc]);
+    const signature = meter ? parseSignature(meter) : null;
+    if (signature) transport.setLoop(loopRegion(loop, { timeSignature: signature }));
+  }, [transport, loop, meter]);
   useEffect(() => transport.setMetronome(metronome), [transport, metronome]);
   useEffect(() => () => transport.stop(), [transport]);
 
@@ -76,7 +79,7 @@ export function StudioEditor({
   if (!doc)
     return (
       <section className="flex min-h-0 flex-1 flex-col">
-        <EditorHeader onBack={onBack} title={t('Proje')} />
+        <EditorHeader key="loading" onBack={onBack} title={t('Proje')} />
         {model.status === 'error' ? (
           <div
             role="alert"
@@ -125,6 +128,7 @@ export function StudioEditor({
   return (
     <section className="flex min-h-0 flex-1 flex-col" aria-label={doc.name}>
       <EditorHeader
+        key="loaded"
         onBack={onBack}
         title={doc.name}
         rename={
