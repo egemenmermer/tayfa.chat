@@ -55,10 +55,8 @@
   color: var(--color-text-primary);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-action-primary) 22%, transparent);
 }
-@media (prefers-reduced-motion: reduce) {
-  .settings-modal .reference-settings .settings-tabs > button {
-    transition: none;
-  }
+:root[data-motion='reduce'] .settings-modal .reference-settings .settings-tabs > button {
+  transition: none;
 }
 @media (prefers-contrast: more) {
   .settings-modal .reference-settings .settings-tabs > button.selected {

@@ -52,10 +52,8 @@
   border-radius: var(--surface-radius-modal);
   box-shadow: var(--surface-shadow-modal);
 }
-@media (prefers-reduced-transparency: reduce) {
-  .modal-backdrop {
-    backdrop-filter: none;
-  }
+:root[data-transparency='reduce'] .modal-backdrop {
+  backdrop-filter: none;
 }
 
 /* Menus and popovers: BoardUI dropdown (radius 16, padding 8, rows radius 10). */
@@ -267,10 +265,14 @@ kbd {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--surface-radius-menu);
   box-shadow: var(--surface-shadow-card);
-  overflow: hidden;
 }
 .minimal-room-ui .minimal-sidebar > header {
   height: 47px;
+}
+@media (max-width: 1000px) {
+  .minimal-room-ui .minimal-sidebar {
+    box-shadow: 12px 0 32px #0005;
+  }
 }
 .minimal-sidebar > header {
   border-bottom-color: var(--color-border-subtle);
@@ -360,29 +362,30 @@ kbd {
   letter-spacing: 0.6px;
 }
 
-/* Reduced motion: surfaces change state instantly. */
-@media (prefers-reduced-motion: reduce) {
-  .quiet-menu-content > button,
-  .context-menu > button,
-  .channel-context-menu button,
-  .community-menu button,
-  .participant-audio-menu button,
-  .rcm-menu button,
-  .quiet-menu summary,
-  .segmented button,
-  .reference-friend-tabs button,
-  .ss-tabs button,
-  .rcs-notification-tabs button,
-  .reference-source-tabs button,
-  .agent-management-tabs > button,
-  .rcm-tabs button,
-  .minimal-nav,
-  .minimal-occupant,
-  .minimal-activity {
-    transition: none;
-  }
+/* Reduced motion: surfaces change state instantly. html[data-motion] carries the Settings switch
+   and, when the user follows the system, the OS setting (appearance-preferences.ts). */
+:root[data-motion='reduce']
+  :is(
+    .quiet-menu-content > button,
+    .context-menu > button,
+    .channel-context-menu button,
+    .community-menu button,
+    .participant-audio-menu button,
+    .rcm-menu button,
+    .quiet-menu summary,
+    .segmented button,
+    .reference-friend-tabs button,
+    .ss-tabs button,
+    .rcs-notification-tabs button,
+    .reference-source-tabs button,
+    .agent-management-tabs > button,
+    .rcm-tabs button,
+    .minimal-nav,
+    .minimal-occupant,
+    .minimal-activity
+  ) {
+  transition: none;
 }
-
 /* High contrast: surfaces keep a visible edge and the selected segment a solid outline. */
 @media (prefers-contrast: more) {
   .modal,
