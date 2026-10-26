@@ -38,7 +38,12 @@ import {
   type ProjectPlan,
   type TrackPlan,
 } from './schedule';
-import { midiToFrequency, type DrumVoice, type InstrumentVoice } from './instruments';
+import {
+  drumHit,
+  midiToFrequency,
+  type DrumVoice,
+  type InstrumentVoice,
+} from './instruments';
 import type { StudioProject } from '@rooms/studio';
 
 type ToneModule = typeof ToneTypes;
@@ -105,6 +110,11 @@ export interface StudioEngine {
     options?: RenderOptions,
   ): Promise<{ wav: Uint8Array; range: ExportRange }>;
   stats(): EngineStats;
+  /**
+   * Auditions one note on a loaded track's voice right away (editor clicks). Silent for unknown
+   * tracks, unmapped drum pitches and unsupported instruments; resumes a suspended context.
+   */
+  preview(trackId: string, pitch: number, velocity: number): void;
   dispose(): void;
 }
 
@@ -612,6 +622,28 @@ export async function createStudioEngine(
       return () => listeners.delete(listener);
     },
     plan: () => current,
+    preview(trackId, pitch, velocity) {
+      const track = current?.tracks.find((entry) => entry.id === trackId);
+      if (!mixer || track?.instrument.status !== 'ok') return;
+      const drums = track.instrument.instrument.drums;
+      const hit = drums ? drumHit(pitch) : null;
+      if (drums && !hit) return;
+      const live = mixer;
+      void context.resume().then(() =>
+        live.trigger(
+          {
+            trackId,
+            noteId: 'preview',
+            beat: 0,
+            lengthBeats: 0.5,
+            pitch,
+            velocity: Math.min(1, Math.max(0, velocity / 127)),
+            ...(hit ? { drum: hit } : {}),
+          },
+          context.currentTime + 0.01,
+        ),
+      );
+    },
     async renderOffline(
       project,
       { fromBeat, toBeat, sampleRate = 44100, onProgress, signal } = {},

@@ -1,6 +1,8 @@
 import type { LoopRegion } from '../engine/schedule';
 import { feedStudioEngine } from '../store';
-import type { StudioEngine } from '../engine/engine';
+import type { StudioProject } from '@rooms/studio';
+import type { RenderOptions, StudioEngine } from '../engine/engine';
+import type { ExportRange } from '../engine/schedule';
 
 /**
  * What the transport bar needs from the audio engine. Loop, loop range and metronome are this client's
@@ -17,8 +19,17 @@ export interface StudioTransport {
   setMetronome(on: boolean): void;
   /** Called about 30 times a second while playing, and on seek/stop. */
   onPosition(listener: (beat: number, playing: boolean) => void): () => void;
+  /** Auditions one note on a track (editor clicks); optional so silent fakes need not implement it. */
+  preview?(trackId: string, pitch: number, velocity: number): void;
+  /** Renders the project offline to a 16-bit WAV (export dialog). */
+  exportWav?: StudioExporter;
   dispose(): void;
 }
+
+export type StudioExporter = (
+  project: StudioProject,
+  options: RenderOptions,
+) => Promise<{ wav: Uint8Array; range: ExportRange }>;
 
 /**
  * The live transport: the Tone engine is created on the first Play (an AudioContext needs a user gesture and
@@ -84,6 +95,17 @@ export function createLiveTransport(
     onPosition(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+    preview(trackId, pitch, velocity) {
+      // A click is a user gesture, so the engine may start here; the very first audition can be silent
+      // while the project loads.
+      void ensure()
+        .then((live) => live.preview(trackId, pitch, velocity))
+        .catch(() => {});
+    },
+    async exportWav(project, options) {
+      const live = await ensure();
+      return live.exportWav(project, options);
     },
     dispose() {
       disposed = true;
