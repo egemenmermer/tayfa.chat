@@ -91,7 +91,7 @@ function ChannelStrip({
   return (
     <section
       aria-label={t('{name} kanalı', { name })}
-      className="flex w-[200px] shrink-0 flex-col gap-2 rounded-xl border border-border-button-default bg-background-secondary-default p-3"
+      className="flex w-[240px] shrink-0 flex-col gap-1 rounded-xl border border-border-button-default bg-background-secondary-default p-3"
     >
       <header className="flex min-w-0 items-center gap-2">
         <span
@@ -105,7 +105,7 @@ function ChannelStrip({
       </header>
       {knob('volume', t('Ses düzeyi'), track.volume, [0, 1.5, 0.01], volumePercent)}
       {knob('pan', t('Pan'), track.pan, [-1, 1, 0.01], panLabel)}
-      <div className="flex items-center gap-3">
+      <div className="flex h-7 items-center gap-3">
         <Switch
           size="sm"
           isSelected={track.mute}
@@ -123,10 +123,10 @@ function ChannelStrip({
           <span className="text-caption-1-medium text-text-secondary">{t('Solo')}</span>
         </Switch>
       </div>
-      <h4 className="text-caption-2-semibold text-text-tertiary">{t('Efektler')}</h4>
+      <h4 className="pt-1 text-caption-2-semibold text-text-tertiary">{t('Efektler')}</h4>
       {knob('sends.reverb', t('Yankı'), track.sends.reverb, [0, 1, 0.01], percent)}
       {knob('sends.delay', t('Gecikme'), track.sends.delay, [0, 1, 0.01], percent)}
-      <h4 className="text-caption-2-semibold text-text-tertiary">{t('Ekolayzer')}</h4>
+      <h4 className="pt-1 text-caption-2-semibold text-text-tertiary">{t('Ekolayzer')}</h4>
       {knob('eq.low', t('Bas'), track.eq.low, [-12, 12, 0.5], decibels)}
       {knob('eq.mid', t('Orta'), track.eq.mid, [-12, 12, 0.5], decibels)}
       {knob('eq.high', t('Tiz'), track.eq.high, [-12, 12, 0.5], decibels)}
@@ -163,14 +163,15 @@ function MixerSlider({
   }, [value, dragging]);
   const name = t('{track}: {control}', { track: trackName, control: label });
   return (
-    <div className="flex flex-col gap-0.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate text-caption-1-medium text-text-secondary">{label}</span>
-        <span className="shrink-0 font-mono text-caption-1-medium text-text-tertiary tabular-nums">
-          {format(local)}
-        </span>
-      </div>
+    <div className="flex h-7 items-center gap-2">
+      <span
+        className="w-[68px] shrink-0 truncate text-caption-1-medium text-text-secondary"
+        title={label}
+      >
+        {label}
+      </span>
       <Slider
+        className="min-w-0 flex-1"
         thumbLabel={name}
         aria-label={name}
         showTooltip={false}
@@ -188,6 +189,9 @@ function MixerSlider({
           if (Math.abs(next - value) > 1e-9) onCommit(next);
         }}
       />
+      <span className="w-[52px] shrink-0 text-end font-mono text-caption-1-medium text-text-tertiary tabular-nums">
+        {format(local)}
+      </span>
     </div>
   );
 }
