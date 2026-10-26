@@ -21,6 +21,7 @@ import {
 } from './engine';
 import type { ActivityRepository, StoredRoom } from './repository';
 import { heartbeatGame } from './games';
+import { registerStudio, type StudioStore } from './studio';
 import { StoatError } from '@rooms/stoat';
 import { ingressLimit, TRUSTED_PROXIES } from '../shared/ingress';
 
@@ -31,8 +32,10 @@ export interface ActivityServerOptions {
   authorize?: (bearer: string, roomId: string) => Promise<ActivityIdentity>;
   clock?: () => number;
   sweepIntervalMs?: number;
+  /** Collaborative Studio projects; the routes exist only when a store is given. */
+  studio?: StudioStore;
   /** Internal test/deployment tuning; never accepts values from a client. */
-  rateLimits?: { ingressPerMinute: number; identityPerMinute: number };
+  rateLimits?: { ingressPerMinute: number; identityPerMinute: number; studioPerMinute?: number };
 }
 /** Poll and command responses carry only the newest archived tables, each with a short hand list. */
 export const POLL_PREVIOUS_TABLES = 3;
@@ -57,6 +60,7 @@ export async function createActivityServer(options: ActivityServerOptions) {
     .object({
       ingressPerMinute: z.number().int().min(1).max(10000),
       identityPerMinute: z.number().int().min(1).max(10000),
+      studioPerMinute: z.number().int().min(1).max(10000).default(600),
     })
     .strict()
     .parse(options.rateLimits ?? { ingressPerMinute: 600, identityPerMinute: 120 });
@@ -123,13 +127,43 @@ export async function createActivityServer(options: ActivityServerOptions) {
       return reply.code(error.status).send({ error: code });
     }
     if (error instanceof z.ZodError) return reply.code(400).send({ error: 'INVALID_COMMAND' });
-    if ((error as { statusCode?: number }).statusCode === 429)
-      return reply.code(429).send({ error: 'RATE_LIMITED' });
+    const status = (error as { statusCode?: number }).statusCode;
+    if (status === 429) return reply.code(429).send({ error: 'RATE_LIMITED' });
+    // Fastify's own client errors (body over the limit, malformed JSON) are not service failures.
+    if (status === 413) return reply.code(413).send({ error: 'PAYLOAD_TOO_LARGE' });
+    if (status === 400 && String((error as { code?: unknown }).code).startsWith('FST_'))
+      return reply.code(400).send({ error: 'INVALID_COMMAND' });
     operationalError(error, 'request');
     // Upstream failures fail closed; do not leak token-bearing request details.
     return reply.code(503).send({ error: 'ACTIVITY_SERVICE_UNAVAILABLE' });
   });
   const roomParam = z.object({ roomId: opaqueId });
+  // Registered after the error handler so Studio routes map errors the same way.
+  if (options.studio) {
+    // Editing sends many small batches and presence updates; it has its own per-user budget next to the room one.
+    const studioLimit = app.createRateLimit({
+      max: limits.studioPerMinute,
+      keyGenerator: (request) => {
+        const identity = identities.get(request);
+        if (!identity) throw new ActivityError(401, 'AUTH_REQUIRED');
+        return `studio-user:${identity.userId}`;
+      },
+    });
+    registerStudio(app, {
+      store: options.studio,
+      now,
+      serialize,
+      onStorageError: operationalError,
+      authorize: async (request, roomId, counted = true) => {
+        const identity = await identityOf(request.headers.authorization, roomId);
+        if (!counted) return identity;
+        identities.set(request, identity);
+        const limit = await studioLimit(request);
+        if (!limit.isAllowed && limit.isExceeded) throw new ActivityError(429, 'RATE_LIMITED');
+        return identity;
+      },
+    });
+  }
   app.get('/health', async (_request, reply) => {
     try {
       await options.repository.probe?.();
