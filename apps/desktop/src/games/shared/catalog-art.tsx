@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 /**
  * Drawn table pieces for game catalog cards; no photos, so the lobby keeps the app's own look.
- * Light on purpose: the Kıraathane and the app directory load these in the main bundle.
+ * Light on purpose: the Games lobby and the app directory load these in the main bundle.
  */
 export function KhCards({
   kind,

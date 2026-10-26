@@ -76,7 +76,7 @@ export function ActivityLauncher({ onClose }: { onClose(): void }) {
                     ? t('Sinema salonu')
                     : primary.activity === 'screen'
                       ? t('Ekran paylaşımı')
-                      : t('Kıraathane')}
+                      : t('Oyunlar')}
               </small>
             </div>
             <span className="reference-live-pill">{t('Etkin')}</span>
@@ -134,7 +134,7 @@ export function ActivityLauncher({ onClose }: { onClose(): void }) {
       {forbidden && (
         <button className="button secondary" onClick={() => open('/games')}>
           <ReferenceIcon name="cards" size={16} />
-          {t('Kıraathane')}
+          {t('Oyunlar')}
         </button>
       )}
       {error && (

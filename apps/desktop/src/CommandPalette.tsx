@@ -25,6 +25,8 @@ type Command = {
   detail: string;
   path: string;
   icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>;
+  /** Hidden search words: old names stay findable (the Games page was once called Kiraathane). */
+  aliases?: string;
 };
 
 /** Destinations, named as the sidebar and the activity launcher name them. */
@@ -61,7 +63,13 @@ const commands = (): Command[] => [
     path: '/files',
     icon: Folder,
   },
-  { label: t('Kıraathane'), detail: t('Kart ve masa oyunları'), path: '/games', icon: Spade },
+  {
+    label: t('Oyunlar'),
+    detail: t('Kart ve masa oyunları'),
+    path: '/games',
+    icon: Spade,
+    aliases: 'kiraathane',
+  },
   {
     label: t('Beyaz tahta'),
     detail: t('Birlikte çiz, yaz; imleçler canlı görünür.'),
@@ -91,7 +99,7 @@ export function CommandPalette({ onClose }: { onClose(): void }) {
   const [active, setActive] = useState(0);
   const needle = foldSearch(query.trim());
   const results = commands().filter((item) =>
-    foldSearch(`${item.label} ${item.detail}`).includes(needle),
+    foldSearch(`${item.label} ${item.detail} ${item.aliases ?? ''}`).includes(needle),
   );
   const current = results.length ? Math.min(active, results.length - 1) : -1;
   const optionId = (index: number) => `${id}-option-${index}`;

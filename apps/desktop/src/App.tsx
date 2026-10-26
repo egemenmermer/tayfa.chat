@@ -464,7 +464,7 @@ export default function App() {
     '/notifications': t('Bildirimler'),
     '/agent': t('Asistan'),
     '/together': visibleParams.get('tab') === 'board' ? t('Beyaz tahta') : t('Anketler'),
-    '/games': t('Kıraathane'),
+    '/games': t('Oyunlar'),
     '/youtube': 'DJ',
   };
   const breadcrumb = ['/chat', '/voice'].includes(visiblePath)

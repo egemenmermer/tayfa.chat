@@ -49,7 +49,7 @@ const games = gameCatalog.map((game): DirectoryItem => ({
   name: gameNames[game.kind],
   detail: `${game.detail} ${game.players}.`,
   section: game.section,
-  keywords: t('oyun masa kart kıraathane {kind}', { kind: game.kind }),
+  keywords: t('oyun masa kart oyunlar {kind}', { kind: game.kind }),
   icon: 'game',
   tint: '#1f4a3b',
   run: (open) => open(`/games?create=${encodeURIComponent(game.kind)}`),

@@ -354,7 +354,7 @@ export const shell: Catalog = {
   'Kurulum komutu': 'Install command',
   Kütüphane: 'Library',
   KİŞİSEL: 'PERSONAL',
-  Kıraathane: 'Kıraathane',
+  Oyunlar: 'Games',
   'Sinema salonu': 'Cinema hall',
   'Kısa sürede çok fazla işlem yapıldı. Biraz bekleyip yeniden dene.':
     'Too many actions in a short time. Wait a moment and try again.',
@@ -600,7 +600,7 @@ export const shell: Catalog = {
   'https://sunucun.example': 'https://your-server.example',
   'müzik şarkı spotify youtube bot': 'music song spotify youtube bot',
   'oylama anket soru': 'voting poll question',
-  'oyun masa kart kıraathane {kind}': 'game table card Kıraathane {kind}',
+  'oyun masa kart oyunlar {kind}': 'game table card games {kind}',
   'sen@ornek.com': 'you@example.com',
   'ssh root@SUNUCU_IP': 'ssh root@SERVER_IP',
   'whiteboard çizim tahta': 'whiteboard drawing board',
