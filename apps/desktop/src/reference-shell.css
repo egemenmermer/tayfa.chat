@@ -261,25 +261,33 @@
   background-origin: border-box;
 }
 .button.primary {
-  background: var(--gradient-button-primary-default);
+  background: linear-gradient(
+    180deg,
+    var(--color-action-primary) 0%,
+    var(--color-action-primaryActive) 100%
+  );
   background-origin: border-box;
   color: var(--color-text-onAccent);
   border: 1px solid transparent;
-  box-shadow: var(--shadow-xs);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.18);
 }
 .button.primary:hover:where(:not(:disabled, .danger)) {
-  background: var(--gradient-button-primary-hover);
+  background: linear-gradient(
+    180deg,
+    var(--color-action-primaryHover) 0%,
+    var(--color-action-primary) 100%
+  );
   background-origin: border-box;
 }
 .button.primary:active:where(:not(:disabled, .danger)) {
-  background: var(--gradient-button-primary-active);
+  background: var(--color-action-primaryActive);
   background-origin: border-box;
 }
 .button.secondary {
   background: var(--color-background-primary-default);
   border: 1px solid var(--color-border-button-default);
   color: var(--color-text-primary);
-  box-shadow: var(--shadow-xs);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.18);
 }
 .button.secondary:where(:hover:not(:disabled)) {
   background: var(--color-background-primary-hover);
@@ -295,7 +303,7 @@
   background-origin: border-box;
   border: 1px solid transparent;
   color: var(--color-text-onDanger);
-  box-shadow: var(--shadow-xs);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.18);
 }
 .button.danger:where(:hover:not(:disabled)) {
   background: var(--gradient-button-danger-hover);

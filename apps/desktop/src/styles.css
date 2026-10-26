@@ -1317,8 +1317,8 @@ input.option-input,
   color: var(--color-text-primary);
   outline-offset: 2px;
   transition:
-    background-color var(--input-transition-ms) ease,
-    box-shadow var(--input-transition-ms) ease;
+    background-color var(--motion-quick) ease,
+    box-shadow var(--motion-quick) ease;
 }
 .settings-row select {
   border: 1px solid transparent;
@@ -1327,7 +1327,7 @@ input.option-input,
   padding: 7px 12px;
   background-color: var(--color-background-tertiary-default);
   color: var(--color-text-primary);
-  transition: box-shadow var(--input-transition-ms) ease;
+  transition: box-shadow var(--motion-quick) ease;
 }
 /* BoardUI select trigger: native select without the platform arrow, BoardUI chevron in its place. */
 :is(.field-label, .settings-row) select {
@@ -2376,7 +2376,7 @@ textarea::placeholder {
   background:
     radial-gradient(
       circle,
-      var(--color-switch-off-chip-start) 0 3.25px,
+      var(--color-background-hover) 0 3.25px,
       var(--color-border-button-default) 3.5px 3.75px,
       transparent 4px
     ),
@@ -2392,18 +2392,22 @@ textarea::placeholder {
   transition: transform 0.15s;
 }
 .toggle.on {
-  background: linear-gradient(to bottom, var(--color-accent-500), var(--color-accent-600));
+  background: linear-gradient(
+    to bottom,
+    var(--color-action-primary),
+    var(--color-action-primaryActive)
+  );
   box-shadow:
     inset 0 1.5px 0 0 rgb(255 255 255 / 0.25),
-    inset 0 0 0 0.75px var(--color-accent-500);
+    inset 0 0 0 0.75px var(--color-action-primary);
 }
 .toggle.on > span {
   transform: translateX(18px);
   background:
     radial-gradient(
       circle,
-      var(--color-switch-on-chip-start) 0 3.25px,
-      var(--color-accent-600) 3.5px 3.75px,
+      var(--color-action-primary) 0 3.25px,
+      var(--color-action-primaryActive) 3.5px 3.75px,
       transparent 4px
     ),
     linear-gradient(
@@ -2682,8 +2686,8 @@ input[type='range']::-webkit-slider-thumb {
   background:
     radial-gradient(
       circle,
-      var(--color-accent-500) 0 3px,
-      var(--color-accent-600) 3.5px 3.75px,
+      var(--color-action-primary) 0 3px,
+      var(--color-action-primaryActive) 3.5px 3.75px,
       transparent 4.25px
     ),
     var(--color-control-indicator-background);
@@ -2703,7 +2707,7 @@ input[type='range']:hover:not(:disabled)::-webkit-slider-thumb {
 }
 input[type='range']:active:not(:disabled)::-webkit-slider-thumb {
   scale: 1.1;
-  border-color: var(--color-accent-500);
+  border-color: var(--color-action-primary);
 }
 /* BoardUI puts the focus ring on the thumb. */
 input[type='range']:focus-visible {
@@ -2733,11 +2737,14 @@ input[type='range']:disabled {
   flex: 0 0 auto;
   width: 16px;
   height: 16px;
+  /* Surfaces that set width: auto (recovery confirm, hold'em form) must not collapse the box. */
+  min-width: 16px;
+  min-height: 16px;
   margin: 0;
   border: 1px solid var(--color-border-interactive);
   border-radius: 4px;
   background: var(--color-background-primary-default);
-  box-shadow: var(--shadow-xs);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.18);
   cursor: pointer;
   transition:
     background-color var(--motion-quick) ease,
@@ -2765,9 +2772,15 @@ input[type='range']:disabled {
   border-color: var(--color-text-secondary);
 }
 :where(input[type='checkbox'], input[type='radio']):is(:checked, :indeterminate) {
-  border-color: var(--color-accent-600);
-  background: linear-gradient(to bottom, var(--color-accent-500), var(--color-accent-600));
-  box-shadow: var(--shadow-checkbox-selected);
+  border-color: var(--color-action-primaryActive);
+  background: linear-gradient(
+    to bottom,
+    var(--color-action-primary),
+    var(--color-action-primaryActive)
+  );
+  box-shadow:
+    inset 0 2px 0 0 rgb(255 255 255 / 0.25),
+    inset 0 0 0 1px var(--color-action-primary);
 }
 :where(input[type='checkbox']):indeterminate::before {
   height: 2px;
