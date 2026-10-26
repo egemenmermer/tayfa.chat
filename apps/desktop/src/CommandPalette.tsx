@@ -13,6 +13,7 @@ import {
   PenTool,
   Search,
   Settings,
+  Music,
   Spade,
   Users,
 } from 'lucide-react';
@@ -57,6 +58,13 @@ const commands = (): Command[] => [
     icon: AudioLines,
   },
   { label: t('Sinema'), detail: t('Topluluğun sinema salonu'), path: '/cinema', icon: Film },
+  {
+    label: t('Stüdyo'),
+    detail: t('Odada birlikte müzik yap'),
+    path: '/studio',
+    icon: Music,
+    aliases: 'studio muzik',
+  },
   {
     label: t('Dosyalar'),
     detail: t('Sohbetlerde paylaşılan dosyalar'),
