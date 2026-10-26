@@ -31,7 +31,8 @@ export function notesByClip(doc: StudioProject): Map<string, StudioNote[]> {
     if (list) list.push(note);
     else map.set(note.clipId, [note]);
   }
-  for (const list of map.values()) list.sort((a, b) => a.startBeat - b.startBeat || a.pitch - b.pitch);
+  for (const list of map.values())
+    list.sort((a, b) => a.startBeat - b.startBeat || a.pitch - b.pitch);
   notesCache.set(doc, map);
   return map;
 }
@@ -211,7 +212,8 @@ export function moveNotesOps(
     }
     if (Math.abs(startBeat - note.startBeat) > EPSILON)
       ops.push({ op: 'note.set', id: note.id, field: 'startBeat', value: startBeat });
-    if (pitch !== note.pitch) ops.push({ op: 'note.set', id: note.id, field: 'pitch', value: pitch });
+    if (pitch !== note.pitch)
+      ops.push({ op: 'note.set', id: note.id, field: 'pitch', value: pitch });
   }
   return ops;
 }
@@ -298,7 +300,14 @@ export function pasteNotesOps(
   const ops: StudioOp[] = [];
   const ids: string[] = [];
   for (const item of clipboard.notes) {
-    const [op] = createNoteOps(clipId, item.pitch, atBeat + item.offset, item.lengthBeats, item.velocity, newId);
+    const [op] = createNoteOps(
+      clipId,
+      item.pitch,
+      atBeat + item.offset,
+      item.lengthBeats,
+      item.velocity,
+      newId,
+    );
     if (op.op === 'note.create') ids.push(op.note.id);
     ops.push(op);
   }
@@ -360,7 +369,12 @@ export function setStepsOps(
 }
 
 /** Toggles the accent of a filled cell: accented → normal velocity, otherwise → accent velocity. */
-export function toggleAccentOps(doc: StudioProject, clipId: string, pitch: number, step: number): StudioOp[] {
+export function toggleAccentOps(
+  doc: StudioProject,
+  clipId: string,
+  pitch: number,
+  step: number,
+): StudioOp[] {
   const present = stepCells(clipNotes(doc, clipId)).get(`${pitch}:${step}`) ?? [];
   if (!present.length) return [];
   const accented = present.some((note) => note.velocity >= ACCENT_THRESHOLD);

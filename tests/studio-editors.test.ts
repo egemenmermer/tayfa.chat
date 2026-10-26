@@ -95,7 +95,14 @@ describe('arrangement gestures → ops', () => {
     expect(ops).toEqual([
       {
         op: 'clip.create',
-        clip: { id: 'c1', trackId: 'tpl-bass', startBeat: 16, lengthBeats: 4, name: '', kind: 'midi' },
+        clip: {
+          id: 'c1',
+          trackId: 'tpl-bass',
+          startBeat: 16,
+          lengthBeats: 4,
+          name: '',
+          kind: 'midi',
+        },
       },
     ]);
     expect(createClipOps(s.doc, 'audio', 0, 4, ids('c'))).toEqual([]);
@@ -149,7 +156,10 @@ describe('arrangement gestures → ops', () => {
       { op: 'clip.delete', id: 'tpl-bass-clip' },
     ]);
     const dup = duplicateClipsOps(s.doc, ['tpl-bass-clip'], ids('d'));
-    expect(dup[0]).toMatchObject({ op: 'clip.create', clip: { startBeat: 16, trackId: 'tpl-bass' } });
+    expect(dup[0]).toMatchObject({
+      op: 'clip.create',
+      clip: { startBeat: 16, trackId: 'tpl-bass' },
+    });
   });
 });
 
@@ -180,7 +190,10 @@ describe('piano roll gestures → ops', () => {
   it('copies, pastes and duplicates notes as one batch', () => {
     const s = store();
     const bass = clipNotes(s.doc, 'tpl-bass-clip').slice(0, 2);
-    const clip = copyNotes(s.doc, bass.map((n) => n.id))!;
+    const clip = copyNotes(
+      s.doc,
+      bass.map((n) => n.id),
+    )!;
     expect(clip.span).toBe(2);
     const pasted = pasteNotesOps('tpl-bass-clip', clip, 8, ids('p'));
     expect(pasted.ids).toEqual(['p1', 'p2']);
@@ -197,7 +210,9 @@ describe('drum steps', () => {
   it('has 16 steps per 4/4 bar and 12 per 6/8 bar', () => {
     expect(stepsPerBar({ beats: 4, unit: 4 })).toBe(16);
     expect(stepsPerBar({ beats: 6, unit: 8 })).toBe(12);
-    expect(stepCount({ id: 'c', trackId: 't', startBeat: 0, lengthBeats: 16, name: '', kind: 'midi' })).toBe(64);
+    expect(
+      stepCount({ id: 'c', trackId: 't', startBeat: 0, lengthBeats: 16, name: '', kind: 'midi' }),
+    ).toBe(64);
   });
 
   it('toggles a step on and off on the same notes the piano roll edits', () => {
@@ -206,13 +221,29 @@ describe('drum steps', () => {
     expect(on).toEqual([
       {
         op: 'note.create',
-        note: { id: 's1', clipId: 'tpl-drums-clip', pitch: 39, startBeat: 1, lengthBeats: 0.25, velocity: 100 },
+        note: {
+          id: 's1',
+          clipId: 'tpl-drums-clip',
+          pitch: 39,
+          startBeat: 1,
+          lengthBeats: 0.25,
+          velocity: 100,
+        },
       },
     ]);
     s.dispatch(on);
     // Kick on step 0 exists in the template: switching it on again is a no-op, off deletes it.
     expect(setStepsOps(s.doc, 'tpl-drums-clip', [{ pitch: 36, step: 0 }], true, ids())).toEqual([]);
-    const off = setStepsOps(s.doc, 'tpl-drums-clip', [{ pitch: 39, step: 4 }, { pitch: 36, step: 0 }], false, ids());
+    const off = setStepsOps(
+      s.doc,
+      'tpl-drums-clip',
+      [
+        { pitch: 39, step: 4 },
+        { pitch: 36, step: 0 },
+      ],
+      false,
+      ids(),
+    );
     expect(off.map((op) => op.op)).toEqual(['note.delete', 'note.delete']);
   });
 
@@ -245,9 +276,16 @@ describe('keyboard', () => {
   });
 
   it('never fires while typing in an input', () => {
-    const input = { tagName: 'INPUT', isContentEditable: false, closest: () => null, getAttribute: () => null };
+    const input = {
+      tagName: 'INPUT',
+      isContentEditable: false,
+      closest: () => null,
+      getAttribute: () => null,
+    };
     expect(isTypingTarget(input as unknown as EventTarget)).toBe(true);
-    expect(editorCommand(key('Backspace', { target: input as unknown as EventTarget }), true)).toBeNull();
+    expect(
+      editorCommand(key('Backspace', { target: input as unknown as EventTarget }), true),
+    ).toBeNull();
     expect(editorCommand(key('a', { metaKey: true, isComposing: true }), true)).toBeNull();
   });
 });
