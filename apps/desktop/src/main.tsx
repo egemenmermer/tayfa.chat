@@ -159,3 +159,5 @@ async function bootstrap() {
 void bootstrap();
 
 import './minimal-room.css';
+// BoardUI surfaces on the global classes; last so it wins at equal specificity.
+import './boardui-surfaces.css';
