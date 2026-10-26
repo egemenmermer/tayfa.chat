@@ -1,64 +1,27 @@
-import { z } from 'zod';
 import {
-  beatPositionSchema,
-  MAX_PRESENCE_NOTE_IDS,
-  projectNameSchema,
-  STUDIO_PROTOCOL_VERSION,
-  studioIdSchema,
-  studioTemplateIdSchema,
-  tempoSchema,
+  studioCreateRequestSchema,
+  type STUDIO_PROTOCOL_VERSION,
+  type StudioCreateRequest,
   type StudioOp,
+  type StudioPresence,
+  type StudioPresenceState,
   type StudioProject,
+  type StudioProjectSummary,
   type StudioSkip,
 } from '@rooms/studio';
 
 // Desktop side of Studio Contract v1 (coordinator/specs/studio.md): what `window.rooms.studio` takes and returns.
-// The create/presence body schemas mirror apps/services/activities/studio-schemas.ts; both belong in
-// packages/studio once that package is open for changes again.
+// Request/response shapes come from packages/studio (wire.ts), shared with the activities service.
+
+export {
+  studioPresenceRequestSchema as studioPresenceStateSchema,
+  studioViewSchema,
+} from '@rooms/studio';
+export type { StudioPresence, StudioPresenceState, StudioProjectSummary } from '@rooms/studio';
 
 /** `POST …/studio/projects` without the protocol version, which the main process adds. */
-export const studioCreateInputSchema = z
-  .object({
-    name: projectNameSchema,
-    tempo: tempoSchema.optional(),
-    template: studioTemplateIdSchema.optional(),
-  })
-  .strict();
-export type StudioCreateInput = z.infer<typeof studioCreateInputSchema>;
-
-/** Which editor panel a member has open; a short token the client chooses (e.g. `arrangement`, `mixer`). */
-export const studioViewSchema = z.string().regex(/^[a-z][a-z0-9-]{0,31}$/);
-/** `POST …/projects/:projectId/presence`. Each post replaces the sender's whole presence state. */
-export const studioPresenceStateSchema = z
-  .object({
-    playheadBeat: beatPositionSchema.optional(),
-    selection: z
-      .object({
-        clipId: studioIdSchema.optional(),
-        noteIds: z.array(studioIdSchema).max(MAX_PRESENCE_NOTE_IDS),
-      })
-      .strict()
-      .optional(),
-    view: studioViewSchema.optional(),
-  })
-  .strict();
-export type StudioPresenceState = z.infer<typeof studioPresenceStateSchema>;
-
-export interface StudioPresence extends StudioPresenceState {
-  userId: string;
-  displayName: string;
-  lastSeenAt: number;
-}
-
-export interface StudioProjectSummary {
-  id: string;
-  name: string;
-  createdBy: string;
-  createdAt: number;
-  updatedAt: number;
-  tempo: number;
-  tracks: number;
-}
+export const studioCreateInputSchema = studioCreateRequestSchema.omit({ protocolVersion: true });
+export type StudioCreateInput = Omit<StudioCreateRequest, 'protocolVersion'>;
 
 export interface StudioProjectList {
   protocolVersion: typeof STUDIO_PROTOCOL_VERSION;

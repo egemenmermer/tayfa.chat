@@ -3,15 +3,16 @@ import { opaqueId } from '@rooms/activity-protocol';
 import { StoatError } from '@rooms/stoat';
 import {
   MAX_BATCH_OPS,
-  MAX_PROJECT_NAME,
   MAX_PROJECTS_PER_ROOM,
   MAX_SYNC_WAIT_MS,
   STUDIO_PROTOCOL_VERSION,
   studioBatchSchema,
   studioIdSchema,
   studioOpSchema,
+  studioPresenceEntrySchema,
   studioProjectSchema,
-  type StudioSkipReason,
+  studioProjectSummarySchema,
+  studioSkipSchema,
 } from '@rooms/studio';
 import {
   studioCreateInputSchema,
@@ -40,25 +41,15 @@ const POLL_GRACE_MS = 10_000;
 const version = z.literal(STUDIO_PROTOCOL_VERSION);
 const seqSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const timeSchema = z.number().int().min(0);
-const summarySchema = z.object({
-  id: studioIdSchema,
-  name: z.string().max(MAX_PROJECT_NAME),
-  createdBy: z.string().min(1).max(128),
-  createdAt: timeSchema,
-  updatedAt: timeSchema,
-  tempo: z.number(),
-  tracks: z.number().int().min(0),
-});
+const summarySchema = studioProjectSummarySchema;
 const listSchema = z.object({
   protocolVersion: version,
   projects: z.array(summarySchema).max(MAX_PROJECTS_PER_ROOM * 2),
   access: z.object({ canCreate: z.boolean() }),
 });
-const presenceSchema = z.object({
-  ...studioPresenceStateSchema.shape,
+const presenceSchema = studioPresenceEntrySchema.extend({
   userId: z.string().min(1).max(128),
   displayName: z.string().max(256),
-  lastSeenAt: timeSchema,
 });
 const syncBase = {
   protocolVersion: version,
@@ -81,19 +72,7 @@ const syncSchema = z.union([
     ),
   }),
 ]);
-const skipSchema = z.object({
-  index: z.number().int().min(0),
-  op: z.string().max(32),
-  reason: z.enum([
-    'missing-target',
-    'exists',
-    'missing-track',
-    'missing-clip',
-    'kind-mismatch',
-    'limit',
-    'invalid',
-  ] as const satisfies readonly StudioSkipReason[]),
-});
+const skipSchema = studioSkipSchema;
 const opsSchema = z.object({
   protocolVersion: version,
   seq: z.number().int().min(1),

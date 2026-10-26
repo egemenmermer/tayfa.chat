@@ -207,14 +207,17 @@ function ExportDialog({
             <SegmentedControl
               aria-label={t('Aralık')}
               selectedKeys={[range]}
-              disabledKeys={loop && !working ? [] : working ? ['song', 'loop'] : ['loop']}
               onSelectionChange={(keys: Set<Key>) => {
                 const next = [...keys][0];
                 if (next === 'song' || next === 'loop') setRange(next);
               }}
             >
-              <SegmentedControlItem id="song">{t('Tüm şarkı')}</SegmentedControlItem>
-              <SegmentedControlItem id="loop">{t('Döngü aralığı')}</SegmentedControlItem>
+              <SegmentedControlItem id="song" isDisabled={working}>
+                {t('Tüm şarkı')}
+              </SegmentedControlItem>
+              <SegmentedControlItem id="loop" isDisabled={working || !loop}>
+                {t('Döngü aralığı')}
+              </SegmentedControlItem>
             </SegmentedControl>
             {!loop ? (
               <span className="text-caption-1-regular text-text-tertiary">
