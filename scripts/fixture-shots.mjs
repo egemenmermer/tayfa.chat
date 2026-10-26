@@ -613,7 +613,15 @@ async function run() {
   try {
     browser = await chromium.launch({
       headless: true,
-      args: ['--force-color-profile=srgb', '--disable-lcd-text', '--font-render-hinting=none'],
+      args: [
+        '--force-color-profile=srgb',
+        '--disable-lcd-text',
+        '--font-render-hinting=none',
+        // On macOS, a GPU child process spawned from a browser on an external volume can hang in
+        // dyld open() of its own executable; the app's codec checks (canPlayType) then block the
+        // renderer forever and React never mounts. In-process GPU spawns no such child (docs/QA.md).
+        '--in-process-gpu',
+      ],
     });
     // Warm vite's dependency optimiser once so the first real fixtures are not reloaded mid-capture.
     const warmup = { fixture: { id: 'S10', variant: 'default' }, viewport: opts.viewports[0] };

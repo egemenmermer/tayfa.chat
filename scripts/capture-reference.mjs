@@ -52,7 +52,8 @@ const record = progress.records.find((r) => r.id === id && r.variant === variant
 if (!record) throw new Error('Capture must match an inventoried reference');
 const directory = path.resolve('.local/design-review/evidence', `${id}-${variant}`);
 await mkdir(directory, { recursive: true });
-const browser = await chromium.launch({ headless: true });
+// In-process GPU: see the note in scripts/fixture-shots.mjs and docs/QA.md (macOS GPU child hang).
+const browser = await chromium.launch({ headless: true, args: ['--in-process-gpu'] });
 try {
   const context = await browser.newContext({
     viewport: { width, height },
