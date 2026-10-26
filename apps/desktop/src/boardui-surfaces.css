@@ -250,8 +250,9 @@ kbd {
   background: var(--color-background-hover);
   color: var(--color-text-primary);
 }
-/* BoardUI floating sidebar: an inset rounded card on the canvas. The header loses the inset so
-   its divider still lines up with the 56px workspace toolbar. */
+/* BoardUI floating sidebar: an inset rounded card on the canvas. Width plus inset stays 240px, so
+   the workspace keeps its width; the header loses the inset so its divider still lines up with
+   the 56px workspace toolbar. */
 .minimal-room-ui .app-layout {
   background: var(--color-background-canvas);
 }
@@ -260,6 +261,8 @@ kbd {
   border-right-color: var(--color-border-subtle);
 }
 .minimal-room-ui .minimal-sidebar {
+  width: 224px;
+  min-width: 224px;
   margin: var(--space-8);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--surface-radius-menu);
