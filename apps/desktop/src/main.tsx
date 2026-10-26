@@ -54,6 +54,15 @@ async function bootstrap() {
     renderBoardUiFixture(document.getElementById('root')!, params.get('variant') || 'default');
     return;
   }
+  if (fixture === 'S94') {
+    // Studio editors on a fake store (development only); it replaces the app shell.
+    const { renderStudioEditorsFixture } = await import('./dev/StudioEditorsFixture');
+    renderStudioEditorsFixture(
+      document.getElementById('root')!,
+      params.get('variant') || 'default',
+    );
+    return;
+  }
   if (fixture) {
     const { installReferenceFixture } = await import('./dev/reference-fixtures');
     if (/^S5[678]$/.test(fixture)) {
