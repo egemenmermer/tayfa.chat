@@ -63,7 +63,10 @@ const BASS_ROOTS = [36, 33, 29, 31];
 const TEMPLATE_BARS = 4;
 
 /** Four bars of 4/4: a rock beat on a drum track and a root-octave-fifth line on a bass track. */
-function drumsAndBass(): Pick<StudioProject, 'tracks' | 'trackOrder' | 'clips' | 'notes' | 'lengthBeats'> {
+function drumsAndBass(): Pick<
+  StudioProject,
+  'tracks' | 'trackOrder' | 'clips' | 'notes' | 'lengthBeats'
+> {
   const lengthBeats = TEMPLATE_BARS * 4;
   const drums = defaultTrack('tpl-drums', 'drums', { color: 0 });
   const bass = defaultTrack('tpl-bass', 'instrument', { instrument: BASS_INSTRUMENT, color: 4 });
@@ -78,7 +81,13 @@ function drumsAndBass(): Pick<StudioProject, 'tracks' | 'trackOrder' | 'clips' |
   const drumClip = clip('tpl-drums-clip', drums.id);
   const bassClip = clip('tpl-bass-clip', bass.id);
   const notes: StudioNote[] = [];
-  const add = (clipId: string, pitch: number, startBeat: number, length: number, velocity: number) =>
+  const add = (
+    clipId: string,
+    pitch: number,
+    startBeat: number,
+    length: number,
+    velocity: number,
+  ) =>
     notes.push({
       id: `${clipId === drumClip.id ? 'tpl-d' : 'tpl-b'}${notes.length}`,
       clipId,

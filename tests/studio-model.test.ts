@@ -216,7 +216,13 @@ describe('applyOps', () => {
       { op: 'note.set', id: 'n1', field: 'velocity', value: 1 },
       { op: 'note.delete', id: 'n2' },
     ]);
-    expect(doc.notes.n1).toEqual({ ...note('n1', 'c1'), pitch: 127, startBeat: 2.5, lengthBeats: 0.25, velocity: 1 });
+    expect(doc.notes.n1).toEqual({
+      ...note('n1', 'c1'),
+      pitch: 127,
+      startBeat: 2.5,
+      lengthBeats: 0.25,
+      velocity: 1,
+    });
     expect(Object.keys(doc.notes).sort()).toEqual(['n1', 'n3', 'n4']);
   });
 
@@ -253,12 +259,24 @@ describe('applyOps', () => {
 
 describe('applyOps skips instead of throwing', () => {
   const cases: Array<[string, StudioOp[], StudioSkipReason]> = [
-    ['track.set on a missing track', [{ op: 'track.set', id: 'x', field: 'mute', value: true }], 'missing-target'],
+    [
+      'track.set on a missing track',
+      [{ op: 'track.set', id: 'x', field: 'mute', value: true }],
+      'missing-target',
+    ],
     ['track.delete on a missing track', [{ op: 'track.delete', id: 'x' }], 'missing-target'],
     ['track.move on a missing track', [{ op: 'track.move', id: 'x', index: 0 }], 'missing-target'],
-    ['clip.set on a missing clip', [{ op: 'clip.set', id: 'x', field: 'name', value: '' }], 'missing-target'],
+    [
+      'clip.set on a missing clip',
+      [{ op: 'clip.set', id: 'x', field: 'name', value: '' }],
+      'missing-target',
+    ],
     ['clip.delete on a missing clip', [{ op: 'clip.delete', id: 'x' }], 'missing-target'],
-    ['note.set on a missing note', [{ op: 'note.set', id: 'x', field: 'pitch', value: 1 }], 'missing-target'],
+    [
+      'note.set on a missing note',
+      [{ op: 'note.set', id: 'x', field: 'pitch', value: 1 }],
+      'missing-target',
+    ],
     ['note.delete on a missing note', [{ op: 'note.delete', id: 'x' }], 'missing-target'],
     [
       'an edit after a delete',
@@ -276,11 +294,27 @@ describe('applyOps skips instead of throwing', () => {
       ],
       'missing-target',
     ],
-    ['track.create with an existing id', [{ op: 'track.create', track: defaultTrack('t1', 'drums') }], 'exists'],
-    ['clip.create with an existing id', [{ op: 'clip.create', clip: midiClip('c1', 't1') }], 'exists'],
+    [
+      'track.create with an existing id',
+      [{ op: 'track.create', track: defaultTrack('t1', 'drums') }],
+      'exists',
+    ],
+    [
+      'clip.create with an existing id',
+      [{ op: 'clip.create', clip: midiClip('c1', 't1') }],
+      'exists',
+    ],
     ['note.create with an existing id', [{ op: 'note.create', note: note('n1', 'c1') }], 'exists'],
-    ['a clip on a missing track', [{ op: 'clip.create', clip: midiClip('c9', 'x') }], 'missing-track'],
-    ['a clip moved to a missing track', [{ op: 'clip.set', id: 'c1', field: 'trackId', value: 'x' }], 'missing-track'],
+    [
+      'a clip on a missing track',
+      [{ op: 'clip.create', clip: midiClip('c9', 'x') }],
+      'missing-track',
+    ],
+    [
+      'a clip moved to a missing track',
+      [{ op: 'clip.set', id: 'c1', field: 'trackId', value: 'x' }],
+      'missing-track',
+    ],
     [
       'a clip on a track deleted earlier in the batch',
       [
@@ -298,13 +332,33 @@ describe('applyOps skips instead of throwing', () => {
       ],
       'missing-clip',
     ],
-    ['a MIDI clip on an audio track', [{ op: 'clip.create', clip: midiClip('c9', 't3') }], 'kind-mismatch'],
-    ['an audio clip on a drum track', [{ op: 'clip.create', clip: audioClip('c9', 't2') }], 'kind-mismatch'],
-    ['a MIDI clip moved to an audio track', [{ op: 'clip.set', id: 'c1', field: 'trackId', value: 't3' }], 'kind-mismatch'],
-    ['an audio field on a MIDI clip', [{ op: 'clip.set', id: 'c1', field: 'gainDb', value: 1 }], 'kind-mismatch'],
+    [
+      'a MIDI clip on an audio track',
+      [{ op: 'clip.create', clip: midiClip('c9', 't3') }],
+      'kind-mismatch',
+    ],
+    [
+      'an audio clip on a drum track',
+      [{ op: 'clip.create', clip: audioClip('c9', 't2') }],
+      'kind-mismatch',
+    ],
+    [
+      'a MIDI clip moved to an audio track',
+      [{ op: 'clip.set', id: 'c1', field: 'trackId', value: 't3' }],
+      'kind-mismatch',
+    ],
+    [
+      'an audio field on a MIDI clip',
+      [{ op: 'clip.set', id: 'c1', field: 'gainDb', value: 1 }],
+      'kind-mismatch',
+    ],
     ['a note on an audio clip', [{ op: 'note.create', note: note('n9', 'c3') }], 'kind-mismatch'],
     ['an unknown op', [{ op: 'track.rename', id: 't1' } as unknown as StudioOp], 'invalid'],
-    ['an unknown field', [{ op: 'track.set', id: 't1', field: 'kind', value: 'audio' } as unknown as StudioOp], 'invalid'],
+    [
+      'an unknown field',
+      [{ op: 'track.set', id: 't1', field: 'kind', value: 'audio' } as unknown as StudioOp],
+      'invalid',
+    ],
   ];
   it.each(cases)('%s', (_name, ops, reason) => {
     const base = scene();
@@ -377,7 +431,9 @@ describe('schemas', () => {
 
   it('rejects unknown fields', () => {
     expect(valid({ op: 'note.delete', id: 'n1', extra: 1 })).toBe(false);
-    expect(valid({ op: 'track.create', track: { ...defaultTrack('t1', 'drums'), gain: 1 } })).toBe(false);
+    expect(valid({ op: 'track.create', track: { ...defaultTrack('t1', 'drums'), gain: 1 } })).toBe(
+      false,
+    );
     expect(valid({ op: 'note.create', note: { ...note('n1', 'c1'), channel: 1 } })).toBe(false);
     expect(valid({ op: 'track.set', id: 't1', field: 'kind', value: 'audio' })).toBe(false);
     expect(valid({ op: 'track.set', id: 't1', field: 'id', value: 't2' })).toBe(false);
@@ -387,7 +443,8 @@ describe('schemas', () => {
   });
 
   it('rejects out-of-range and mistyped values', () => {
-    const set = (field: string, value: unknown) => valid({ op: 'track.set', id: 't1', field, value });
+    const set = (field: string, value: unknown) =>
+      valid({ op: 'track.set', id: 't1', field, value });
     expect(set('volume', 1.6)).toBe(false);
     expect(set('volume', true)).toBe(false);
     expect(set('pan', -1.01)).toBe(false);
@@ -412,7 +469,8 @@ describe('schemas', () => {
     expect(projectSet('key', 'x'.repeat(17))).toBe(false);
     expect(projectSet('lengthBeats', 4097)).toBe(false);
     expect(projectSet('lengthBeats', 1.5)).toBe(false);
-    const noteSet = (field: string, value: unknown) => valid({ op: 'note.set', id: 'n1', field, value });
+    const noteSet = (field: string, value: unknown) =>
+      valid({ op: 'note.set', id: 'n1', field, value });
     expect(noteSet('pitch', 128)).toBe(false);
     expect(noteSet('velocity', 0)).toBe(false);
     expect(noteSet('startBeat', -0.5)).toBe(false);
@@ -429,7 +487,9 @@ describe('schemas', () => {
   });
 
   it('keeps audio fields on audio clips only', () => {
-    expect(valid({ op: 'clip.create', clip: { ...midiClip('c1', 't1'), blobId: 'b' } })).toBe(false);
+    expect(valid({ op: 'clip.create', clip: { ...midiClip('c1', 't1'), blobId: 'b' } })).toBe(
+      false,
+    );
     const { gainDb: _gain, ...partial } = audioClip('c1', 't1');
     expect(valid({ op: 'clip.create', clip: partial })).toBe(false);
   });
@@ -463,11 +523,16 @@ describe('schemas', () => {
     expect(chunks.length).toBeGreaterThan(1);
     expect(chunks.flat()).toEqual(big);
     for (const chunk of chunks)
-      expect(studioBatchSchema.safeParse({ ...batch, batchId: randomUUID(), ops: chunk }).success).toBe(true);
+      expect(
+        studioBatchSchema.safeParse({ ...batch, batchId: randomUUID(), ops: chunk }).success,
+      ).toBe(true);
   });
 
   it('chunks long op lists by count', () => {
-    const ops = Array.from({ length: 450 }, (_, i): StudioOp => ({ op: 'note.delete', id: `n${i}` }));
+    const ops = Array.from({ length: 450 }, (_, i): StudioOp => ({
+      op: 'note.delete',
+      id: `n${i}`,
+    }));
     expect(chunkOps(ops).map((chunk) => chunk.length)).toEqual([200, 200, 50]);
     expect(chunkOps([])).toEqual([]);
   });
@@ -485,6 +550,9 @@ describe('schemas', () => {
     ];
     expect(studioProjectSchema.safeParse(doc).success).toBe(true);
     for (const patch of broken)
-      expect(studioProjectSchema.safeParse({ ...doc, ...patch }).success, JSON.stringify(Object.keys(patch))).toBe(false);
+      expect(
+        studioProjectSchema.safeParse({ ...doc, ...patch }).success,
+        JSON.stringify(Object.keys(patch)),
+      ).toBe(false);
   });
 });

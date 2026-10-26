@@ -26,11 +26,17 @@ import {
 const projectSet = <F extends string, V extends z.ZodType>(field: F, value: V) =>
   z.object({ op: z.literal('project.set'), field: z.literal(field), value }).strict();
 const trackSet = <F extends string, V extends z.ZodType>(field: F, value: V) =>
-  z.object({ op: z.literal('track.set'), id: studioIdSchema, field: z.literal(field), value }).strict();
+  z
+    .object({ op: z.literal('track.set'), id: studioIdSchema, field: z.literal(field), value })
+    .strict();
 const clipSet = <F extends string, V extends z.ZodType>(field: F, value: V) =>
-  z.object({ op: z.literal('clip.set'), id: studioIdSchema, field: z.literal(field), value }).strict();
+  z
+    .object({ op: z.literal('clip.set'), id: studioIdSchema, field: z.literal(field), value })
+    .strict();
 const noteSet = <F extends string, V extends z.ZodType>(field: F, value: V) =>
-  z.object({ op: z.literal('note.set'), id: studioIdSchema, field: z.literal(field), value }).strict();
+  z
+    .object({ op: z.literal('note.set'), id: studioIdSchema, field: z.literal(field), value })
+    .strict();
 const remove = <O extends string>(op: O) =>
   z.object({ op: z.literal(op), id: studioIdSchema }).strict();
 
@@ -120,7 +126,12 @@ const encoder = new TextEncoder();
 export function serializedBytes(value: unknown): number {
   return encoder.encode(JSON.stringify(value)).byteLength;
 }
-export function batchFitsSize(batch: StudioBatch): boolean {
+/** Whether a batch envelope stays within MAX_BATCH_BYTES once serialized. */
+export function batchFitsSize(batch: {
+  protocolVersion: number;
+  batchId: string;
+  ops: readonly StudioOp[];
+}): boolean {
   return serializedBytes(batch) <= MAX_BATCH_BYTES;
 }
 

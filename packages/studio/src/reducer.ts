@@ -45,7 +45,10 @@ export interface StudioApplyResult {
 const has = (record: object, id: string) => Object.hasOwn(record, id);
 
 /** Reads a settable track field (`sends.*` and `eq.*` are leaves of nested objects). */
-export function readTrackField(track: StudioTrack, field: TrackSetOp['field']): TrackSetOp['value'] {
+export function readTrackField(
+  track: StudioTrack,
+  field: TrackSetOp['field'],
+): TrackSetOp['value'] {
   switch (field) {
     case 'sends.reverb':
       return track.sends.reverb;

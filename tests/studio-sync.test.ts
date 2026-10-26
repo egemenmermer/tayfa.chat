@@ -60,11 +60,17 @@ function randomOp(rng: Rng, doc: StudioProject): StudioOp {
   switch (kind) {
     case 0: {
       const field = rng.pick(['name', 'tempo', 'timeSignature', 'key', 'lengthBeats'] as const);
-      if (field === 'name') return { op: 'project.set', field, value: rng.pick(['Demo', 'Gece', 'Şarkı 2']) };
+      if (field === 'name')
+        return { op: 'project.set', field, value: rng.pick(['Demo', 'Gece', 'Şarkı 2']) };
       if (field === 'tempo') return { op: 'project.set', field, value: rng.quarter(40, 240) };
       if (field === 'timeSignature')
-        return { op: 'project.set', field, value: { beats: 2 + rng.int(11), unit: rng.pick([4, 8] as const) } };
-      if (field === 'key') return { op: 'project.set', field, value: rng.pick(['Am', 'C', 'F# minor', null]) };
+        return {
+          op: 'project.set',
+          field,
+          value: { beats: 2 + rng.int(11), unit: rng.pick([4, 8] as const) },
+        };
+      if (field === 'key')
+        return { op: 'project.set', field, value: rng.pick(['Am', 'C', 'F# minor', null]) };
       return { op: 'project.set', field, value: 1 + rng.int(256) };
     }
     case 1:
@@ -115,11 +121,15 @@ function randomOp(rng: Rng, doc: StudioProject): StudioOp {
     case 3:
       return { op: 'track.delete', id: target(rng, doc.tracks, TRACK_IDS) };
     case 4:
-      return { op: 'track.move', id: target(rng, doc.tracks, TRACK_IDS), index: rng.chance(0.9) ? rng.int(6) : 31 };
+      return {
+        op: 'track.move',
+        id: target(rng, doc.tracks, TRACK_IDS),
+        index: rng.chance(0.9) ? rng.int(6) : 31,
+      };
     case 5: {
       const trackId = target(rng, doc.tracks, TRACK_IDS);
       const track = doc.tracks[trackId];
-      const audio = track ? track.kind === 'audio' !== rng.chance(0.1) : rng.chance(0.3);
+      const audio = track ? (track.kind === 'audio') !== rng.chance(0.1) : rng.chance(0.3);
       const base = {
         id: rng.pick(CLIP_IDS),
         trackId,
@@ -130,13 +140,26 @@ function randomOp(rng: Rng, doc: StudioProject): StudioOp {
       return {
         op: 'clip.create',
         clip: audio
-          ? { ...base, kind: 'audio', blobId: 'blob1', offsetSec: rng.quarter(0, 10), gainDb: rng.quarter(-24, 12) }
+          ? {
+              ...base,
+              kind: 'audio',
+              blobId: 'blob1',
+              offsetSec: rng.quarter(0, 10),
+              gainDb: rng.quarter(-24, 12),
+            }
           : { ...base, kind: 'midi' },
       };
     }
     case 6: {
       const id = target(rng, doc.clips, CLIP_IDS);
-      const field = rng.pick(['name', 'trackId', 'startBeat', 'lengthBeats', 'offsetSec', 'gainDb'] as const);
+      const field = rng.pick([
+        'name',
+        'trackId',
+        'startBeat',
+        'lengthBeats',
+        'offsetSec',
+        'gainDb',
+      ] as const);
       switch (field) {
         case 'name':
           return { op: 'clip.set', id, field, value: rng.pick(['', 'B']) };
@@ -213,7 +236,8 @@ describe('invertOps', () => {
       const rng = prng(seed);
       const before = deepFreeze(startDoc(rng));
       const ops = deepFreeze(randomOps(rng, before, 1 + rng.int(40)));
-      for (const op of ops) expect(studioOpSchema.safeParse(op).success, JSON.stringify(op)).toBe(true);
+      for (const op of ops)
+        expect(studioOpSchema.safeParse(op).success, JSON.stringify(op)).toBe(true);
 
       const forward = applyOps(before, ops);
       expect(forward.applied.length + forward.skipped.length).toBe(ops.length);
@@ -223,7 +247,8 @@ describe('invertOps', () => {
       appliedTotal += forward.applied.length;
 
       const inverse = invertOps(before, ops);
-      for (const op of inverse) expect(studioOpSchema.safeParse(op).success, JSON.stringify(op)).toBe(true);
+      for (const op of inverse)
+        expect(studioOpSchema.safeParse(op).success, JSON.stringify(op)).toBe(true);
       const back = applyOps(forward.doc, inverse);
       expect(back.skipped, `seed ${seed}`).toEqual([]);
       expect(back.doc, `seed ${seed}`).toStrictEqual(before);
@@ -250,7 +275,13 @@ describe('invertOps', () => {
         'track.set',
       ].sort(),
     );
-    for (const reason of ['missing-target', 'exists', 'missing-track', 'missing-clip', 'kind-mismatch'])
+    for (const reason of [
+      'missing-target',
+      'exists',
+      'missing-track',
+      'missing-clip',
+      'kind-mismatch',
+    ])
       expect(reasons.has(reason), reason).toBe(true);
     expect(appliedTotal).toBeGreaterThan(1000);
   });
@@ -270,7 +301,11 @@ describe('invertOps', () => {
     const after = applyOps(before, ops).doc;
     expect(after.trackOrder).toEqual(['tpl-bass']);
     const inverse = invertOps(before, ops);
-    expect(inverse.slice(0, 3).map((op) => op.op)).toEqual(['track.create', 'track.move', 'clip.create']);
+    expect(inverse.slice(0, 3).map((op) => op.op)).toEqual([
+      'track.create',
+      'track.move',
+      'clip.create',
+    ]);
     expect(inverse).toHaveLength(3 + 48);
     expect(applyOps(after, inverse).doc).toStrictEqual(before);
   });
@@ -325,13 +360,10 @@ class Client {
 
 function scene(): StudioProject {
   return deepFreeze(
-    applyOps(
-      createProject({ id: 'p1', roomId: 'r', name: 'Demo', createdBy: 'a', createdAt: 0 }),
-      [
-        { op: 'track.create', track: defaultTrack('t1', 'instrument') },
-        { op: 'track.create', track: defaultTrack('t2', 'drums') },
-      ],
-    ).doc,
+    applyOps(createProject({ id: 'p1', roomId: 'r', name: 'Demo', createdBy: 'a', createdAt: 0 }), [
+      { op: 'track.create', track: defaultTrack('t1', 'instrument') },
+      { op: 'track.create', track: defaultTrack('t2', 'drums') },
+    ]).doc,
   );
 }
 
@@ -343,8 +375,14 @@ describe('two clients converge through rebase and server order', () => {
       const bob = new Client('bob', server.doc);
       alice.edit([{ op: 'track.delete', id: 't1' }]);
       bob.edit([
-        { op: 'clip.create', clip: { id: 'c1', trackId: 't1', startBeat: 0, lengthBeats: 4, name: '', kind: 'midi' } },
-        { op: 'note.create', note: { id: 'n1', clipId: 'c1', pitch: 60, startBeat: 0, lengthBeats: 1, velocity: 90 } },
+        {
+          op: 'clip.create',
+          clip: { id: 'c1', trackId: 't1', startBeat: 0, lengthBeats: 4, name: '', kind: 'midi' },
+        },
+        {
+          op: 'note.create',
+          note: { id: 'n1', clipId: 'c1', pitch: 60, startBeat: 0, lengthBeats: 1, velocity: 90 },
+        },
       ]);
       // Optimistic views show each user's own edit at once.
       expect(alice.view.tracks.t1).toBeUndefined();
