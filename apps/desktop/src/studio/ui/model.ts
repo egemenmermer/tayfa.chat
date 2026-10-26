@@ -28,6 +28,8 @@ export interface StudioEditorModel {
   clearError(): void;
   /** Opens the project again after a final error. */
   retry(): void;
+  /** Publishes this user's clip/note selection as presence (optional: fixtures may omit it). */
+  setSelection?(selection: { clipId?: string; noteIds: string[] }): void;
 }
 
 /** The project list's calls; the real one wraps the bridge with readable errors (store.ts). */

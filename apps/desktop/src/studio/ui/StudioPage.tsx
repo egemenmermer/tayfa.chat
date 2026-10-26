@@ -15,8 +15,8 @@ import {
 } from '../store';
 import type { StudioEditorModel, StudioProjectsApi } from './model';
 import { ProjectList } from './ProjectList';
-import { StudioEditor } from './StudioEditor';
 import { StudioSurface } from './StudioSurface';
+import { StudioWorkspace } from './StudioWorkspace';
 import { createLiveTransport } from './transport';
 import { useOwnedTransport } from './use-owned-transport';
 
@@ -130,6 +130,7 @@ function ProjectListEntry({ roomId, roomName }: { roomId: string; roomName: stri
 function OpenProject({ roomId, projectId }: { roomId: string; projectId: string }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const selfId = useCommunity((state) => state.user?.id ?? null);
   const view = useStudioStore((state) =>
     state.roomId === roomId && state.projectId === projectId ? state.view : null,
   );
@@ -150,12 +151,15 @@ function OpenProject({ roomId, projectId }: { roomId: string; projectId: string 
     redo: () => studioActions.redo(),
     clearError: () => studioActions.clearError(),
     retry: () => openStudioProject(roomId, projectId),
+    setSelection: (selection) => studioActions.setPresence({ selection }),
   };
   if (!transport) return null;
   return (
-    <StudioEditor
+    <StudioWorkspace
       model={model}
       transport={transport}
+      roomId={roomId}
+      selfUserId={selfId ?? ''}
       startRenaming={new URLSearchParams(location.search).get('rename') === '1'}
       onBack={() => navigate(`/studio/${roomId}`)}
     />

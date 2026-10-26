@@ -122,4 +122,9 @@ export interface StudioBridge {
     projectId: string,
     state: StudioPresenceState,
   ): Promise<{ protocolVersion: 1; presence: StudioPresence[] }>;
+  /**
+   * Desktop only: asks where to save an exported song and writes the WAV there (main validates the bytes).
+   * Resolves false when the user cancels the dialog.
+   */
+  saveExport?(fileName: string, wav: Uint8Array): Promise<boolean>;
 }
