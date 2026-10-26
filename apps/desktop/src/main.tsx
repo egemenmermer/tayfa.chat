@@ -48,6 +48,12 @@ async function bootstrap() {
   installInputModality();
   const params = new URLSearchParams(window.location.search);
   const fixture = import.meta.env.DEV ? params.get('fixture') : null;
+  if (fixture === 'S90') {
+    // BoardUI component gallery (development only); it replaces the app shell.
+    const { renderBoardUiFixture } = await import('./dev/BoardUiFixture');
+    renderBoardUiFixture(document.getElementById('root')!, params.get('variant') || 'default');
+    return;
+  }
   if (fixture) {
     const { installReferenceFixture } = await import('./dev/reference-fixtures');
     if (/^S5[678]$/.test(fixture)) {

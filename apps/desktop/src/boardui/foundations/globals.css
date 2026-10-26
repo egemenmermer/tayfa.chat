@@ -64,6 +64,17 @@
   :is(button, input, select, textarea):disabled {
     opacity: 1;
   }
+  /*
+   * BoardUI draws its own focus rings (ring utilities in Tayfa's focus colour), so Tayfa's global
+   * outline ring (interaction-quality.css) is dropped inside regions; same specificity, the scoped
+   * rule wins on proximity. Ring offsets show the surface BoardUI controls usually sit on.
+   */
+  :is(button, a, input, textarea, select, [tabindex]):focus-visible {
+    outline: none;
+  }
+  :where(*) {
+    --tw-ring-offset-color: var(--color-background-secondary-default);
+  }
 
   @tailwind utilities source(none);
 }

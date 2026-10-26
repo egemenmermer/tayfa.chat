@@ -364,6 +364,8 @@
   --color-text-white: var(--color-text-white);
   --color-text-on-accent: var(--color-text-on-accent);
   --color-text-on-danger: var(--color-text-on-danger);
+  /* Tayfa's accent text (lighter than the fill, readable on dark surfaces). */
+  --color-text-accent: var(--color-text-accent);
 
   --color-background-full: var(--color-background-full);
   --color-background-primary-default: var(--color-background-primary-default);
@@ -620,4 +622,7 @@
   --color-status-success: #1d8656;
   --color-status-warning: #9a640c;
   --color-status-error: #c2313e;
+  /* Thumbs and knobs stay light on coloured tracks in both themes. */
+  --color-control-indicator-background: #ffffff;
+  --color-control-indicator-background-subtle: #ececf2;
 }
