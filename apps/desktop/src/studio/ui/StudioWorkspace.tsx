@@ -1,6 +1,12 @@
 import { useMemo } from 'react';
 import { t } from '../../i18n';
-import { StudioEditors, type EditorPort, type EditorSelection } from '../editors';
+import {
+  StudioEditors,
+  type DetailView,
+  type EditorPort,
+  type EditorSelection,
+  type LowerPanel,
+} from '../editors';
 import type { LoopRegion } from '../engine/schedule';
 import { studioBridge } from '../store';
 import { StudioExportControl, type StudioExportApi } from './ExportDialog';
@@ -84,6 +90,8 @@ export interface StudioWorkspaceProps {
   exportApi?: StudioExportApi;
   onBack(): void;
   startRenaming?: boolean;
+  /** Fixtures: open with a clip, a panel or the export dialog showing. */
+  initial?: { clipId?: string; detail?: DetailView; panel?: LowerPanel; exportOpen?: boolean };
 }
 
 /** The open project: frame (transport, headers) + editors + mixer + export, all on one model and transport. */
@@ -95,6 +103,7 @@ export function StudioWorkspace({
   exportApi = desktopExportApi,
   onBack,
   startRenaming,
+  initial,
 }: StudioWorkspaceProps) {
   return (
     <StudioEditor
@@ -109,6 +118,7 @@ export function StudioWorkspace({
           loop={loop}
           exporter={transport.exportWav}
           api={exportApi}
+          initiallyOpen={initial?.exportOpen}
         />
       )}
       arrangement={(slot) => (
@@ -117,6 +127,7 @@ export function StudioWorkspace({
           transport={transport}
           selfUserId={selfUserId}
           slot={slot}
+          initial={initial}
         />
       )}
     />
@@ -128,10 +139,12 @@ function WiredEditors({
   transport,
   selfUserId,
   slot,
+  initial,
 }: {
   model: StudioEditorModel;
   transport: StudioTransport;
   selfUserId: string;
+  initial?: StudioWorkspaceProps['initial'];
   slot: Parameters<NonNullable<Parameters<typeof StudioEditor>[0]['arrangement']>>[0];
 }) {
   const port = useEditorPort(model, transport, selfUserId, {
@@ -146,6 +159,9 @@ function WiredEditors({
       laneHeight={slot.rowHeight}
       rulerHeight={slot.headerHeight}
       mixer={<StudioMixer doc={slot.doc} readOnly={slot.readOnly} dispatch={model.dispatch} />}
+      initialClipId={initial?.clipId ?? null}
+      initialDetail={initial?.detail}
+      initialPanel={initial?.panel}
     />
   );
 }

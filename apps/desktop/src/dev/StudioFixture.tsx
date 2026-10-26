@@ -13,7 +13,8 @@ import type {
 } from '../../../../packages/shared-contracts/src/studio';
 import type { StudioEditorModel, StudioProjectsApi } from '../studio/ui/model';
 import { ProjectList } from '../studio/ui/ProjectList';
-import { StudioEditor } from '../studio/ui/StudioEditor';
+import type { StudioExportApi } from '../studio/ui/ExportDialog';
+import { StudioWorkspace, type StudioWorkspaceProps } from '../studio/ui/StudioWorkspace';
 import { StudioSurface } from '../studio/ui/StudioSurface';
 import type { StudioTransport } from '../studio/ui/transport';
 import { STUDIO_FIXTURE_VARIANTS, type StudioFixtureVariant } from './studio-fixture';
@@ -131,10 +132,32 @@ const silentTransport: StudioTransport = {
   setLoop: () => {},
   setMetronome: () => {},
   onPosition: () => () => {},
+  preview: () => {},
+  exportWav: () => new Promise(() => {}),
   dispose: () => {},
 };
 
-function FixtureEditor({ readOnly }: { readOnly: boolean }) {
+const fixtureExport: StudioExportApi = {
+  save: () =>
+    Promise.reject(new Error(sample('Örnekte dosya kaydedilmez.', 'The sample does not save files.'))),
+  share: () =>
+    Promise.reject(new Error(sample('Örnekte sohbete gönderilmez.', 'The sample does not post to chat.'))),
+};
+
+const INITIAL: Partial<Record<StudioFixtureVariant, StudioWorkspaceProps['initial']>> = {
+  piano: { clipId: 'tpl-bass-clip' },
+  steps: { clipId: 'tpl-drums-clip', detail: 'steps' },
+  mixer: { panel: 'mixer' },
+  export: { exportOpen: true },
+};
+
+function FixtureEditor({
+  readOnly,
+  variant,
+}: {
+  readOnly: boolean;
+  variant: StudioFixtureVariant;
+}) {
   const [doc, setDoc] = useState(fixtureDoc);
   const [history, setHistory] = useState<StudioProject[]>([]);
   const model: StudioEditorModel = useMemo(
@@ -167,7 +190,17 @@ function FixtureEditor({ readOnly }: { readOnly: boolean }) {
     }),
     [doc, history, readOnly],
   );
-  return <StudioEditor model={model} transport={silentTransport} onBack={() => {}} />;
+  return (
+    <StudioWorkspace
+      model={model}
+      transport={silentTransport}
+      roomId="fixture-room"
+      selfUserId={SELF}
+      exportApi={fixtureExport}
+      initial={INITIAL[variant]}
+      onBack={() => {}}
+    />
+  );
 }
 
 export function StudioFixture({ variant }: { variant: StudioFixtureVariant }) {
@@ -189,8 +222,8 @@ export function StudioFixture({ variant }: { variant: StudioFixtureVariant }) {
             )}
           </span>
         </div>
-        {variant === 'editor' || variant === 'readonly' ? (
-          <FixtureEditor readOnly={variant === 'readonly'} />
+        {variant !== 'default' && variant !== 'empty' && variant !== 'loading' ? (
+          <FixtureEditor readOnly={variant === 'readonly'} variant={variant} />
         ) : (
           <ProjectList
             roomId="fixture-room"

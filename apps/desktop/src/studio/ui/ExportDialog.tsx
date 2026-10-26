@@ -38,7 +38,7 @@ export function exportFileStem(name: string): string {
     .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-    .replace(/^\.+/, '')
+    .replace(/^[. ]+/, '')
     .slice(0, 80)
     .trim();
   return stem || 'tayfa-studio';
@@ -50,11 +50,20 @@ export interface StudioExportControlProps {
   loop: LoopRegion | null;
   exporter?: StudioExporter;
   api: StudioExportApi;
+  /** Fixtures: show the dialog at once. */
+  initiallyOpen?: boolean;
 }
 
 /** "Dışa aktar" in the transport bar and its dialog: range, file name, render with progress, save or share. */
-export function StudioExportControl({ doc, roomId, loop, exporter, api }: StudioExportControlProps) {
-  const [open, setOpen] = useState(false);
+export function StudioExportControl({
+  doc,
+  roomId,
+  loop,
+  exporter,
+  api,
+  initiallyOpen = false,
+}: StudioExportControlProps) {
+  const [open, setOpen] = useState(initiallyOpen);
   const notes = Object.keys(doc.notes).length;
   const reason = !exporter
     ? t('Dışa aktarma bu görünümde kullanılamıyor.')
@@ -94,7 +103,7 @@ function ExportDialog({
   exporter,
   api,
   onClose,
-}: Required<Omit<StudioExportControlProps, 'exporter'>> & {
+}: Omit<StudioExportControlProps, 'exporter' | 'initiallyOpen'> & {
   exporter: StudioExporter;
   loop: LoopRegion | null;
   onClose(): void;

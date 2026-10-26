@@ -19,7 +19,7 @@ export function studioExportFileName(input: unknown): string {
     .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-    .replace(/^\.+/, '')
+    .replace(/^[. ]+/, '')
     .replace(/\.wav$/i, '')
     .trim()
     .slice(0, MAX_FILE_NAME)

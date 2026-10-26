@@ -1,6 +1,12 @@
 // Studio editors (arrangement, piano roll, drum steps). The shell renders <StudioEditors port={…}>
 // inside its <BoardUiRoot> and adapts the Studio store to EditorPort (port.ts).
-export { StudioEditors, randomId, type StudioEditorsProps, type DetailView } from './StudioEditors';
+export {
+  StudioEditors,
+  randomId,
+  type StudioEditorsProps,
+  type DetailView,
+  type LowerPanel,
+} from './StudioEditors';
 export {
   ArrangementTimeline,
   ARRANGEMENT_LABEL_WIDTH,

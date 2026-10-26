@@ -42,9 +42,11 @@ export interface StudioEditorsProps {
   rulerHeight?: number;
   /** A mixer panel, offered as a tab beside the clip editor. */
   mixer?: ReactNode;
+  /** Which lower panel shows first (fixtures). */
+  initialPanel?: LowerPanel;
 }
 
-type LowerPanel = 'clip' | 'mixer';
+export type LowerPanel = 'clip' | 'mixer';
 
 export type DetailView = 'piano' | 'steps';
 
@@ -67,8 +69,9 @@ export function StudioEditors({
   laneHeight,
   rulerHeight,
   mixer,
+  initialPanel = 'clip',
 }: StudioEditorsProps) {
-  const [lower, setLower] = useState<LowerPanel>('clip');
+  const [lower, setLower] = useState<LowerPanel>(initialPanel);
   const headers = useRef<HTMLDivElement>(null);
   const lanes = useRef<HTMLDivElement | null>(null);
   const { doc, canEdit } = port;
