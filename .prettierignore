@@ -6,3 +6,5 @@ apps/desktop/public/
 **/target/
 **/LICENSE*
 pnpm-lock.yaml
+# Private BoardUI Pro submodule: formatted in its own repository.
+apps/desktop/src/boardui-pro/

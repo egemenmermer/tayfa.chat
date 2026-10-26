@@ -39,6 +39,10 @@ jobs:
         with:
           node-version: 22.22.0
           cache: pnpm
+      - name: Fetch BoardUI Pro (official builds; without the key the public fallback is used)
+        env:
+          TAYFA_PRO_UI_DEPLOY_KEY: ${{ secrets.TAYFA_PRO_UI_DEPLOY_KEY }}
+        run: node scripts/fetch-boardui-pro.mjs
       - run: pnpm install --frozen-lockfile
       - run: node scripts/release-preflight.mjs
       - run: pnpm build
@@ -90,6 +94,10 @@ jobs:
         with:
           node-version: 22.22.0
           cache: pnpm
+      - name: Fetch BoardUI Pro (official builds; without the key the public fallback is used)
+        env:
+          TAYFA_PRO_UI_DEPLOY_KEY: ${{ secrets.TAYFA_PRO_UI_DEPLOY_KEY }}
+        run: node scripts/fetch-boardui-pro.mjs
       - run: pnpm install --frozen-lockfile
       - run: node scripts/release-preflight.mjs
       - run: pnpm build

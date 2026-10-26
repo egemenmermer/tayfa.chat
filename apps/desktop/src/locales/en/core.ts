@@ -12,4 +12,9 @@ export const core: Catalog = {
     'The action could not be completed. Check your connection and try again.',
   'Özel mesaj için önce arkadaş olmanız gerekiyor.':
     'You need to be friends before you can send a direct message.',
+  // Built-in labels of the BoardUI components (apps/desktop/src/boardui).
+  Değer: 'Value',
+  'Değer {number}': 'Value {number}',
+  'En az': 'Minimum',
+  'En çok': 'Maximum',
 };

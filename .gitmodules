@@ -1,0 +1,6 @@
+# Private BoardUI Pro component source (licensed; never copied into this public repository).
+# Builds without access use apps/desktop/src/boardui-pro-fallback. See apps/desktop/src/boardui/README.md.
+[submodule "apps/desktop/src/boardui-pro"]
+	path = apps/desktop/src/boardui-pro
+	url = https://github.com/egemenmermer/tayfa-pro-ui.git
+	shallow = true
