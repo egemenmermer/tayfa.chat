@@ -3,6 +3,7 @@ const { join } = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { mkdirSync, copyFileSync, existsSync, readFileSync } = require('node:fs');
 const { distributionScope, verifyPublicResources } = require('./package-privacy.cjs');
+const { writeLocalizedDisplayName } = require('./mac-display-name.cjs');
 
 module.exports = async (context) => {
   const scope = distributionScope();
@@ -57,6 +58,7 @@ module.exports = async (context) => {
   }
   if (scope === 'public') verifyPublicResources(resources);
   if (context.electronPlatformName !== 'darwin') return;
+  writeLocalizedDisplayName(resources);
   // Finder/resource-fork metadata on generated files invalidates codesign sealing.
   // Restrict cleanup to this build's generated app, never source, user data or installed apps.
   const app = join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`);

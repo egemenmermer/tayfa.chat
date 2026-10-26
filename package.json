@@ -112,7 +112,8 @@
       "minimumSystemVersion": "14.0",
       "hardenedRuntime": false,
       "extendInfo": {
-        "CFBundleDisplayName": "Tayfa",
+        "CFBundleDisplayName": "ROOMS",
+        "LSHasLocalizedDisplayName": true,
         "NSMicrophoneUsageDescription": "Tayfa uses your microphone only when you start a microphone test or join a voice room.",
         "NSCameraUsageDescription": "Tayfa uses your camera only when you enable video.",
         "NSAudioCaptureUsageDescription": "Tayfa captures system audio only when you explicitly enable sound for a selected screen share."
