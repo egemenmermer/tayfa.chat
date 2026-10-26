@@ -441,8 +441,9 @@ export function registerStudio(app: FastifyInstance, options: StudioRouteOptions
     try {
       let stored = await read();
       touch(key, identity);
-      // Wait only when the answer would be an empty batch list; a snapshot is answered at once.
-      if (query.waitMs && !closed && stored.seq === query.afterSeq && !needsSnapshot(stored, query.afterSeq)) {
+      // Wait only while nothing is newer than `afterSeq`. A client at 0 cannot be told apart from a new one,
+      // so the first sync of a session is sent with `waitMs=0` to get the snapshot at once.
+      if (query.waitMs && !closed && stored.seq === query.afterSeq) {
         await wake;
         // Membership may have changed (or the project been deleted) while this request waited.
         identity = await options.authorize(request, roomId, false);
