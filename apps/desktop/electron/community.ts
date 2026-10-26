@@ -114,6 +114,12 @@ export async function setupCommunity(
   let unsubscribe: (() => void) | null = null;
   let authRequestEpoch = 0;
   let sessionEpoch = 0;
+  /** Aborted at every account change so long polls of the previous session end at once. */
+  let sessionRequests = new AbortController();
+  const endSessionRequests = () => {
+    sessionRequests.abort();
+    sessionRequests = new AbortController();
+  };
   let recoveryEpoch = 0;
   const uploadedAttachments = new Map<
     string,
@@ -415,6 +421,7 @@ export async function setupCommunity(
     }
     const previous = client;
     const generation = ++sessionEpoch;
+    endSessionRequests();
     unsubscribe?.();
     unsubscribe = null;
     client = null;
@@ -605,6 +612,7 @@ export async function setupCommunity(
     passwordReset.clear();
     ++authRequestEpoch;
     ++sessionEpoch;
+    endSessionRequests();
     const previous = client;
     unsubscribe?.();
     unsubscribe = null;
@@ -2177,12 +2185,31 @@ export async function setupCommunity(
       },
     );
   }
+  /**
+   * Bearer and origin for a main-process call to a Tayfa service (Studio). The token never leaves the main
+   * process; `assertSession` fails once the account changed and `signal` aborts at that moment.
+   */
+  function serviceSession() {
+    const current = requireClient();
+    const token = current.getToken()!;
+    return {
+      origin: new URL(current.instanceUrl).origin,
+      token,
+      signal: sessionRequests.signal,
+      assertSession: () => {
+        if (client !== current || current.getToken() !== token)
+          throw new StoatError(401, 'SESSION_CHANGED');
+      },
+    };
+  }
   return {
     snapshot,
     activityRequest,
+    serviceSession,
     serveCinema: cinema.serve,
     close: async () => {
       recoveryEpoch++;
+      endSessionRequests();
       hostOps.dispose();
       remote.dispose();
       passwordReset.clear();
