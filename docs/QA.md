@@ -51,6 +51,19 @@ and non-dev-server network requests blocked. Two runs on unchanged code must rep
 they do not, treat that as a bug in the fixture (or the script) before trusting a refactor diff. A fixture
 that logs a page error is still captured; the errors are recorded in `<out>/manifest.json`.
 
+## Troubleshooting: every fixture times out
+
+If every capture (the S10 warm-up included) times out, `#root` stays empty and the renderer stops answering
+right after the "development fixture" console line, check that Chromium is started with `--in-process-gpu`
+(both `scripts/fixture-shots.mjs` and `scripts/capture-reference.mjs` pass it). On macOS, when the Playwright
+browser lives on an external volume (here `~/Library/Caches/ms-playwright` links to the external SSD), the
+separate GPU child process can hang in dyld `open()` of its own executable. Seen on 2026-10-26 with
+chrome-headless-shell 1248 on macOS 27.0.1; a fresh copy on the same SSD also hangs, a copy on the internal
+disk does not. Anything that needs the GPU process then blocks the renderer main thread in native code (so a
+debugger pause never breaks): here the room join cue (`new Audio().play()` in `room-event-sounds.tsx`), and
+also `canPlayType('audio/ogg; codecs=opus')` or `MediaSource.isTypeSupported(...)` on an empty page.
+For other Playwright scripts, the alternative is `PLAYWRIGHT_BROWSERS_PATH=<dir on the internal disk>`.
+
 ## Limits
 
 - Fixtures show states, not interactions: a screenshot cannot prove that a button works. Click paths stay
