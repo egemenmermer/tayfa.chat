@@ -185,7 +185,7 @@ function ExportDialog({
         roomId,
         fileName,
         wav,
-        t('Stüdyo’dan yeni bir parça: {name}', { name: doc.name }),
+        t('Stüdyo’dan yeni bir şarkı: {name}', { name: doc.name }),
       );
       setPhase({ kind: 'done', message: t('Şarkı odanın sohbetine gönderildi.') });
     } catch (error) {

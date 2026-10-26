@@ -232,7 +232,7 @@ export const studio: Catalog = {
   'Şarkı {size} MB; sohbete en fazla 25 MB eklenebilir. Daha kısa bir aralık seç ya da dosyayı kaydet.':
     'The song is {size} MB; chat accepts up to 25 MB. Pick a shorter range or save the file.',
   'Sohbete gönderiliyor…': 'Sending to chat…',
-  'Stüdyo’dan yeni bir parça: {name}': 'New song from Studio: {name}',
+  'Stüdyo’dan yeni bir şarkı: {name}': 'New song from Studio: {name}',
   'Şarkı odanın sohbetine gönderildi.': 'The song was sent to the room’s chat.',
   'Bu odanın sohbetine dosya gönderemiyorsun.': 'You can’t send files to this room’s chat.',
   'Önce bu işlem bitsin.': 'Wait for the current step to finish.',

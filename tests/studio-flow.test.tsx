@@ -271,11 +271,14 @@ describe('Studio end to end over a fake bridge', () => {
     const kick = await screen.findByRole('gridcell', { name: 'Kick, adım 1' });
     fireEvent.keyDown(kick, { key: 'Enter' });
     fireEvent.keyDown(screen.getByRole('gridcell', { name: 'Kick, adım 9' }), { key: 'Enter' });
-    expect(engine.preview).not.toHaveBeenCalled(); // no engine before the first Play
     await waitFor(() =>
       expect(
         Object.values(service.projects.get(projectId)!.doc.notes).map((note) => note.startBeat),
       ).toEqual([0, 2]),
+    );
+    // A step click auditions the hit; the click is a gesture, so the transport may start the engine for it.
+    await waitFor(() =>
+      expect(engine.preview).toHaveBeenCalledWith(drumId, expect.any(Number), expect.any(Number)),
     );
     expect(
       screen.getByRole('gridcell', { name: 'Kick, adım 1' }).getAttribute('aria-pressed'),
@@ -316,7 +319,7 @@ describe('Studio end to end over a fake bridge', () => {
       'Gece ritmi.wav',
       expect.any(Uint8Array),
     );
-    expect(social.send).toHaveBeenCalledWith(ROOM, 'Stüdyo’dan yeni bir parça: Gece/ritmi', [
+    expect(social.send).toHaveBeenCalledWith(ROOM, 'Stüdyo’dan yeni bir şarkı: Gece/ritmi', [
       'att1',
     ]);
     await act(async () => {});

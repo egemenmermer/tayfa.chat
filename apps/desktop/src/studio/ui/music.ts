@@ -7,6 +7,7 @@ import {
   type StudioTimeSignature,
   type StudioTrack,
 } from '@rooms/studio';
+import { chartToken } from '../editors/colors';
 import { barBeats } from '../engine/schedule';
 import { t } from '../../i18n';
 
@@ -70,8 +71,7 @@ export function signatureChoices(current: StudioTimeSignature): StudioTimeSignat
  * (chart-1…9, then the -active shades), the same mapping as the editors' canvas palette.
  */
 export function trackColor(index: number): string {
-  const i = ((Math.trunc(index) % TRACK_COLOR_COUNT) + TRACK_COLOR_COUNT) % TRACK_COLOR_COUNT;
-  return i < 9 ? `var(--color-chart-${i + 1})` : `var(--color-chart-${i - 8}-active)`;
+  return `var(${chartToken(index)})`;
 }
 
 export function trackColorName(index: number): string {
