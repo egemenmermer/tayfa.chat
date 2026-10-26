@@ -236,10 +236,10 @@ function createVoice(
           modulationIndex: 2.5,
           oscillator: { type: 'sine' },
           modulation: { type: 'sine' },
-          envelope: { attack: 0.002, decay: 1.1, sustain: 0.12, release: 1 },
+          envelope: { attack: 0.002, decay: 1.1, sustain: 0.25, release: 1 },
           modulationEnvelope: { attack: 0.002, decay: 0.4, sustain: 0, release: 0.5 },
         },
-        volume: -8,
+        volume: -3,
       }),
     );
   } else if (kind === 'synth-pad') {
@@ -311,12 +311,15 @@ class Mixer {
     private readonly Tone: ToneModule,
     private readonly context: AnyContext,
     private readonly master: ToneTypes.Gain,
+    private readonly limiter: ToneTypes.Limiter,
     private readonly reverb: ToneTypes.Reverb,
     private readonly delay: ToneTypes.FeedbackDelay,
   ) {}
 
   static async create(Tone: ToneModule, context: AnyContext): Promise<Mixer> {
-    const master = new Tone.Gain({ context, gain: 0.8 }).connect(context.destination);
+    // Native DynamicsCompressor (no worklet): keeps a dense mix from clipping the 16-bit export.
+    const limiter = new Tone.Limiter({ context, threshold: -1 }).connect(context.destination);
+    const master = new Tone.Gain({ context, gain: 0.8 }).connect(limiter);
     const reverb = new Tone.Reverb({
       context,
       decay: REVERB_DECAY_SECONDS,
@@ -331,7 +334,7 @@ class Mixer {
       maxDelay: 2,
     }).connect(master);
     await reverb.ready;
-    return new Mixer(Tone, context, master, reverb, delay);
+    return new Mixer(Tone, context, master, limiter, reverb, delay);
   }
 
   /** Brings strips, voices and mixer settings in line with `plan`. `immediate` skips ramps (offline). */
@@ -409,6 +412,7 @@ class Mixer {
     this.reverb.dispose();
     this.delay.dispose();
     this.master.dispose();
+    this.limiter.dispose();
   }
 }
 
