@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   applyOps,
@@ -90,6 +92,16 @@ function apply(doc: StudioProject, ops: StudioOp[]) {
   expect(studioProjectSchema.safeParse(result.doc).success).toBe(true);
   return result;
 }
+
+it('keeps the package free of Node-only imports, so the desktop renderer can bundle it', () => {
+  const root = join(__dirname, '../packages/studio/src');
+  const offenders = readdirSync(root)
+    .filter((file) => file.endsWith('.ts'))
+    .filter((file) =>
+      /from ['"]node:|\bBuffer\b|\brequire\(/.test(readFileSync(join(root, file), 'utf8')),
+    );
+  expect(offenders).toEqual([]);
+});
 
 describe('studio templates', () => {
   it('builds valid projects without display names', () => {
