@@ -18,10 +18,14 @@
   gap: 9px;
   margin: 12px 12px 8px;
   padding: 0 11px;
-  border: 1px solid #ffffff1f;
-  border-radius: 10px;
-  background: #15171c;
+  border: 1px solid transparent;
+  border-radius: var(--surface-radius-field);
+  background: var(--color-background-tertiary-default);
   color: var(--color-text-secondary, #b1b5c2);
+  transition: box-shadow var(--motion-quick) ease;
+}
+.gif-search:hover:not(:focus-within) {
+  box-shadow: var(--surface-field-ring-hover);
 }
 .gif-search input {
   flex: 1;
@@ -30,7 +34,7 @@
   border: 0;
   outline: none;
   background: transparent;
-  color: inherit;
+  color: var(--color-text-primary);
   font-size: 14px;
 }
 .gif-results {
@@ -133,8 +137,7 @@
 
 /* The field carries the focus ring, so the input inside does not draw a second one. */
 .gif-search:focus-within {
-  border-color: #8b83ff;
-  box-shadow: 0 0 0 3px #8b83ff33;
+  box-shadow: var(--surface-field-ring-focus);
 }
 .gif-search input:focus-visible {
   outline: none;

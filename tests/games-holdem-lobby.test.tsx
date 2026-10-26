@@ -159,7 +159,7 @@ it('mounts the Hold’em table from the registry with the lobby’s own command 
   // The playing table uses the table layout: one-row header, stage, docked controls.
   expect(document.querySelector('.rg-page.rx-game.rx-holdem > .rx-head')).toBeTruthy();
   expect(document.querySelector('.rx-stage .rg-board')).toBeTruthy();
-  expect(button('Kıraathaneye dön')).toBeTruthy();
+  expect(button('Oyunlara dön')).toBeTruthy();
   expect(button('Masa kuralları')).toBeTruthy();
   expect(button('Masayı kapat')).toBeTruthy();
   expect(document.querySelector('.rg-end')).toBeNull();

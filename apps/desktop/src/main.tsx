@@ -9,6 +9,8 @@ import App from './App';
 import './reference-shell.css';
 import './design-components.css';
 import './interaction-quality.css';
+// BoardUI (Tailwind) styles apply only inside BoardUI regions; see boardui/foundations/globals.css.
+import './boardui/foundations/globals.css';
 import { installInputModality } from './input-modality';
 import { queryClient as client } from './query-client';
 // A file dropped outside a drop target must never navigate the app window to that file.
@@ -46,6 +48,27 @@ async function bootstrap() {
   installInputModality();
   const params = new URLSearchParams(window.location.search);
   const fixture = import.meta.env.DEV ? params.get('fixture') : null;
+  if (fixture === 'S90') {
+    // BoardUI component gallery (development only); it replaces the app shell.
+    const { renderBoardUiFixture } = await import('./dev/BoardUiFixture');
+    renderBoardUiFixture(document.getElementById('root')!, params.get('variant') || 'default');
+    return;
+  }
+  if (fixture === 'S94') {
+    // Studio editors on a fake store (development only); it replaces the app shell.
+    const { renderStudioEditorsFixture } = await import('./dev/StudioEditorsFixture');
+    renderStudioEditorsFixture(
+      document.getElementById('root')!,
+      params.get('variant') || 'default',
+    );
+    return;
+  }
+  if (fixture === 'S91') {
+    // Studio frame with fake data (development only); it replaces the app shell.
+    const { renderStudioFixture } = await import('./dev/StudioFixture');
+    renderStudioFixture(document.getElementById('root')!, params.get('variant') || 'default');
+    return;
+  }
   if (fixture) {
     const { installReferenceFixture } = await import('./dev/reference-fixtures');
     if (/^S5[678]$/.test(fixture)) {
@@ -136,3 +159,5 @@ async function bootstrap() {
 void bootstrap();
 
 import './minimal-room.css';
+// BoardUI surfaces on the global classes; last so it wins at equal specificity.
+import './boardui-surfaces.css';

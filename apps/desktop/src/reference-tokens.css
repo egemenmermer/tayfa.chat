@@ -26,7 +26,7 @@
  *           so swapping an equal literal for its token never reorders layers. Surfaces still hard-code
  *           70-95, 110-180, 500 and 1000-2000 (all above --z-modal); do not swap those for a token
  *           with a different number without checking what they must sit above or below.
- *   shadow  --shadow-1 (menus, raised cards) / --shadow-2 (modals, toasts)
+ *   shadow  --shadow-1 (menus, raised cards) / --shadow-2 (modals, toasts); --surface-* below
  *   focus   --focus-ring-width / --focus-ring-offset / --focus-ring-color
  *   space   --space-4 … --space-64      motion  --motion-quick / --motion-modal / --motion-ease-*
  *
@@ -98,6 +98,21 @@
 
   --shadow-1: 0 4px 14px rgb(0 0 0 / 0.28);
   --shadow-2: 0 12px 40px rgb(0 0 0 / 0.33);
+  /* BoardUI surface recipe (boardui-surfaces.css): layered shadows and radii for cards, menus,
+     modals, notifications and list rows. */
+  --surface-shadow-card: 0 1px 1px 0 rgb(0 0 0 / 0.14);
+  --surface-shadow-menu:
+    0 1px 1px 0 rgb(0 0 0 / 0.14), 0 4px 4px 0 rgb(0 0 0 / 0.1), var(--shadow-1);
+  --surface-shadow-modal:
+    0 10px 10px -5px rgb(0 0 0 / 0.08), 0 20px 25px -5px rgb(0 0 0 / 0.2), var(--shadow-2);
+  --surface-radius-row: 10px;
+  --surface-radius-menu: 16px;
+  --surface-radius-notification: 12px;
+  --surface-radius-modal: 20px;
+  --surface-radius-field: 10px;
+  /* BoardUI field: filled, no resting border, 2px inset ring on hover and focus (styles.css). */
+  --surface-field-ring-hover: inset 0 0 0 2px var(--color-border-button-hover);
+  --surface-field-ring-focus: inset 0 0 0 2px var(--color-border-button-active);
 
   --focus-ring-width: 2px;
   --focus-ring-offset: 3px;

@@ -27,7 +27,7 @@
   display: flex;
   gap: 4px;
   padding: 4px;
-  border: 1px solid #343943;
+  border: 1px solid var(--color-border-subtle);
   border-radius: 8px;
   background: #1b1d22;
   width: fit-content;
@@ -47,7 +47,7 @@
 }
 .reference-friends-table {
   margin-top: 23px;
-  border-top: 1px solid #343943;
+  border-top: 1px solid var(--color-border-subtle);
 }
 .reference-friend-line {
   display: flex;
@@ -97,7 +97,7 @@
 .reference-add-friend .modal-heading {
   padding: 22px 26px;
   margin: 0;
-  border-bottom: 1px solid #343943;
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 .reference-add-friend form > p,
 .reference-add-friend form > label {
@@ -111,7 +111,7 @@
   display: flex;
   justify-content: flex-end;
   padding: 17px 26px;
-  border-top: 1px solid #343943;
+  border-top: 1px solid var(--color-border-subtle);
 }
 .reference-add-friend .field-label {
   font-size: 12px;

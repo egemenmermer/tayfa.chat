@@ -62,6 +62,7 @@ const PersonalMediaFixtureEntry = import.meta.env.DEV
   ? lazy(() => import('./dev/PersonalMediaEntry'))
   : null;
 const CinemaHall = lazy(() => import('./cinema/CinemaHall'));
+const StudioPage = lazy(() => import('./studio/ui/StudioPage'));
 const Settings = lazy(() => import('./Settings'));
 const AgentWorkspace = lazy(() => import('./Agent'));
 const Together = lazy(() => import('./Together'));
@@ -464,14 +465,14 @@ export default function App() {
     '/notifications': t('Bildirimler'),
     '/agent': t('Asistan'),
     '/together': visibleParams.get('tab') === 'board' ? t('Beyaz tahta') : t('Anketler'),
-    '/games': t('Kıraathane'),
+    '/games': t('Oyunlar'),
     '/youtube': 'DJ',
   };
   const breadcrumb = ['/chat', '/voice'].includes(visiblePath)
     ? voiceView
       ? (realtime.roomName ?? channel)
       : channel
-    : (titles[visiblePath] ?? 'Tayfa');
+    : (titles[visiblePath] ?? (visiblePath.startsWith('/studio') ? t('Stüdyo') : 'Tayfa'));
   const setupName = visiblePath.startsWith('/setup/') ? visiblePath.slice(7) : null;
   const setupModes: ReferenceOnboardingMode[] = [
     'welcome',
@@ -827,6 +828,13 @@ export default function App() {
                       community.user ? <CinemaHall notify={notify} /> : <ConnectionRequired />
                     }
                   />
+                  {['/studio', '/studio/:roomId', '/studio/:roomId/:projectId'].map((path) => (
+                    <Route
+                      key={path}
+                      path={path}
+                      element={community.user ? <StudioPage /> : <ConnectionRequired />}
+                    />
+                  ))}
                   <Route path="/polls" element={<Navigate to="/together?tab=polls" replace />} />
                   <Route path="/agent" element={<AgentWorkspace notify={notify} />} />
                   <Route path="/together" element={<Together />} />

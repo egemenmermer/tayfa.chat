@@ -4,6 +4,8 @@ import { StoatAuthorizationReader } from '../access/stoat-authorization';
 import { createActivityServer } from './server';
 import { FileActivityRepository } from './repository';
 import { PostgresActivityRepository } from './postgres';
+import { FileStudioStore, PostgresStudioStore } from './studio';
+import { join } from 'node:path';
 import { StoatClient, StoatError } from '@rooms/stoat';
 import {
   stoatChannelPermissions,
@@ -20,11 +22,21 @@ async function main() {
     ? new PostgresActivityRepository(pool)
     : await FileActivityRepository.open(process.env.ROOMS_ACTIVITY_DATA ?? '.local/activities');
   if (repository instanceof PostgresActivityRepository) await repository.initialize();
+  let studio: FileStudioStore | PostgresStudioStore | undefined = pool
+    ? new PostgresStudioStore(pool)
+    : new FileStudioStore(join(process.env.ROOMS_ACTIVITY_DATA ?? '.local/activities', 'studio'));
+  if (studio instanceof PostgresStudioStore)
+    await studio.initialize().catch(() => {
+      // Studio is optional: games, polls and the whiteboard keep running without its routes.
+      console.error('ROOMS Studio storage unavailable; Studio routes are disabled.');
+      studio = undefined;
+    });
   const reader = process.env.ROOMS_SOCIAL_READ_MONGO_URL
     ? new StoatAuthorizationReader(process.env.ROOMS_SOCIAL_READ_MONGO_URL)
     : null;
   const server = await createActivityServer({
     repository,
+    studio,
     authorize: async (token, roomId) => {
       const client = new StoatClient(
         process.env.STOAT_INTERNAL_URL ?? 'http://127.0.0.1:3021/api',

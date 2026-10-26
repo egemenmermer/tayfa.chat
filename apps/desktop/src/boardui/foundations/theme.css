@@ -1,0 +1,628 @@
+/*
+ * BoardUI theme for Tayfa.
+ *
+ * BoardUI components (free tier, MIT, see ../LICENSE) style themselves with semantic Tailwind tokens
+ * such as `bg-background-primary-default` or `text-foreground-icon-secondary`. This file keeps those
+ * token names and points every value at a Tayfa token from reference-tokens.css, so BoardUI surfaces
+ * wear Tayfa's identity: dark by default, the lavender accent (Settings > Görünüm > Vurgu re-tints them
+ * through --color-action-primary), Inter, and the 11px type floor.
+ *
+ * - Tayfa already owns --color-text-primary and --color-text-secondary with the same meaning; they are
+ *   re-exported as utilities below but never redeclared here.
+ * - The root font size is 14px in Tayfa, BoardUI geometry assumes 16px rems: spacing, radii and type
+ *   are therefore pinned in px.
+ * - Tokens are declared on `:root` and on every `[data-theme]` scope so they re-resolve inside a scope
+ *   that switches theme. Tayfa is dark-only today; the `[data-theme='light']` block at the end is a
+ *   provisional light palette for previews (the dev fixture). Nothing in production sets it. When Tayfa
+ *   ships a light theme, its values move to reference-tokens.css and this block goes away.
+ * - BoardUI's `dark:` variant is defined in globals.css as "not inside a light scope".
+ */
+
+@theme {
+  --spacing: 4px;
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-2lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-2-5xl: 20px;
+  --radius-3xl: 24px;
+  --radius-4xl: 32px;
+  --radius-notification-card: 10px;
+
+  /* Tailwind's plain text sizes, in px and never under the 11px floor. */
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 14px;
+  --text-sm--line-height: 20px;
+  --text-base: 16px;
+  --text-base--line-height: 24px;
+  --text-lg: 18px;
+  --text-lg--line-height: 28px;
+  --text-xl: 20px;
+  --text-xl--line-height: 28px;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 32px;
+
+  --container-3xs: 256px;
+  --container-2xs: 288px;
+  --container-xs: 320px;
+  --container-sm: 384px;
+  --container-md: 448px;
+  --container-lg: 512px;
+  --container-xl: 576px;
+  --container-2xl: 672px;
+  --container-3xl: 768px;
+
+  /* Accent ramp derived from Tayfa's one accent variable (500 is the accent itself). */
+  --color-accent-50: color-mix(in oklab, var(--color-action-primary) 10%, white);
+  --color-accent-100: color-mix(in oklab, var(--color-action-primary) 22%, white);
+  --color-accent-200: color-mix(in oklab, var(--color-action-primary) 40%, white);
+  --color-accent-300: color-mix(in oklab, var(--color-action-primary) 60%, white);
+  --color-accent-400: color-mix(in oklab, var(--color-action-primary) 82%, white);
+  --color-accent-500: var(--color-action-primary);
+  --color-accent-600: color-mix(in oklab, var(--color-action-primary) 86%, black);
+  --color-accent-700: color-mix(in oklab, var(--color-action-primary) 70%, black);
+  --color-accent-800: color-mix(in oklab, var(--color-action-primary) 52%, black);
+  --color-accent-900: color-mix(in oklab, var(--color-action-primary) 36%, black);
+  --color-accent-950: color-mix(in oklab, var(--color-action-primary) 22%, black);
+
+  /* BoardUI's dark elevation (Tayfa is dark by default). */
+  --shadow-2xs: 0 1px rgb(0 0 0 / 0.16);
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.18);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.12), 0 1px 3px 0 rgb(0 0 0 / 0.16);
+  --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.12), 0 4px 6px -1px rgb(0 0 0 / 0.18);
+  --shadow-lg: 0 4px 6px -2px rgb(0 0 0 / 0.1), 0 10px 15px -3px rgb(0 0 0 / 0.18);
+  --shadow-xl: 0 10px 10px -5px rgb(0 0 0 / 0.08), 0 20px 25px -5px rgb(0 0 0 / 0.2);
+  --shadow-card: 0 1px 1px 0 rgb(0 0 0 / 0.14);
+  --shadow-dropdown: 0 1px 1px 0 rgb(0 0 0 / 0.14), 0 4px 4px 0 rgb(0 0 0 / 0.1), var(--shadow-1);
+  --shadow-nav-selected: 0 0 0 1px var(--color-accent-500), inset 0 1px 0 0 rgb(255 255 255 / 0.12);
+  --shadow-checkbox-selected:
+    inset 0 2px 0 0 rgb(255 255 255 / 0.25), inset 0 0 0 1px var(--color-accent-500);
+  --inset-shadow-2xs: inset 0 1px 0 0 rgb(0 0 0 / 0.05);
+  --inset-shadow-xs: inset 0 1px 1px 0 rgb(0 0 0 / 0.05);
+  --inset-shadow-sm: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+
+  --button-transition-ms: 150ms;
+  --input-transition-ms: 150ms;
+}
+
+:root,
+[data-theme] {
+  /* Foreground (icons and on-fill content) */
+  --color-foreground-full: var(--color-background-hover);
+  --color-foreground-icon-primary: var(--color-text-primary);
+  --color-foreground-icon-hover: var(--color-text-primary);
+  --color-foreground-icon-secondary: var(--color-text-secondary);
+  --color-foreground-icon-tertiary: var(--color-text-muted);
+  --color-foreground-icon-quaternary: var(--color-border-interactive);
+  --color-foreground-icon-error: var(--color-status-error);
+  --color-foreground-icon-disabled: var(--color-border-default);
+  --color-foreground-disabled: var(--color-border-interactive);
+  --color-foreground-disabled-danger: color-mix(
+    in srgb,
+    var(--color-status-error) 50%,
+    transparent
+  );
+  --color-input-disabled-foreground: var(--color-text-muted);
+  --color-icon-button-disabled-foreground: var(--color-text-muted);
+  --color-button-primary-disabled-foreground: var(--color-text-muted);
+
+  /* Text (primary and secondary are Tayfa's own) */
+  --color-text-tertiary: var(--color-text-muted);
+  --color-text-disabled: var(--color-border-interactive);
+  --color-text-disabled-danger: color-mix(in srgb, var(--color-status-error) 50%, transparent);
+  --color-text-placeholder: var(--color-text-muted);
+  --color-text-error-primary: var(--color-status-error);
+  --color-text-error-placeholder: color-mix(in srgb, var(--color-status-error) 70%, transparent);
+  --color-text-destructive: var(--color-status-error);
+  --color-input-disabled-text: var(--color-text-muted);
+  --color-text-white: var(--color-text-primary);
+  /* Tayfa additions: text on the accent and danger fills (contrast >= 4.5:1 per accent). */
+  --color-text-on-accent: var(--color-text-onAccent);
+  --color-text-on-danger: var(--color-text-onDanger);
+
+  /* Background */
+  --color-background-full: var(--color-background-canvas);
+  --color-background-primary-default: var(--color-background-raised);
+  --color-background-primary-hover: var(--color-background-hover);
+  --color-background-primary-active: var(--color-action-secondary);
+  --color-background-primary-disabled: var(--color-background-main);
+  --color-background-inner-default: var(--color-background-main);
+  --color-input-disabled-background: var(--color-background-sidebar);
+  --color-background-secondary-default: var(--color-background-main);
+  --color-background-secondary-hover: var(--color-background-raised);
+  --color-background-tertiary-default: var(--color-background-hover);
+  --color-background-tertiary-hover: var(--color-action-secondaryHover);
+  --color-background-tertiary-error: color-mix(in srgb, var(--color-status-error) 16%, transparent);
+  --color-background-quaternary-default: var(--color-action-secondaryHover);
+  --color-background-quaternary-hover: var(--color-border-default);
+  --color-background-quaternary-error: color-mix(
+    in srgb,
+    var(--color-status-error) 26%,
+    transparent
+  );
+  --color-avatar-neutral-background: var(--color-background-raised);
+  --color-file-upload-icon-background: var(--color-background-hover);
+  --color-file-upload-icon-foreground: var(--color-text-muted);
+  --color-file-upload-icon-foreground-hover: var(--color-text-secondary);
+
+  /* Border */
+  --color-border-button-default: var(--color-border-default);
+  --color-border-button-hover: var(--color-border-interactive);
+  --color-border-button-active: var(--color-border-interactive);
+  --color-border-button-white: var(--color-background-raised);
+  --color-border-error-default: var(--color-status-error);
+  --color-border-checkbox-default: var(--color-border-default);
+  --color-border-checkbox-hover: var(--color-border-interactive);
+  --color-border-checkbox-active: var(--color-border-interactive);
+  --color-border-checkbox-white: var(--color-background-raised);
+  --color-border-component-detail-container: var(--color-border-subtle);
+  --color-border-table: var(--color-border-subtle);
+  --color-border-button-group: var(--color-border-default);
+  --color-separator-border: var(--color-border-subtle);
+  --color-separator-border-strong: var(--color-border-default);
+  --color-border-focus-ring: var(--focus-ring-color);
+
+  /* State and controls */
+  --color-state-success-text: var(--color-status-success);
+  --color-state-success-base: color-mix(in srgb, var(--color-status-success) 18%, transparent);
+  --color-control-indicator-background: var(--color-text-primary);
+  --color-control-indicator-background-subtle: var(--color-text-secondary);
+  --color-switch-off-chip-start: var(--color-background-hover);
+  --color-switch-off-chip-end: var(--color-background-hover);
+  --color-switch-on-chip-start: var(--color-accent-500);
+  --color-switch-on-chip-end: var(--color-accent-600);
+  --color-stat-card-icon-background: var(--color-background-raised);
+  --color-segmented-control-background: var(--color-background-field);
+  --color-segmented-control-selected-background: var(--color-background-hover);
+  --color-button-ghost-background: var(--color-action-primarySubtle);
+  --color-button-ghost-hover: color-mix(in srgb, var(--color-action-primary) 24%, transparent);
+  --color-button-ghost-active: color-mix(in srgb, var(--color-action-primary) 32%, transparent);
+  --color-button-ghost-disabled: var(--color-background-main);
+  --color-button-ghost-foreground: var(--color-text-accent);
+  --color-button-ghost-disabled-foreground: var(--color-text-muted);
+  --color-dropdown-item-hover-background: var(--color-background-hover);
+  --color-kbd-background: var(--color-background-hover);
+  --color-kbd-foreground: var(--color-text-secondary);
+
+  /* Composer family (used by later migrations of the chat composer) */
+  --color-ai-chat-composer-add-background: var(--color-background-hover);
+  --color-ai-chat-composer-add-hover-background: var(--color-action-secondaryHover);
+  --color-composer-panel-tab-background: color-mix(
+    in srgb,
+    var(--color-background-hover) 50%,
+    transparent
+  );
+  --color-composer-panel-add-background: var(--color-background-hover);
+  --color-composer-panel-add-hover-background: var(--color-action-secondaryHover);
+  --color-composer-panel-tile-border: color-mix(
+    in srgb,
+    var(--color-text-primary) 14%,
+    transparent
+  );
+  --color-composer-panel-rail-background: color-mix(
+    in srgb,
+    var(--color-background-sidebar) 50%,
+    transparent
+  );
+  --color-questionnaire-key-background: var(--color-background-hover);
+  --color-questionnaire-key-hover-background: var(--color-action-secondaryHover);
+  --color-agent-progress-ring: color-mix(in srgb, var(--color-text-primary) 50%, transparent);
+
+  /* Badges, tabs and notifications */
+  --color-badge-neutral-background: var(--color-background-hover);
+  --color-badge-new-background: var(--color-action-primarySubtle);
+  --color-badge-new-text: var(--color-text-accent);
+  --color-team-menu-count-background: var(--color-background-hover);
+  --color-team-menu-count-foreground: var(--color-text-muted);
+  --color-tab-count-selected-background: var(--color-action-primarySubtle);
+  --color-pill-tab-blue-selected-background: var(--color-action-primarySubtle);
+  --color-pill-tab-blue-hover-background: var(--color-background-hover);
+  --color-notification-information-background: var(--color-action-primarySubtle);
+  --color-notification-information-foreground: var(--color-text-accent);
+  --color-notification-success-background: color-mix(
+    in srgb,
+    var(--color-status-success) 18%,
+    transparent
+  );
+  --color-notification-success-foreground: var(--color-status-success);
+  --color-notification-error-background: color-mix(
+    in srgb,
+    var(--color-status-error) 18%,
+    transparent
+  );
+  --color-notification-error-foreground: var(--color-status-error);
+  --color-notification-center-background: var(--color-background-sidebar);
+
+  /* Status chips and dots */
+  --color-status-lime-background: color-mix(in srgb, var(--color-status-success) 16%, transparent);
+  --color-status-lime-text: var(--color-status-success);
+  --color-status-yellow-background: color-mix(
+    in srgb,
+    var(--color-status-warning) 16%,
+    transparent
+  );
+  --color-status-yellow-text: var(--color-status-warning);
+  --color-status-rose-background: color-mix(in srgb, var(--color-status-error) 16%, transparent);
+  --color-status-rose-text: var(--color-status-error);
+  --color-status-orange-background: color-mix(
+    in srgb,
+    var(--color-status-warning) 16%,
+    transparent
+  );
+  --color-status-orange-text: var(--color-status-warning);
+  --color-status-cyan-background: color-mix(in srgb, var(--accent-sage) 16%, transparent);
+  --color-status-cyan-text: var(--accent-sage);
+  --color-status-blue-background: var(--color-action-primarySubtle);
+  --color-status-blue-text: var(--color-text-accent);
+  --color-status-purple-background: var(--color-action-primarySubtle);
+  --color-status-purple-text: var(--color-text-accent);
+  --color-status-dot-green-halo: color-mix(in srgb, var(--color-status-success) 30%, transparent);
+  --color-status-dot-yellow-halo: color-mix(in srgb, var(--color-status-warning) 30%, transparent);
+  --color-status-dot-indigo-halo: color-mix(in srgb, var(--color-action-primary) 30%, transparent);
+  --color-date-range-background: var(--color-action-primarySubtle);
+  --color-date-range-edge-background: var(--color-action-primaryBorder);
+
+  /* Charts: shared neutrals and a categorical ramp that starts with Tayfa's accents. */
+  --color-chart-track: var(--color-background-hover);
+  --color-chart-cursor: var(--color-border-interactive);
+  --color-chart-neutral: var(--color-background-hover);
+  --color-chart-1: var(--color-action-primary);
+  --color-chart-1-active: var(--color-action-primaryHover);
+  --color-chart-2: var(--accent-sage);
+  --color-chart-2-active: color-mix(in oklab, var(--accent-sage) 82%, white);
+  --color-chart-3: var(--color-status-warning);
+  --color-chart-3-active: color-mix(in oklab, var(--color-status-warning) 82%, white);
+  --color-chart-4: var(--color-sky-400);
+  --color-chart-4-active: var(--color-sky-300);
+  --color-chart-5: var(--color-pink-400);
+  --color-chart-5-active: var(--color-pink-300);
+  --color-chart-6: var(--color-status-success);
+  --color-chart-6-active: color-mix(in oklab, var(--color-status-success) 82%, white);
+  --color-chart-7: var(--color-status-error);
+  --color-chart-7-active: color-mix(in oklab, var(--color-status-error) 82%, white);
+  --color-chart-8: var(--color-teal-400);
+  --color-chart-8-active: var(--color-teal-300);
+  --color-chart-9: var(--color-indigo-400);
+  --color-chart-9-active: var(--color-indigo-300);
+
+  /* Button fills (BoardUI keeps its vertical gradient recipe; the colours are Tayfa's). */
+  --gradient-button-primary-default: linear-gradient(
+    180deg,
+    var(--color-accent-500) 0%,
+    var(--color-accent-600) 100%
+  );
+  --gradient-button-primary-hover: linear-gradient(
+    180deg,
+    var(--color-action-primaryHover) 0%,
+    var(--color-accent-500) 100%
+  );
+  --gradient-button-primary-active: linear-gradient(
+    180deg,
+    var(--color-accent-600) 0%,
+    var(--color-action-primaryActive) 100%
+  );
+  --gradient-button-primary-disabled: linear-gradient(
+    180deg,
+    var(--color-background-hover) 0%,
+    var(--color-background-raised) 100%
+  );
+  --gradient-button-danger-default: linear-gradient(
+    180deg,
+    var(--color-action-dangerHover) 0%,
+    var(--color-action-danger) 100%
+  );
+  --gradient-button-danger-hover: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-action-dangerHover) 88%, white) 0%,
+    var(--color-action-dangerHover) 100%
+  );
+  --gradient-button-danger-active: linear-gradient(
+    180deg,
+    var(--color-action-danger) 0%,
+    var(--color-action-dangerActive) 100%
+  );
+  --gradient-button-danger-disabled: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-action-danger) 45%, transparent) 0%,
+    color-mix(in srgb, var(--color-action-dangerActive) 45%, transparent) 100%
+  );
+}
+
+/* Re-export the semantic tokens as Tailwind utilities (`inline`: utilities read the live variable). */
+@theme inline {
+  --color-foreground-full: var(--color-foreground-full);
+  --color-foreground-icon-primary: var(--color-foreground-icon-primary);
+  --color-foreground-icon-hover: var(--color-foreground-icon-hover);
+  --color-foreground-icon-secondary: var(--color-foreground-icon-secondary);
+  --color-foreground-icon-tertiary: var(--color-foreground-icon-tertiary);
+  --color-foreground-icon-quaternary: var(--color-foreground-icon-quaternary);
+  --color-foreground-icon-error: var(--color-foreground-icon-error);
+  --color-foreground-icon-disabled: var(--color-foreground-icon-disabled);
+  --color-foreground-disabled: var(--color-foreground-disabled);
+  --color-foreground-disabled-danger: var(--color-foreground-disabled-danger);
+  --color-input-disabled-foreground: var(--color-input-disabled-foreground);
+  --color-icon-button-disabled-foreground: var(--color-icon-button-disabled-foreground);
+  --color-button-primary-disabled-foreground: var(--color-button-primary-disabled-foreground);
+
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-tertiary: var(--color-text-tertiary);
+  --color-text-disabled: var(--color-text-disabled);
+  --color-text-disabled-danger: var(--color-text-disabled-danger);
+  --color-text-placeholder: var(--color-text-placeholder);
+  --color-text-error-primary: var(--color-text-error-primary);
+  --color-text-error-placeholder: var(--color-text-error-placeholder);
+  --color-text-destructive: var(--color-text-destructive);
+  --color-input-disabled-text: var(--color-input-disabled-text);
+  --color-text-white: var(--color-text-white);
+  --color-text-on-accent: var(--color-text-on-accent);
+  --color-text-on-danger: var(--color-text-on-danger);
+  /* Tayfa's accent text (lighter than the fill, readable on dark surfaces). */
+  --color-text-accent: var(--color-text-accent);
+
+  --color-background-full: var(--color-background-full);
+  --color-background-primary-default: var(--color-background-primary-default);
+  --color-background-primary-hover: var(--color-background-primary-hover);
+  --color-background-primary-active: var(--color-background-primary-active);
+  --color-background-primary-disabled: var(--color-background-primary-disabled);
+  --color-background-inner-default: var(--color-background-inner-default);
+  --color-input-disabled-background: var(--color-input-disabled-background);
+  --color-background-secondary-default: var(--color-background-secondary-default);
+  --color-background-secondary-hover: var(--color-background-secondary-hover);
+  --color-background-tertiary-default: var(--color-background-tertiary-default);
+  --color-background-tertiary-hover: var(--color-background-tertiary-hover);
+  --color-background-tertiary-error: var(--color-background-tertiary-error);
+  --color-background-quaternary-default: var(--color-background-quaternary-default);
+  --color-background-quaternary-hover: var(--color-background-quaternary-hover);
+  --color-background-quaternary-error: var(--color-background-quaternary-error);
+  --color-avatar-neutral-background: var(--color-avatar-neutral-background);
+  --color-file-upload-icon-background: var(--color-file-upload-icon-background);
+  --color-file-upload-icon-foreground: var(--color-file-upload-icon-foreground);
+  --color-file-upload-icon-foreground-hover: var(--color-file-upload-icon-foreground-hover);
+
+  --color-border-button-default: var(--color-border-button-default);
+  --color-border-button-hover: var(--color-border-button-hover);
+  --color-border-button-active: var(--color-border-button-active);
+  --color-border-button-white: var(--color-border-button-white);
+  --color-border-error-default: var(--color-border-error-default);
+  --color-border-checkbox-default: var(--color-border-checkbox-default);
+  --color-border-checkbox-hover: var(--color-border-checkbox-hover);
+  --color-border-checkbox-active: var(--color-border-checkbox-active);
+  --color-border-checkbox-white: var(--color-border-checkbox-white);
+  --color-border-component-detail-container: var(--color-border-component-detail-container);
+  --color-border-table: var(--color-border-table);
+  --color-border-button-group: var(--color-border-button-group);
+  --color-separator-border: var(--color-separator-border);
+  --color-separator-border-strong: var(--color-separator-border-strong);
+  --color-border-focus-ring: var(--color-border-focus-ring);
+
+  --color-state-success-text: var(--color-state-success-text);
+  --color-state-success-base: var(--color-state-success-base);
+  --color-control-indicator-background: var(--color-control-indicator-background);
+  --color-control-indicator-background-subtle: var(--color-control-indicator-background-subtle);
+  --color-switch-off-chip-start: var(--color-switch-off-chip-start);
+  --color-switch-off-chip-end: var(--color-switch-off-chip-end);
+  --color-switch-on-chip-start: var(--color-switch-on-chip-start);
+  --color-switch-on-chip-end: var(--color-switch-on-chip-end);
+  --color-stat-card-icon-background: var(--color-stat-card-icon-background);
+  --color-segmented-control-background: var(--color-segmented-control-background);
+  --color-segmented-control-selected-background: var(--color-segmented-control-selected-background);
+  --color-button-ghost-background: var(--color-button-ghost-background);
+  --color-button-ghost-hover: var(--color-button-ghost-hover);
+  --color-button-ghost-active: var(--color-button-ghost-active);
+  --color-button-ghost-disabled: var(--color-button-ghost-disabled);
+  --color-button-ghost-foreground: var(--color-button-ghost-foreground);
+  --color-button-ghost-disabled-foreground: var(--color-button-ghost-disabled-foreground);
+  --color-dropdown-item-hover-background: var(--color-dropdown-item-hover-background);
+  --color-kbd-background: var(--color-kbd-background);
+  --color-kbd-foreground: var(--color-kbd-foreground);
+
+  --color-ai-chat-composer-add-background: var(--color-ai-chat-composer-add-background);
+  --color-ai-chat-composer-add-hover-background: var(--color-ai-chat-composer-add-hover-background);
+  --color-composer-panel-tab-background: var(--color-composer-panel-tab-background);
+  --color-composer-panel-add-background: var(--color-composer-panel-add-background);
+  --color-composer-panel-add-hover-background: var(--color-composer-panel-add-hover-background);
+  --color-composer-panel-tile-border: var(--color-composer-panel-tile-border);
+  --color-composer-panel-rail-background: var(--color-composer-panel-rail-background);
+  --color-questionnaire-key-background: var(--color-questionnaire-key-background);
+  --color-questionnaire-key-hover-background: var(--color-questionnaire-key-hover-background);
+  --color-agent-progress-ring: var(--color-agent-progress-ring);
+
+  --color-badge-neutral-background: var(--color-badge-neutral-background);
+  --color-badge-new-background: var(--color-badge-new-background);
+  --color-badge-new-text: var(--color-badge-new-text);
+  --color-team-menu-count-background: var(--color-team-menu-count-background);
+  --color-team-menu-count-foreground: var(--color-team-menu-count-foreground);
+  --color-tab-count-selected-background: var(--color-tab-count-selected-background);
+  --color-pill-tab-blue-selected-background: var(--color-pill-tab-blue-selected-background);
+  --color-pill-tab-blue-hover-background: var(--color-pill-tab-blue-hover-background);
+  --color-notification-information-background: var(--color-notification-information-background);
+  --color-notification-information-foreground: var(--color-notification-information-foreground);
+  --color-notification-success-background: var(--color-notification-success-background);
+  --color-notification-success-foreground: var(--color-notification-success-foreground);
+  --color-notification-error-background: var(--color-notification-error-background);
+  --color-notification-error-foreground: var(--color-notification-error-foreground);
+  --color-notification-center-background: var(--color-notification-center-background);
+
+  --color-status-lime-background: var(--color-status-lime-background);
+  --color-status-lime-text: var(--color-status-lime-text);
+  --color-status-yellow-background: var(--color-status-yellow-background);
+  --color-status-yellow-text: var(--color-status-yellow-text);
+  --color-status-rose-background: var(--color-status-rose-background);
+  --color-status-rose-text: var(--color-status-rose-text);
+  --color-status-orange-background: var(--color-status-orange-background);
+  --color-status-orange-text: var(--color-status-orange-text);
+  --color-status-cyan-background: var(--color-status-cyan-background);
+  --color-status-cyan-text: var(--color-status-cyan-text);
+  --color-status-blue-background: var(--color-status-blue-background);
+  --color-status-blue-text: var(--color-status-blue-text);
+  --color-status-purple-background: var(--color-status-purple-background);
+  --color-status-purple-text: var(--color-status-purple-text);
+  --color-status-dot-green-halo: var(--color-status-dot-green-halo);
+  --color-status-dot-yellow-halo: var(--color-status-dot-yellow-halo);
+  --color-status-dot-indigo-halo: var(--color-status-dot-indigo-halo);
+  --color-date-range-background: var(--color-date-range-background);
+  --color-date-range-edge-background: var(--color-date-range-edge-background);
+
+  --color-chart-track: var(--color-chart-track);
+  --color-chart-cursor: var(--color-chart-cursor);
+  --color-chart-neutral: var(--color-chart-neutral);
+  --color-chart-1: var(--color-chart-1);
+  --color-chart-1-active: var(--color-chart-1-active);
+  --color-chart-2: var(--color-chart-2);
+  --color-chart-2-active: var(--color-chart-2-active);
+  --color-chart-3: var(--color-chart-3);
+  --color-chart-3-active: var(--color-chart-3-active);
+  --color-chart-4: var(--color-chart-4);
+  --color-chart-4-active: var(--color-chart-4-active);
+  --color-chart-5: var(--color-chart-5);
+  --color-chart-5-active: var(--color-chart-5-active);
+  --color-chart-6: var(--color-chart-6);
+  --color-chart-6-active: var(--color-chart-6-active);
+  --color-chart-7: var(--color-chart-7);
+  --color-chart-7-active: var(--color-chart-7-active);
+  --color-chart-8: var(--color-chart-8);
+  --color-chart-8-active: var(--color-chart-8-active);
+  --color-chart-9: var(--color-chart-9);
+  --color-chart-9-active: var(--color-chart-9-active);
+}
+
+/* Button fill utilities (BoardUI recipe): the hover gradient fades in on a ::before layer. */
+@utility button-press-motion {
+  transition:
+    background-color var(--button-transition-ms) ease,
+    border-color var(--button-transition-ms) ease,
+    box-shadow var(--button-transition-ms) ease,
+    color var(--button-transition-ms) ease,
+    transform 420ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:active:not(:disabled):not([aria-disabled='true']) {
+    transform: scale(0.98);
+    transition-duration: 150ms, 150ms, 150ms, 150ms, 220ms;
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+    transform: none;
+  }
+}
+
+@utility bg-button-primary {
+  position: relative;
+  isolation: isolate;
+  background-image: var(--gradient-button-primary-default);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: inherit;
+    background-image: var(--gradient-button-primary-hover);
+    opacity: 0;
+    transition: opacity var(--button-transition-ms) ease;
+  }
+  &:hover:not(:disabled):not([aria-disabled='true'])::before {
+    opacity: 1;
+  }
+  &:active:not(:disabled):not([aria-disabled='true']) {
+    background-image: var(--gradient-button-primary-active);
+  }
+  &:active:not(:disabled):not([aria-disabled='true'])::before {
+    opacity: 0;
+  }
+  &:disabled,
+  &[aria-disabled='true'] {
+    background-image: var(--gradient-button-primary-disabled);
+  }
+  &:disabled::before,
+  &[aria-disabled='true']::before {
+    display: none;
+  }
+}
+
+@utility bg-button-danger {
+  position: relative;
+  isolation: isolate;
+  background-image: var(--gradient-button-danger-default);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: inherit;
+    background-image: var(--gradient-button-danger-hover);
+    opacity: 0;
+    transition: opacity var(--button-transition-ms) ease;
+  }
+  &:hover:not(:disabled):not([aria-disabled='true'])::before {
+    opacity: 1;
+  }
+  &:active:not(:disabled):not([aria-disabled='true']) {
+    background-image: var(--gradient-button-danger-active);
+  }
+  &:active:not(:disabled):not([aria-disabled='true'])::before {
+    opacity: 0;
+  }
+  &:disabled,
+  &[aria-disabled='true'] {
+    background-image: var(--gradient-button-danger-disabled);
+  }
+  &:disabled::before,
+  &[aria-disabled='true']::before {
+    display: none;
+  }
+}
+
+/*
+ * Provisional light palette for a `[data-theme='light']` scope (preview only, see the header).
+ * It redefines Tayfa's base tokens; the BoardUI tokens above follow because they are redeclared on
+ * every `[data-theme]` scope.
+ */
+[data-theme] {
+  color: var(--color-text-primary);
+}
+[data-theme='light'] {
+  color-scheme: light;
+  --color-background-canvas: #f3f3f6;
+  --color-background-sidebar: #ebebf0;
+  --color-background-main: #f7f7fa;
+  --color-background-raised: #ffffff;
+  --color-background-hover: #ececf2;
+  --color-background-field: #e9e9ef;
+  --color-text-primary: #17181d;
+  --color-text-secondary: #4b5060;
+  --color-text-muted: #666b7b;
+  --color-text-accent: color-mix(in oklab, var(--color-action-primary) 62%, black);
+  --color-text-onDanger: #ffffff;
+  --color-border-default: #d7d9e1;
+  --color-border-subtle: #e4e5ec;
+  --color-border-interactive: #959bab;
+  --color-action-secondary: #e6e7ee;
+  --color-action-secondaryHover: #dcdde5;
+  --color-action-secondaryBorder: #cdd0da;
+  --color-action-danger: #c4434c;
+  --color-action-dangerHover: #d0525a;
+  --color-action-dangerActive: #ad3a42;
+  --color-status-success: #1d8656;
+  --color-status-warning: #9a640c;
+  --color-status-error: #c2313e;
+  /* Thumbs and knobs stay light on coloured tracks in both themes. */
+  --color-control-indicator-background: #ffffff;
+  --color-control-indicator-background-subtle: #ececf2;
+}

@@ -278,18 +278,22 @@
   gap: 12px;
   width: 100%;
   min-height: 42px;
-  background: #1c1f26;
-  border: 1px solid #424958;
-  border-radius: var(--radius-8);
-  color: #98a4b9;
+  background: var(--color-background-tertiary-default);
+  border: 1px solid transparent;
+  border-radius: var(--surface-radius-field);
+  color: var(--color-foreground-icon-secondary);
   padding: 0 13px;
   margin: 22px 0;
+  transition: box-shadow var(--motion-quick) ease;
+}
+.ref-media-search:hover:not(:focus-within) {
+  box-shadow: var(--surface-field-ring-hover);
 }
 .ref-media-search input {
   background: none !important;
   border: 0 !important;
   box-shadow: none !important;
-  color: #e3e8f2 !important;
+  color: var(--color-text-primary) !important;
   padding: 10px 0 !important;
   height: auto !important;
   width: 100%;
@@ -299,11 +303,12 @@
     sans-serif;
 }
 .ref-media-search:focus-within {
-  outline: 2px solid var(--color-action-focus);
-  outline-offset: 2px;
+  box-shadow: var(--surface-field-ring-focus);
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
 }
 .ref-media-search input::placeholder {
-  color: #8290a8;
+  color: var(--color-text-muted);
 }
 .ref-media-browse {
   display: grid;
@@ -505,11 +510,11 @@
   max-height: calc(100vh - 40px);
   overflow: auto;
   padding: 24px 26px 0;
-  background: #272b34;
-  border: 1px solid #4b5261;
-  border-radius: var(--radius-16);
-  color: #e7ecf6;
-  box-shadow: 0 32px 100px #0008;
+  background: var(--color-background-main);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--surface-radius-modal);
+  color: var(--color-text-primary);
+  box-shadow: var(--surface-shadow-modal);
   backdrop-filter: none;
 }
 .modal.ref-media-modal.rd {
@@ -594,7 +599,7 @@
 }
 .ref-media-modal .field-label input,
 .ref-media-modal select {
-  background: #1b1e23;
+  background-color: #1b1e23;
   border: 1px solid #667083;
   border-radius: var(--radius-8);
   width: 100%;
@@ -606,6 +611,9 @@
     var(--font-size-ui) Inter,
     sans-serif;
   box-shadow: none;
+}
+.ref-media-modal .field-label select {
+  padding-inline-end: 34px;
 }
 .ref-media-modal input:focus {
   outline: 2px solid var(--color-action-focus);
@@ -1591,10 +1599,11 @@ html[data-room-player-fullscreen='true']
 .ref-media-resume-card {
   min-width: 0;
   padding: 0;
-  border: 1px solid #414756;
+  border: 1px solid var(--color-border-subtle);
   border-radius: 10px;
-  background: #272b35;
-  color: #e0e6f1;
+  background: var(--color-background-raised);
+  box-shadow: var(--surface-shadow-card);
+  color: var(--color-text-primary);
   text-align: left;
   overflow: hidden;
   cursor: pointer;

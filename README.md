@@ -84,17 +84,18 @@ These screenshots come from the real interface with sample community data. They 
 
 ## What can you do?
 
-| Area                        | What it does                                              | Needs                                                                                                      |
-| --------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Community and chat          | Accounts, channels, messages, friends, profiles and roles | A compatible Stoat install and channel/role permissions                                                    |
-| Voice and screen share      | Talking, camera and sharing a chosen screen or window     | LiveKit, the access service, open media ports and OS permissions                                           |
-| Remote control with consent | Mouse and keyboard control with the sharer's approval     | Native input component, session authorization and platform permissions; real-device acceptance is separate |
-| Shared activities           | Shared tools and server-run game state                    | Activities service and persistent storage                                                                  |
-| Music                       | Community DJ, queue and shared playlists                  | Optional music service, supported sources and admin setup                                                  |
-| Cinema                      | A community hall that watches the same stream together    | Optional cinema service and the owner's own legal source                                                   |
-| Personal media              | Media connections you configure for yourself              | A supported provider/source and your own authorized access                                                 |
-| Server management           | Status and admin work for authorized people               | HostOps setup and separate admin permissions                                                               |
-| Agent                       | Optional tasks, progress and results                      | Isolated Agent setup, a model connection and explicitly granted permissions                                |
+| Area                        | What it does                                                                                | Needs                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Community and chat          | Accounts, channels, messages, friends, profiles and roles                                   | A compatible Stoat install and channel/role permissions                                                    |
+| Voice and screen share      | Talking, camera and sharing a chosen screen or window                                       | LiveKit, the access service, open media ports and OS permissions                                           |
+| Remote control with consent | Mouse and keyboard control with the sharer's approval                                       | Native input component, session authorization and platform permissions; real-device acceptance is separate |
+| Shared activities           | Shared tools and server-run game state                                                      | Activities service and persistent storage                                                                  |
+| Studio                      | Make music together: shared projects, timeline, piano roll, drum grid, mixer and WAV export | Activities service (Studio module) and persistent storage                                                  |
+| Music                       | Community DJ, queue and shared playlists                                                    | Optional music service, supported sources and admin setup                                                  |
+| Cinema                      | A community hall that watches the same stream together                                      | Optional cinema service and the owner's own legal source                                                   |
+| Personal media              | Media connections you configure for yourself                                                | A supported provider/source and your own authorized access                                                 |
+| Server management           | Status and admin work for authorized people                                                 | HostOps setup and separate admin permissions                                                               |
+| Agent                       | Optional tasks, progress and results                                                        | Isolated Agent setup, a model connection and explicitly granted permissions                                |
 
 Seeing a screen does not set up its service or provider account. Get chat and voice working first, then add optional services. Provider limits and platform differences apply.
 
@@ -293,16 +294,17 @@ Bu görüntüler, uygulamanın gerçek arayüzünden örnek topluluk verileriyle
 
 ### Neler yapabilirsin?
 
-| Alan                   | Ne işe yarar?                                              | Gereken altyapı                                                                               |
-| ---------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Topluluk ve sohbet     | Hesap, kanal, mesaj, arkadaşlık, profil ve rol yönetimi    | Uyumlu Stoat kurulumu ve kanal/rol izinleri                                                   |
-| Ses ve ekran paylaşımı | Konuşma, kamera ve seçilen ekran/pencere yayını            | LiveKit, erişim servisi, açık medya portları ve işletim sistemi izinleri                      |
-| İzinli uzaktan kontrol | Yayıncının onayıyla fare ve klavye kontrolü                | Yerel giriş bileşeni, oturum yetkisi ve platform izinleri; gerçek cihaz kabulü ayrıca gerekir |
-| Ortak etkinlikler      | Paylaşılan araçlar ve sunucunun yönettiği oyun durumu      | Activities servisi ve kalıcı depolama                                                         |
-| Müzik                  | Topluluk DJ'i, kuyruk ve ortak listeler                    | İsteğe bağlı müzik servisi, desteklenen kaynaklar ve yönetici yapılandırması                  |
-| Kişisel medya          | Sana ait yapılandırılmış medya bağlantıları                | Desteklenen sağlayıcı/kaynak ve kendi yetkili erişimin                                        |
-| Sunucu yönetimi        | Yetkili kişinin sunucu durumu ve yönetim işlerini izlemesi | HostOps kurulumu ve ayrı yönetici yetkileri                                                   |
-| Agent                  | İsteğe bağlı görevler, ilerleme ve sonuçlar                | Yalıtılmış Agent kurulumu, model bağlantısı ve açıkça verilmiş yetkiler                       |
+| Alan                   | Ne işe yarar?                                                                                           | Gereken altyapı                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Topluluk ve sohbet     | Hesap, kanal, mesaj, arkadaşlık, profil ve rol yönetimi                                                 | Uyumlu Stoat kurulumu ve kanal/rol izinleri                                                   |
+| Ses ve ekran paylaşımı | Konuşma, kamera ve seçilen ekran/pencere yayını                                                         | LiveKit, erişim servisi, açık medya portları ve işletim sistemi izinleri                      |
+| İzinli uzaktan kontrol | Yayıncının onayıyla fare ve klavye kontrolü                                                             | Yerel giriş bileşeni, oturum yetkisi ve platform izinleri; gerçek cihaz kabulü ayrıca gerekir |
+| Ortak etkinlikler      | Paylaşılan araçlar ve sunucunun yönettiği oyun durumu                                                   | Activities servisi ve kalıcı depolama                                                         |
+| Stüdyo                 | Birlikte müzik: ortak proje, zaman çizelgesi, piyano rulosu, davul ızgarası, mikser ve WAV dışa aktarma | Activities servisi (Stüdyo modülü) ve kalıcı depolama                                         |
+| Müzik                  | Topluluk DJ'i, kuyruk ve ortak listeler                                                                 | İsteğe bağlı müzik servisi, desteklenen kaynaklar ve yönetici yapılandırması                  |
+| Kişisel medya          | Sana ait yapılandırılmış medya bağlantıları                                                             | Desteklenen sağlayıcı/kaynak ve kendi yetkili erişimin                                        |
+| Sunucu yönetimi        | Yetkili kişinin sunucu durumu ve yönetim işlerini izlemesi                                              | HostOps kurulumu ve ayrı yönetici yetkileri                                                   |
+| Agent                  | İsteğe bağlı görevler, ilerleme ve sonuçlar                                                             | Yalıtılmış Agent kurulumu, model bağlantısı ve açıkça verilmiş yetkiler                       |
 
 Bir ekranın görünmesi o servisi veya sağlayıcı hesabını kendiliğinden kurmaz. Önce temel sohbet ve sesi çalıştır; isteğe bağlı servisleri daha sonra ekle. Sağlayıcı kısıtları ve platform farkları geçerlidir.
 

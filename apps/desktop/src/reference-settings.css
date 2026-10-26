@@ -36,15 +36,32 @@
   min-height: 36px;
   gap: 12px;
   padding: 0 10px;
-  border-radius: 5px;
-  color: #b1b5c2;
+  border-radius: var(--surface-radius-row);
+  color: var(--color-text-secondary);
   font-size: 14px;
   font-weight: 450;
   margin-bottom: 0;
+  transition:
+    background-color var(--motion-quick) ease,
+    color var(--motion-quick) ease;
 }
+.settings-modal .reference-settings .settings-tabs > button:hover:not(.selected) {
+  background: color-mix(in srgb, var(--color-background-hover) 60%, transparent);
+  color: var(--color-text-primary);
+}
+/* BoardUI nav item: accent-tinted selected row with a hairline accent edge. */
 .settings-modal .reference-settings .settings-tabs > button.selected {
-  background: #353344;
-  color: #f2f3f7;
+  background: var(--color-action-primarySubtle);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-action-primary) 22%, transparent);
+}
+:root[data-motion='reduce'] .settings-modal .reference-settings .settings-tabs > button {
+  transition: none;
+}
+@media (prefers-contrast: more) {
+  .settings-modal .reference-settings .settings-tabs > button.selected {
+    box-shadow: inset 0 0 0 1px var(--color-text-primary);
+  }
 }
 .reference-settings .settings-tabs > button svg {
   width: 19px;
@@ -52,7 +69,7 @@
   color: #9197a7;
 }
 .reference-settings .settings-tabs > button.selected svg {
-  color: #c5c0ff;
+  color: var(--color-text-accent);
 }
 .reference-settings .settings-version {
   display: block;
@@ -108,10 +125,10 @@
   margin-bottom: 9px;
 }
 .ref-settings-heading h1 {
-  font-size: 25px;
-  line-height: 1.25;
-  letter-spacing: -0.65px;
-  font-weight: 650;
+  font-size: var(--font-size-h1);
+  line-height: var(--line-height-h1);
+  letter-spacing: -0.5px;
+  font-weight: var(--font-weight-h1);
 }
 .reference-settings h2 {
   font-size: 17px;
@@ -168,27 +185,6 @@
   font-size: var(--font-size-metadata);
   color: #b1b5c2;
 }
-.reference-settings .toggle {
-  width: 38px;
-  min-width: 38px;
-  height: 22px;
-  padding: 2px;
-  border: 1px solid #656b7b;
-  background: #454a58;
-}
-.reference-settings .toggle > span {
-  width: 16px;
-  height: 16px;
-  background: #f2f3f7;
-}
-.reference-settings .toggle.on {
-  background: #8b83ff;
-  border-color: #8b83ff;
-}
-.reference-settings .toggle.on > span {
-  background: #141518;
-  transform: translateX(14px);
-}
 .reference-settings .field-label {
   font-size: var(--font-size-micro);
   font-weight: 650;
@@ -201,16 +197,15 @@
 .reference-settings .field-label select,
 .reference-settings .field-label textarea,
 .reference-settings .settings-row select {
-  background: #1b1d22;
-  color: #f2f3f7;
-  border: 1px solid #555b6b;
-  border-radius: 7px;
   padding: 10px 12px;
   font-size: var(--font-size-metadata);
   min-height: 39px;
 }
 .reference-settings .field-label textarea {
   min-height: 65px;
+}
+.reference-settings :is(.field-label, .settings-row) select {
+  padding-inline-end: 34px;
 }
 .reference-settings select {
   width: auto;
@@ -219,7 +214,6 @@
 }
 .reference-settings input[type='range'] {
   width: 100%;
-  accent-color: #8b83ff;
   margin: 22px 0 9px;
 }
 .ref-settings-grid {

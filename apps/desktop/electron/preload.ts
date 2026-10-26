@@ -194,6 +194,18 @@ const bridge: DesktopBridge = {
       ipcRenderer.invoke('rooms:activity-snapshot', roomId, afterRevision),
     command: (roomId, envelope) => ipcRenderer.invoke('rooms:activity-command', roomId, envelope),
   },
+  studio: {
+    list: (roomId) => ipcRenderer.invoke('rooms:studio-list', roomId),
+    create: (roomId, input) => ipcRenderer.invoke('rooms:studio-create', roomId, input),
+    remove: (roomId, projectId) => ipcRenderer.invoke('rooms:studio-remove', roomId, projectId),
+    sync: (roomId, projectId, afterSeq, waitMs) =>
+      ipcRenderer.invoke('rooms:studio-sync', roomId, projectId, afterSeq, waitMs),
+    ops: (roomId, projectId, batch) =>
+      ipcRenderer.invoke('rooms:studio-ops', roomId, projectId, batch),
+    presence: (roomId, projectId, state) =>
+      ipcRenderer.invoke('rooms:studio-presence', roomId, projectId, state),
+    saveExport: (fileName, wav) => ipcRenderer.invoke('rooms:studio-save-export', fileName, wav),
+  },
   updates: {
     status: () => ipcRenderer.invoke('rooms:update-status'),
     setOptIn: (value) => ipcRenderer.invoke('rooms:update-opt-in', value),

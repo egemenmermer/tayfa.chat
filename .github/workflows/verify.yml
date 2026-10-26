@@ -27,6 +27,10 @@ jobs:
         with:
           node-version: 22.22.0
           cache: pnpm
+      - name: Fetch BoardUI Pro (official builds; without the key the public fallback is used)
+        env:
+          TAYFA_PRO_UI_DEPLOY_KEY: ${{ secrets.TAYFA_PRO_UI_DEPLOY_KEY }}
+        run: node scripts/fetch-boardui-pro.mjs
       - run: pnpm install --frozen-lockfile
       - name: Compile dedicated server YouTube bridge
         run: JAVA_HOME="$JAVA_HOME_17_X64" mvn --batch-mode -q -f apps/services/music/youtube-bridge/pom.xml package
@@ -49,6 +53,10 @@ jobs:
         with:
           node-version: 22.22.0
           cache: pnpm
+      - name: Fetch BoardUI Pro (official builds; without the key the public fallback is used)
+        env:
+          TAYFA_PRO_UI_DEPLOY_KEY: ${{ secrets.TAYFA_PRO_UI_DEPLOY_KEY }}
+        run: node scripts/fetch-boardui-pro.mjs
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: node scripts/prepare-remote-input.mjs

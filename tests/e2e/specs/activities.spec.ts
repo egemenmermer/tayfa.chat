@@ -80,7 +80,7 @@ test.describe('shared room activities', () => {
   test('the game hall offers every table game in a voice room', async ({ owner, run }) => {
     await new VoiceView(owner).join(run.channels.voice.name);
     await owner.goto('/games');
-    const hall = owner.page.getByRole('region', { name: 'Kıraathane' });
+    const hall = owner.page.getByRole('region', { name: 'Oyunlar' });
     await expect(hall).toBeVisible();
     for (const game of ['Texas Hold’em', 'Blackjack', 'Batak', '101 Okey']) {
       const card = hall

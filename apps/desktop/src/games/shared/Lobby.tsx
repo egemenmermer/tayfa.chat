@@ -342,7 +342,7 @@ export function ReferenceGames({
           <header className="rx-head">
             <IconButton
               className="rx-back"
-              label={t('Kıraathaneye dön')}
+              label={t('Oyunlara dön')}
               onClick={() => navigate('/games')}
             >
               <ArrowLeft size={17} />

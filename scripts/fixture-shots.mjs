@@ -185,7 +185,7 @@ const SKIPS = {
 function routeFor(id, variant) {
   if (id === 'S38' && variant === 'playing') return '/media?player=1';
   if (ROUTES[id]) return ROUTES[id];
-  // S40/S41 are the lobby (Kıraathane); S42-S50, S52 and S73-S75 are table states, shown on the table tab.
+  // S40/S41 are the lobby (Games lobby); S42-S50, S52 and S73-S75 are table states, shown on the table tab.
   if (/^S4[01]$/.test(id)) return '/games';
   if (/^S(4[2-9]|50|52|7[3-5])$/.test(id)) return '/games?tab=table';
   return null;
@@ -613,7 +613,15 @@ async function run() {
   try {
     browser = await chromium.launch({
       headless: true,
-      args: ['--force-color-profile=srgb', '--disable-lcd-text', '--font-render-hinting=none'],
+      args: [
+        '--force-color-profile=srgb',
+        '--disable-lcd-text',
+        '--font-render-hinting=none',
+        // On macOS, a GPU child process spawned from a browser on an external volume can hang in
+        // dyld open() of its own executable; the app's codec checks (canPlayType) then block the
+        // renderer forever and React never mounts. In-process GPU spawns no such child (docs/QA.md).
+        '--in-process-gpu',
+      ],
     });
     // Warm vite's dependency optimiser once so the first real fixtures are not reloaded mid-capture.
     const warmup = { fixture: { id: 'S10', variant: 'default' }, viewport: opts.viewports[0] };

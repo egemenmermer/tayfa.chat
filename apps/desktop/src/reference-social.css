@@ -371,14 +371,23 @@
   min-width: 0;
   height: 42px;
   padding: 0 13px;
-  background: #1f232b;
-  border: 1px solid #49505e;
-  border-radius: 7px;
-  color: #eff0f5;
+  background: var(--color-background-tertiary-default);
+  border: 1px solid transparent;
+  border-radius: var(--surface-radius-field);
+  color: var(--color-text-primary);
   font-size: 14px;
+  transition:
+    background-color var(--motion-quick) ease,
+    box-shadow var(--motion-quick) ease;
+}
+.ss-search-input input:hover:not(:disabled):not(:focus) {
+  box-shadow: var(--surface-field-ring-hover);
+}
+.ss-search-input input:focus {
+  box-shadow: var(--surface-field-ring-focus);
 }
 .ss-search-input > svg {
-  color: #9298a8;
+  color: var(--color-foreground-icon-secondary);
 }
 .ss-search-filters {
   display: flex;
@@ -389,13 +398,29 @@
 }
 .ss-search-filters select,
 .ss-search-filters > span {
-  background: #373b47;
-  color: #c1c5d1;
+  background-color: var(--color-badge-neutral-background);
+  color: var(--color-text-secondary);
   font-size: 11px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-8);
   padding: 5px 7px;
   max-width: 180px;
+}
+.ss-search-filters select {
+  padding-inline-end: 22px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-foreground-icon-secondary) 50%),
+    linear-gradient(135deg, var(--color-foreground-icon-secondary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 11px) 50%,
+    calc(100% - 7px) 50%;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  transition: box-shadow var(--motion-quick) ease;
+}
+.ss-search-filters select:hover:not(:disabled):not(:focus) {
+  box-shadow: var(--surface-field-ring-hover);
 }
 .ss-scope {
   font-size: 11px;

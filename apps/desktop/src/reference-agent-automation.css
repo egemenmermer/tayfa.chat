@@ -255,10 +255,10 @@
 .s63-modal {
   width: 590px !important;
   max-width: calc(100vw - 36px) !important;
-  border: 1px solid #4a5160 !important;
-  border-radius: 14px !important;
-  background: #262a33 !important;
-  color: #f2f3f7;
+  border: 1px solid var(--color-border-default) !important;
+  border-radius: var(--surface-radius-modal) !important;
+  background: var(--color-background-main) !important;
+  color: var(--color-text-primary);
 }
 .s63-modal > p {
   font-size: var(--font-size-ui);

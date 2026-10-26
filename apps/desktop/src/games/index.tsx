@@ -75,7 +75,7 @@ export default function Games() {
     return (
       <>
         <button className="coffeehouse-return" onClick={() => navigate('/games')}>
-          {t('← Kıraathaneye dön')}
+          {t('← Oyunlara dön')}
         </button>
         <ReferenceOtherGame
           key={`${roomId}:${activity.room?.primary?.startedAt}`}
@@ -93,7 +93,7 @@ export default function Games() {
           navigate('/games');
         }}
       >
-        {t('← Kıraathaneye dön')}
+        {t('← Oyunlara dön')}
       </button>
       <ReferenceGames
         activity={activity}

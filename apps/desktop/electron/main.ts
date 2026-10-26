@@ -20,6 +20,8 @@ import { localMediaId } from './media-capabilities';
 import { readCaptionFile, readSubtitleFile } from './caption-file';
 import { Readable } from 'node:stream';
 import { setupCommunity } from './community';
+import { createStudioHttp } from './studio-http';
+import { studioExportFileName, validateStudioExport } from './studio-export';
 import { setupNotifications } from './notifications';
 import { setupWindowPolicy } from './window-policy';
 import { readWindowState, showRestored, showWindow, trackWindowState } from './window-state';
@@ -31,6 +33,7 @@ import { setupAgent } from './agent';
 import { whiteboardSvg } from './whiteboard-export';
 import { whiteboardPng } from './whiteboard-raster';
 import { setupLocale } from './locale';
+import { isRendererPermissionAllowed } from './permissions';
 import { t } from '@rooms/i18n';
 import type { ActivityResponse } from '@rooms/activity-protocol';
 const isolatedProfile = isolatedProfilePath(app.getPath('appData'), process.env.ROOMS_PROFILE);
@@ -285,6 +288,34 @@ app.whenReady().then(async () => {
     assertSender(event);
     return community.activityRequest(roomId, command);
   });
+  const studio = createStudioHttp(community.serviceSession);
+  // Long polls of a closed main window must not keep running against the service.
+  app.on('browser-window-created', (_event, window) =>
+    window.on('closed', () => {
+      if (!win || win === window) studio.abortAll();
+    }),
+  );
+  for (const [name, method] of Object.entries(studio.bridge))
+    ipcMain.handle(`rooms:studio-${name}`, (event, ...args: unknown[]) => {
+      assertSender(event);
+      return (method as (...input: unknown[]) => Promise<unknown>)(...args);
+    });
+  // The renderer renders the song; main validates the WAV bytes and writes them where the user chooses.
+  ipcMain.handle('rooms:studio-save-export', async (event, fileName, data) => {
+    assertSender(event);
+    if (!win) return false;
+    if (devUrl && new URL(event.senderFrame!.url).searchParams.has('fixture'))
+      throw new Error('File export is disabled in development fixtures.');
+    const wav = validateStudioExport(data);
+    const result = await dialog.showSaveDialog(win, {
+      title: t('Şarkıyı kaydet'),
+      defaultPath: studioExportFileName(fileName),
+      filters: [{ name: 'WAV', extensions: ['wav'] }],
+    });
+    if (result.canceled || !result.filePath) return false;
+    writeFileSync(result.filePath, wav, { mode: 0o600 });
+    return true;
+  });
   app.on('before-quit', () => providers.clearPlayback());
   ipcMain.handle('rooms:youtube-details', async (event, videoId) => {
     assertSender(event);
@@ -367,27 +398,24 @@ app.whenReady().then(async () => {
       nonce,
     };
   });
+  const permissionContext = (
+    contents: Electron.WebContents | null,
+    details: { isMainFrame: boolean; requestingUrl?: string },
+  ) => {
+    const ownWindow = !!contents && contents === win?.webContents;
+    return {
+      isMainFrame: details.isMainFrame,
+      requestingUrl: details.requestingUrl,
+      contentsUrl: ownWindow ? contents.getURL() : '',
+      ownWindow,
+      isTrusted,
+    };
+  };
   session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) =>
-    callback(
-      details.isMainFrame &&
-        isTrusted(details.requestingUrl) &&
-        contents === win?.webContents &&
-        isTrusted(contents.getURL()) &&
-        (permission === 'media' ||
-          permission === 'fullscreen' ||
-          permission === 'clipboard-sanitized-write'),
-    ),
+    callback(isRendererPermissionAllowed(permission, permissionContext(contents, details))),
   );
-  session.defaultSession.setPermissionCheckHandler(
-    (contents, permission, _origin, details) =>
-      details.isMainFrame &&
-      !!details.requestingUrl &&
-      isTrusted(details.requestingUrl) &&
-      contents === win?.webContents &&
-      (permission === 'media' ||
-        permission === 'fullscreen' ||
-        permission === 'clipboard-sanitized-write') &&
-      isTrusted(contents.getURL()),
+  session.defaultSession.setPermissionCheckHandler((contents, permission, _origin, details) =>
+    isRendererPermissionAllowed(permission, permissionContext(contents, details)),
   );
   protocol.handle('rooms-media', (request) => {
     const id = new URL(request.url).hostname;
