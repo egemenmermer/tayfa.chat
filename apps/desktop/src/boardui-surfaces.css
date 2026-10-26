@@ -1,0 +1,404 @@
+/*
+ * BoardUI surfaces on Tayfa's global classes: cards, modals, menus and popovers, tabs and segmented
+ * controls, badges and kbd, list rows, empty/loading states, toasts and notices, page titles.
+ *
+ * Imported last from main.tsx, so at equal specificity these rules win over every eagerly loaded
+ * surface stylesheet. Lazily loaded surfaces (Settings, Agent, Together, ...) are restyled in their
+ * own files. Look only: radii, borders, fills, shadows, type and hover/press motion; layout
+ * (position, size, gaps) stays with the surface. Controls (`.button`, fields, toggles, sliders,
+ * checkboxes) live in reference-shell.css / styles.css. Colours come from reference-tokens.css.
+ *
+ * BoardUI type composites mapped to Tayfa sizes:
+ *   title-1   page titles      --font-size-h1 / --line-height-h1, h1 weight, -0.5px
+ *   title-2   modal titles     --font-size-h2 / --line-height-h2, semibold, -0.3px
+ *   headline  section titles   --font-size-body / --line-height-body, semibold
+ *   body      rows, menu items --font-size-ui / --line-height-ui
+ *   caption   counts, kbd      --font-size-metadata / --line-height-metadata, semibold
+ */
+
+/* Cards and raised panels */
+.glass {
+  border-color: var(--color-border-subtle);
+  box-shadow:
+    var(--surface-shadow-menu),
+    inset 0 1px 0 0 rgb(255 255 255 / 0.04);
+}
+
+/* Modals: BoardUI settings-modal look (solid surface, hairline border, layered shadow). */
+.modal {
+  background: var(--color-background-main);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--surface-radius-modal);
+  box-shadow: var(--surface-shadow-modal);
+}
+.modal-heading h2 {
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.3px;
+}
+.modal-heading .eyebrow {
+  letter-spacing: 0.4px;
+}
+.modal-description {
+  font-size: var(--font-size-ui);
+  line-height: var(--line-height-ui);
+  color: var(--color-text-secondary);
+}
+.modal-footnote {
+  color: var(--color-text-muted);
+  border-top-color: var(--color-border-subtle);
+}
+.modal.settings-modal {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--surface-radius-modal);
+  box-shadow: var(--surface-shadow-modal);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .modal-backdrop {
+    backdrop-filter: none;
+  }
+}
+
+/* Menus and popovers: BoardUI dropdown (radius 16, padding 8, rows radius 10). */
+.quiet-menu-content,
+.context-menu,
+.channel-context-menu,
+.community-menu,
+.participant-audio-menu,
+.rcm-menu {
+  padding: var(--space-8);
+  background: var(--color-background-raised);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--surface-radius-menu);
+  box-shadow: var(--surface-shadow-menu);
+  color: var(--color-text-primary);
+}
+.quiet-menu-content > button,
+.context-menu > button,
+.channel-context-menu button,
+.community-menu button,
+.participant-audio-menu button,
+.rcm-menu button {
+  border-radius: var(--surface-radius-row);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-ui);
+  line-height: var(--line-height-ui);
+  transition:
+    background-color var(--motion-quick) ease,
+    color var(--motion-quick) ease;
+}
+.quiet-menu-content > button:hover:not(:disabled),
+.context-menu > button:hover,
+.channel-context-menu button:hover,
+.channel-context-menu button:focus-visible,
+.community-menu button:hover:not(:disabled),
+.community-menu button:focus-visible,
+.participant-audio-menu button:hover,
+.rcm-menu button:hover:enabled {
+  background: var(--color-background-hover);
+  color: var(--color-text-primary);
+}
+.channel-context-menu button.destructive,
+.rcm-menu button.danger {
+  color: var(--color-status-error);
+}
+.quiet-menu-content hr,
+.channel-context-menu hr,
+.community-menu hr {
+  border-top-color: var(--color-border-subtle);
+  margin: var(--space-4) var(--space-8);
+}
+.participant-audio-menu small {
+  font-size: var(--font-size-micro);
+}
+.quiet-menu summary {
+  border-radius: var(--surface-radius-row);
+  transition: background-color var(--motion-quick) ease;
+}
+.quiet-menu summary:hover,
+.quiet-menu[open] > summary {
+  background: var(--color-background-hover);
+}
+
+/* Segmented controls and pill tab bars: BoardUI segmented control. */
+.segmented,
+.reference-friend-tabs,
+.ss-tabs,
+.rcs-notification-tabs,
+.reference-source-tabs {
+  background: var(--color-background-field);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--surface-radius-row);
+}
+.segmented {
+  padding: 3px;
+}
+.segmented button,
+.reference-friend-tabs button,
+.ss-tabs button,
+.rcs-notification-tabs button,
+.reference-source-tabs button {
+  border-radius: 7px;
+  color: var(--color-text-secondary);
+  transition:
+    background-color var(--motion-quick) ease,
+    color var(--motion-quick) ease,
+    box-shadow var(--motion-quick) ease;
+}
+.segmented button {
+  font-size: var(--font-size-metadata);
+  line-height: var(--line-height-metadata);
+}
+.segmented button:hover:not(.selected):not(:disabled),
+.reference-friend-tabs button:hover:not([aria-selected='true']),
+.ss-tabs button:hover:not([aria-selected='true']),
+.rcs-notification-tabs button:hover:not(.selected),
+.reference-source-tabs button:hover:not(.selected) {
+  color: var(--color-text-primary);
+}
+.segmented button.selected,
+.reference-friend-tabs button[aria-selected='true'],
+.ss-tabs button[aria-selected='true'],
+.rcs-notification-tabs button.selected,
+.reference-source-tabs button.selected {
+  background: var(--color-background-hover);
+  color: var(--color-text-primary);
+  box-shadow:
+    0 1px 2px 0 rgb(0 0 0 / 0.18),
+    inset 0 0 0 1px var(--color-border-default);
+}
+
+/* Underline tabs: BoardUI tabs (accent 2px indicator, secondary to primary text). */
+.agent-management-tabs > button,
+.rcm-tabs button {
+  color: var(--color-text-secondary);
+  transition:
+    color var(--motion-quick) ease,
+    border-color var(--motion-quick) ease;
+}
+.agent-management-tabs > button:hover,
+.rcm-tabs button:hover {
+  color: var(--color-text-primary);
+}
+.agent-management-tabs > button[aria-selected='true'],
+.rcm-tabs button[aria-selected='true'] {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-action-primary);
+}
+.rcm-tabs {
+  border-bottom-color: var(--color-border-subtle);
+}
+
+/* Badges and keyboard hints */
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  padding: 1px 6px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-background-hover);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-micro);
+  line-height: var(--line-height-micro);
+  font-weight: var(--font-weight-semibold);
+}
+.minimal-sidebar .sidebar-nav-badge {
+  border-radius: var(--radius-4);
+  padding: 0 5px;
+  font-size: var(--font-size-micro);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Sidebar rows: BoardUI nav items (radius 10, hover fill, accent-tinted selected row). */
+.minimal-nav,
+.minimal-occupant,
+.minimal-activity {
+  border-radius: var(--surface-radius-row);
+  transition:
+    background-color var(--motion-quick) ease,
+    color var(--motion-quick) ease;
+}
+.minimal-nav {
+  color: var(--color-text-secondary);
+}
+.minimal-nav:hover,
+.minimal-occupant:hover,
+.minimal-activity:hover {
+  background: color-mix(in srgb, var(--color-background-hover) 60%, transparent);
+  color: var(--color-text-primary);
+}
+.minimal-sidebar .minimal-nav.selected,
+.minimal-nav.selected {
+  background: var(--color-action-primarySubtle);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-action-primary) 22%, transparent);
+}
+.minimal-sidebar .minimal-nav.selected > svg {
+  color: var(--color-text-accent);
+}
+.minimal-section {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-metadata);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.2px;
+}
+.minimal-section > button {
+  border-radius: var(--radius-8);
+}
+.minimal-section > button:hover {
+  background: var(--color-background-hover);
+  color: var(--color-text-primary);
+}
+/* BoardUI floating sidebar: an inset rounded card on the canvas. The header loses the inset so
+   its divider still lines up with the 56px workspace toolbar. */
+.minimal-room-ui .app-layout {
+  background: var(--color-background-canvas);
+}
+.minimal-sidebar {
+  background: var(--color-background-sidebar);
+  border-right-color: var(--color-border-subtle);
+}
+.minimal-room-ui .minimal-sidebar {
+  margin: var(--space-8);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--surface-radius-menu);
+  box-shadow: var(--surface-shadow-card);
+  overflow: hidden;
+}
+.minimal-room-ui .minimal-sidebar > header {
+  height: 47px;
+}
+.minimal-sidebar > header {
+  border-bottom-color: var(--color-border-subtle);
+}
+.minimal-sidebar .sidebar-nav {
+  border-bottom-color: var(--color-border-subtle);
+}
+.minimal-sidebar .sidebar-media-actions > .icon-button {
+  background: var(--color-background-main);
+  border-radius: var(--surface-radius-row);
+  color: var(--color-text-secondary);
+}
+.minimal-sidebar .sidebar-media-actions > .icon-button:hover:not(:disabled) {
+  background: var(--color-background-hover);
+  color: var(--color-text-primary);
+}
+
+/* Empty and loading states: BoardUI empty state (title-2 heading, body copy, quiet card). */
+.empty-state {
+  background: color-mix(in srgb, var(--color-background-main) 55%, transparent);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-16);
+}
+.empty-icon {
+  color: var(--color-text-muted);
+}
+.empty-state h2 {
+  font-family: var(--font-family);
+  font-size: var(--font-size-h2);
+  line-height: var(--line-height-h2);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.3px;
+}
+.empty-state p {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-ui);
+  line-height: var(--line-height-ui);
+}
+.loading-view {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-ui);
+}
+.loading-ring {
+  border-color: var(--color-border-subtle);
+  border-top-color: var(--color-action-focus);
+}
+
+/* Toasts and notices: BoardUI notification card. */
+.toast {
+  border-radius: var(--surface-radius-notification);
+  font-size: var(--font-size-ui);
+  line-height: var(--line-height-ui);
+}
+.toast.glass {
+  background: var(--color-background-raised);
+  backdrop-filter: none;
+  border: 1px solid var(--color-border-default);
+  box-shadow: var(--surface-shadow-modal);
+}
+.ds-notice {
+  border-radius: var(--surface-radius-notification);
+  background: color-mix(in srgb, var(--notice-tone) 12%, var(--color-background-main));
+  border-color: color-mix(in srgb, var(--notice-tone) 32%, transparent);
+  box-shadow: var(--surface-shadow-card);
+}
+
+/* Page and section titles on BoardUI's type scale. */
+.reference-page-heading h1,
+.home-header h1,
+.rcm-heading h1,
+.rcs-heading h1,
+.dm-call-heading h1,
+.ss-files-heading h1 {
+  font-size: var(--font-size-h1);
+  line-height: var(--line-height-h1);
+  font-weight: var(--font-weight-h1);
+  letter-spacing: -0.5px;
+}
+.reference-page-heading p {
+  font-size: var(--font-size-ui);
+  line-height: var(--line-height-ui);
+  color: var(--color-text-secondary);
+}
+.eyebrow {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  letter-spacing: 0.6px;
+}
+
+/* Reduced motion: surfaces change state instantly. */
+@media (prefers-reduced-motion: reduce) {
+  .quiet-menu-content > button,
+  .context-menu > button,
+  .channel-context-menu button,
+  .community-menu button,
+  .participant-audio-menu button,
+  .rcm-menu button,
+  .quiet-menu summary,
+  .segmented button,
+  .reference-friend-tabs button,
+  .ss-tabs button,
+  .rcs-notification-tabs button,
+  .reference-source-tabs button,
+  .agent-management-tabs > button,
+  .rcm-tabs button,
+  .minimal-nav,
+  .minimal-occupant,
+  .minimal-activity {
+    transition: none;
+  }
+}
+
+/* High contrast: surfaces keep a visible edge and the selected segment a solid outline. */
+@media (prefers-contrast: more) {
+  .modal,
+  .quiet-menu-content,
+  .context-menu,
+  .channel-context-menu,
+  .community-menu,
+  .participant-audio-menu,
+  .rcm-menu,
+  .toast,
+  .empty-state {
+    border-color: var(--color-border-interactive);
+  }
+  .segmented button.selected,
+  .reference-friend-tabs button[aria-selected='true'],
+  .ss-tabs button[aria-selected='true'],
+  .rcs-notification-tabs button.selected,
+  .reference-source-tabs button.selected,
+  .minimal-nav.selected {
+    box-shadow: inset 0 0 0 1px var(--color-text-primary);
+  }
+}
