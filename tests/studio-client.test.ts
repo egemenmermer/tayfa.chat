@@ -19,7 +19,12 @@ interface SyncCall extends Deferred<StudioSyncResponse> {
   afterSeq: number;
   waitMs: number;
 }
-interface OpsCall extends Deferred<{ protocolVersion: 1; seq: number; applied: number[]; skipped: [] }> {
+interface OpsCall extends Deferred<{
+  protocolVersion: 1;
+  seq: number;
+  applied: number[];
+  skipped: [];
+}> {
   batch: StudioBatchInput;
   body: string;
 }
@@ -219,7 +224,9 @@ describe('Studio client session', () => {
     session.dispatch([volume(0.5)]);
     await flush();
     ops[0].reject(
-      new Error("Error invoking remote method 'rooms:studio-ops': Error: ACTIVITY_SERVICE_UNAVAILABLE"),
+      new Error(
+        "Error invoking remote method 'rooms:studio-ops': Error: ACTIVITY_SERVICE_UNAVAILABLE",
+      ),
     );
     await flush();
     expect(session.view().status).toBe('offline');

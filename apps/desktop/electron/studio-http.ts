@@ -205,7 +205,10 @@ export function createStudioHttp(
     create: async (roomId, value) =>
       call(`${room(roomId)}/studio/projects`, createSchema, {
         method: 'POST',
-        body: { protocolVersion: STUDIO_PROTOCOL_VERSION, ...input(studioCreateInputSchema, value) },
+        body: {
+          protocolVersion: STUDIO_PROTOCOL_VERSION,
+          ...input(studioCreateInputSchema, value),
+        },
       }),
     remove: async (roomId, projectId) =>
       call(project(roomId, projectId), removeSchema, { method: 'DELETE' }),

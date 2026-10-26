@@ -47,9 +47,13 @@ export function studioErrorMessage(error: unknown): string {
     case 'STUDIO_ROOM_FULL':
       return t('Bu odadaki proje sınırına ulaşıldı. Kullanılmayan bir projeyi silip yeniden dene.');
     case 'STUDIO_BATCH_CONFLICT':
-      return t('Son değişiklik sunucudakiyle çakıştı ve uygulanmadı. Proje güncel haliyle yüklendi.');
+      return t(
+        'Son değişiklik sunucudakiyle çakıştı ve uygulanmadı. Proje güncel haliyle yüklendi.',
+      );
     case 'PAYLOAD_TOO_LARGE':
-      return t('Değişiklik tek seferde gönderilemeyecek kadar büyük. Daha küçük parçalar halinde yap.');
+      return t(
+        'Değişiklik tek seferde gönderilemeyecek kadar büyük. Daha küçük parçalar halinde yap.',
+      );
     case 'INVALID_COMMAND':
     case 'STUDIO_INVALID_INPUT':
       return t('Bu değişiklik geçersiz olduğu için uygulanmadı.');

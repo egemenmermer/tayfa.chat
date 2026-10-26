@@ -40,7 +40,8 @@ export function setStudioBridgeForTesting(bridge: StudioBridge | null) {
 export function studioBridge(): StudioBridge {
   if (bridgeOverride) return bridgeOverride;
   const bridge = typeof window === 'undefined' ? undefined : window.rooms?.studio;
-  if (!bridge) throw new Error(t('Stüdyo masaüstü uygulaması ve yapılandırılmış sunucu gerektirir.'));
+  if (!bridge)
+    throw new Error(t('Stüdyo masaüstü uygulaması ve yapılandırılmış sunucu gerektirir.'));
   return bridge;
 }
 
