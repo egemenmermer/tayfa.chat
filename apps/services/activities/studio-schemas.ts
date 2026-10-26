@@ -13,6 +13,7 @@ import {
   studioProjectSchema,
   studioTemplateIdSchema,
   tempoSchema,
+  type StudioSkipReason,
 } from '../../../packages/studio/src/index';
 import { ActivityStorageError } from './storage-codec';
 
@@ -63,19 +64,23 @@ export interface StudioPresence extends StudioPresenceState {
   lastSeenAt: number;
 }
 
+const SKIP_REASONS = [
+  'missing-target',
+  'exists',
+  'missing-track',
+  'missing-clip',
+  'kind-mismatch',
+  'limit',
+  'invalid',
+] as const satisfies readonly StudioSkipReason[];
+// A reason added to packages/studio must be added here, or stored logs holding it would fail to save.
+type MissingSkipReason = Exclude<StudioSkipReason, (typeof SKIP_REASONS)[number]>;
+export const skipReasonsComplete: [MissingSkipReason] extends [never] ? true : never = true;
 export const studioSkipSchema = z
   .object({
     index: count,
     op: z.string().min(1).max(32),
-    reason: z.enum([
-      'missing-target',
-      'exists',
-      'missing-track',
-      'missing-clip',
-      'kind-mismatch',
-      'limit',
-      'invalid',
-    ]),
+    reason: z.enum(SKIP_REASONS),
   })
   .strict();
 

@@ -146,6 +146,8 @@ describe('Studio sync over real HTTP clients', () => {
     });
     const bob = mirror(await pull(call, 'bob', path, 0));
     expect(alice.seq).toBe(0);
+    // Let the coalesced "newcomer" presence wake pass, so the polls below are woken by batches only.
+    await new Promise((resolve) => setTimeout(resolve, 1100));
 
     // Bob waits at 0; Alice's first batch wakes him (a client at 0 always gets the snapshot).
     const waitingAtZero = pull(call, 'bob', path, bob.seq, 5000);
