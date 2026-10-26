@@ -427,14 +427,20 @@ describe('table lifecycle', () => {
   });
 
   it('skips a Blackjack stack that cannot bet, lowers an uncovered bet and refills a bot', () => {
-    const table = create({ game: 'blackjack' });
-    act(table, bob, { type: 'game.sit', seat: 1 });
-    addBot(table, 2);
-    act(table, bob, { type: 'game.action', action: 'bet', amount: 500 });
-    seatOf(table, 1).chips = 401;
-    seatOf(table, 0).chips = 1;
-    seatOf(table, 2).chips = 0;
-    startHand(table);
+    let table = create({ game: 'blackjack' });
+    // A natural settles during the deal and moves the stacks; that is not under test: deal again.
+    // A missing refill still fails, because no deal then leaves the bot at 1000.
+    for (let deal = 0; deal < 200; deal++) {
+      table = create({ game: 'blackjack' });
+      act(table, bob, { type: 'game.sit', seat: 1 });
+      addBot(table, 2);
+      act(table, bob, { type: 'game.action', action: 'bet', amount: 500 });
+      seatOf(table, 1).chips = 401;
+      seatOf(table, 0).chips = 1;
+      seatOf(table, 2).chips = 0;
+      startHand(table);
+      if (!table.blackjack!.finished && seatOf(table, 2).chips === 1000) break;
+    }
     const round = table.blackjack as BlackjackTableRound;
     expect(round.players.map((player) => player.userId)).toEqual(['bob', seatOf(table, 2).userId]);
     expect(round.players[0].hands[0].bet).toBe(400);
