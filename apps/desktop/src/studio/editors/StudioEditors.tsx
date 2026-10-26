@@ -86,7 +86,6 @@ export function StudioEditors({
       noteIds: [...selectedNotes].slice(0, MAX_PRESENCE_NOTE_IDS),
     });
     // The port object changes with every doc; publish only when the selection changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeClipId, selectedNotes]);
 
   useEffect(() => {

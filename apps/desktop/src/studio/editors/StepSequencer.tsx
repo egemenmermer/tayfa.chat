@@ -59,8 +59,8 @@ export function StepSequencer({ port, clipId, mode, newId }: StepSequencerProps)
   const steps = clip ? stepCount(clip) : 0;
   const scroller = useRef<HTMLDivElement>(null);
   const playhead = useRef<HTMLDivElement>(null);
-  const paint = useRef<{ on: boolean; pitch: number } | null>(null);
-  const [painted, setPainted] = useState<Set<string>>(new Set());
+  const paint = useRef<{ on: boolean; pitch: number; cells: Set<string> } | null>(null);
+  const [painted, setPainted] = useState<{ on: boolean; cells: Set<string> } | null>(null);
 
   const stepX = (step: number) =>
     LABEL_WIDTH + step * (CELL + GAP) + Math.floor(step / 4) * BEAT_GAP;
@@ -74,22 +74,22 @@ export function StepSequencer({ port, clipId, mode, newId }: StepSequencerProps)
     return stepX(step) + (local / STEP_BEATS - step) * CELL;
   });
 
-  // A paint drag ends wherever the pointer is released.
+  // A paint drag ends wherever the pointer is released: one batch for every painted cell.
+  const latest = useRef({ port, clipId, newId });
+  latest.current = { port, clipId, newId };
   useEffect(() => {
     const finish = () => {
       const current = paint.current;
       paint.current = null;
-      setPainted((pending) => {
-        if (current && pending.size && clip) {
-          const list = [...pending].map((key) => {
-            const [pitch, step] = key.split(':').map(Number);
-            return { pitch, step };
-          });
-          const ops = setStepsOps(port.doc, clip.id, list, current.on, newId);
-          if (ops.length) queueMicrotask(() => port.dispatch(ops));
-        }
-        return new Set();
+      if (!current) return;
+      setPainted(null);
+      const { port: target, clipId: id, newId: makeId } = latest.current;
+      const list = [...current.cells].map((key) => {
+        const [pitch, step] = key.split(':').map(Number);
+        return { pitch, step };
       });
+      const ops = setStepsOps(target.doc, id, list, current.on, makeId);
+      if (ops.length) target.dispatch(ops);
     };
     window.addEventListener('pointerup', finish);
     window.addEventListener('pointercancel', finish);
@@ -97,12 +97,12 @@ export function StepSequencer({ port, clipId, mode, newId }: StepSequencerProps)
       window.removeEventListener('pointerup', finish);
       window.removeEventListener('pointercancel', finish);
     };
-  }, [port, clip, newId]);
+  }, []);
 
   if (!clip || !track) return null;
 
   function onCellDown(event: PointerEvent<HTMLButtonElement>, pitch: number, step: number) {
-    if (event.button !== 0 || !canEdit || !clip || !track) return;
+    if (event.button > 0 || !canEdit || !clip || !track) return;
     event.preventDefault();
     const key = `${pitch}:${step}`;
     const filled = cells.has(key);
@@ -111,9 +111,9 @@ export function StepSequencer({ port, clipId, mode, newId }: StepSequencerProps)
       if (ops.length) port.dispatch(ops);
       return;
     }
-    paint.current = { on: !filled, pitch };
+    paint.current = { on: !filled, pitch, cells: new Set([key]) };
     if (!filled) port.preview(track.id, pitch, DEFAULT_VELOCITY);
-    setPainted(new Set([key]));
+    setPainted({ on: !filled, cells: new Set([key]) });
     // Pointer capture would keep enter events from the other cells.
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   }
@@ -121,7 +121,8 @@ export function StepSequencer({ port, clipId, mode, newId }: StepSequencerProps)
   function onCellEnter(pitch: number, step: number) {
     const current = paint.current;
     if (!current || current.pitch !== pitch) return;
-    setPainted((pending) => new Set(pending).add(`${pitch}:${step}`));
+    current.cells.add(`${pitch}:${step}`);
+    setPainted({ on: current.on, cells: new Set(current.cells) });
   }
 
   function onCellKey(pitch: number, step: number, shift: boolean) {
@@ -190,8 +191,7 @@ export function StepSequencer({ port, clipId, mode, newId }: StepSequencerProps)
               {Array.from({ length: steps }, (_, step) => {
                 const key = `${row.pitch}:${step}`;
                 const present = cells.get(key);
-                const pending = painted.has(key) && paint.current;
-                const on = pending ? paint.current!.on : !!present;
+                const on = painted?.cells.has(key) ? painted.on : !!present;
                 const accent = !!present?.some((note) => note.velocity >= ACCENT_THRESHOLD);
                 const downbeat = step % 4 === 0;
                 return (

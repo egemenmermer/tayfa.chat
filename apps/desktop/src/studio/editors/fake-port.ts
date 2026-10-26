@@ -32,7 +32,7 @@ export class FakeEditorStore {
     if (!ops.length) return;
     const parsed = ops.map((op) => studioOpSchema.parse(op));
     const result = applyOps(this.doc, parsed);
-    for (const skip of result.skipped) this.skipped.push(`${skip.op.op}:${skip.reason}`);
+    for (const skip of result.skipped) this.skipped.push(`${skip.op}:${skip.reason}`);
     this.batches.push(ops);
     this.doc = result.doc;
     this.emit();

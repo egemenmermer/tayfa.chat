@@ -145,7 +145,6 @@ export function PianoRoll({
     );
     element.scrollLeft = 0;
     // Only when the clip changes, not on every edit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clipId]);
 
   usePlayheadLine(playhead, port, (beat) => {
