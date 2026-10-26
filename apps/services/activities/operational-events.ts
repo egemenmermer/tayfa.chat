@@ -4,7 +4,7 @@ declare const __ROOMS_SOURCE_SHA__: string;
 export interface ActivityOperationalEvent {
   service: 'rooms-activities';
   category: 'storage-incompatible' | 'dependency-unavailable';
-  operation: 'request' | 'sweep' | 'health';
+  operation: 'request' | 'sweep' | 'health' | 'studio-save' | 'studio-load';
   version: string;
   sourceSha: string;
   at: string;
