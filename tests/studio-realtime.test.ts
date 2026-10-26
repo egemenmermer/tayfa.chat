@@ -49,7 +49,8 @@ const directories: string[] = [];
 const apps: { close(): Promise<unknown> }[] = [];
 afterEach(async () => {
   for (const app of apps.splice(0)) await app.close();
-  for (const directory of directories.splice(0)) await rm(directory, { recursive: true, force: true });
+  for (const directory of directories.splice(0))
+    await rm(directory, { recursive: true, force: true });
 });
 async function temporary() {
   const directory = await mkdtemp(join(tmpdir(), 'rooms-studio-test-'));
@@ -138,7 +139,11 @@ describe('Studio sync over real HTTP clients', () => {
     const { call } = await start(await temporary());
     const path = await createProject(call);
     const alice = mirror(await pull(call, 'alice', path, 0));
-    expect(alice.project).toMatchObject({ name: 'İlk şarkı', roomId: 'room-1', createdBy: 'alice' });
+    expect(alice.project).toMatchObject({
+      name: 'İlk şarkı',
+      roomId: 'room-1',
+      createdBy: 'alice',
+    });
     const bob = mirror(await pull(call, 'bob', path, 0));
     expect(alice.seq).toBe(0);
 
@@ -152,15 +157,25 @@ describe('Studio sync over real HTTP clients', () => {
         op: 'clip.create',
         clip: { id: clip, trackId: drums, startBeat: 0, lengthBeats: 4, name: '', kind: 'midi' },
       },
-      ...[0, 1, 2, 3].map(
-        (beat): StudioOp => ({
-          op: 'note.create',
-          note: { id: id(), clipId: clip, pitch: 36, startBeat: beat, lengthBeats: 0.25, velocity: 110 },
-        }),
-      ),
+      ...[0, 1, 2, 3].map((beat): StudioOp => ({
+        op: 'note.create',
+        note: {
+          id: id(),
+          clipId: clip,
+          pitch: 36,
+          startBeat: beat,
+          lengthBeats: 0.25,
+          velocity: 110,
+        },
+      })),
     ]);
     const sent = await call('alice', 'POST', `${path}/ops`, first);
-    expect(sent.body).toEqual({ protocolVersion: 1, seq: 1, applied: [0, 1, 2, 3, 4, 5], skipped: [] });
+    expect(sent.body).toEqual({
+      protocolVersion: 1,
+      seq: 1,
+      applied: [0, 1, 2, 3, 4, 5],
+      skipped: [],
+    });
     const woken = await waitingAtZero;
     expect(woken.seq).toBe(1);
     bob.accept(woken);
@@ -201,7 +216,10 @@ describe('Studio sync over real HTTP clients', () => {
     expect(await call('alice', 'POST', `${path}/ops`, aliceEdit)).toEqual(a);
     expect((await pull(call, 'alice', path, alice.seq)).batches).toEqual([]);
     // The same id with a different body is a conflict, not a second batch.
-    const reused = batch([{ op: 'track.set', id: drums, field: 'volume', value: 1 }], aliceEdit.batchId);
+    const reused = batch(
+      [{ op: 'track.set', id: drums, field: 'volume', value: 1 }],
+      aliceEdit.batchId,
+    );
     expect(await call('alice', 'POST', `${path}/ops`, reused)).toEqual({
       status: 409,
       body: { error: 'STUDIO_BATCH_CONFLICT' },
@@ -266,7 +284,10 @@ describe('Studio sync over real HTTP clients', () => {
     });
     // A batch whose ops were all skipped is still logged, so its sender can drop it from pending.
     const empty = batch([{ op: 'note.delete', id: id() }]);
-    expect((await call('bob', 'POST', `${path}/ops`, empty)).body).toMatchObject({ seq: 4, applied: [] });
+    expect((await call('bob', 'POST', `${path}/ops`, empty)).body).toMatchObject({
+      seq: 4,
+      applied: [],
+    });
     bob.accept(await pull(call, 'bob', path, bob.seq));
     expect(bob.project.tracks).toEqual({});
     expect(bob.project.name).toBe('Yeni ad');
@@ -297,7 +318,9 @@ describe('Studio sync over real HTTP clients', () => {
         body: { error: 'ROOM_ACCESS_DENIED' },
       });
     // Projects belong to their room.
-    expect((await call('alice', 'GET', `${path.replace('room-1', 'room-2')}?afterSeq=0`)).status).toBe(404);
+    expect(
+      (await call('alice', 'GET', `${path.replace('room-1', 'room-2')}?afterSeq=0`)).status,
+    ).toBe(404);
 
     const list = await call('viewer', 'GET', projects);
     expect(list.body).toMatchObject({
@@ -310,7 +333,9 @@ describe('Studio sync over real HTTP clients', () => {
     expect((await call('viewer', 'POST', `${path}/ops`, edit())).body).toEqual({
       error: 'STUDIO_EDIT_DENIED',
     });
-    expect((await call('viewer', 'POST', projects, { protocolVersion: 1, name: 'x' })).status).toBe(403);
+    expect((await call('viewer', 'POST', projects, { protocolVersion: 1, name: 'x' })).status).toBe(
+      403,
+    );
     expect((await call('bob', 'POST', projects, { protocolVersion: 1, name: 'x' })).body).toEqual({
       error: 'STUDIO_CREATE_DENIED',
     });
@@ -375,22 +400,41 @@ describe('Studio sync over real HTTP clients', () => {
       body: { error: 'PAYLOAD_TOO_LARGE' },
     });
     expect((await call('alice', 'POST', ops, '{"protocolVersion":')).status).toBe(400);
-    expect((await call('alice', 'POST', ops, { ...batch([trackOp()]), protocolVersion: 2 })).status).toBe(400);
-    expect((await call('alice', 'POST', ops, { ...batch([trackOp()]), expectedRevision: 1 })).status).toBe(400);
+    expect(
+      (await call('alice', 'POST', ops, { ...batch([trackOp()]), protocolVersion: 2 })).status,
+    ).toBe(400);
+    expect(
+      (await call('alice', 'POST', ops, { ...batch([trackOp()]), expectedRevision: 1 })).status,
+    ).toBe(400);
 
     // The document limits skip, never fail, the op that would cross them.
-    const full = await call('alice', 'POST', ops, batch(Array.from({ length: MAX_TRACKS + 1 }, () => trackOp())));
+    const full = await call(
+      'alice',
+      'POST',
+      ops,
+      batch(Array.from({ length: MAX_TRACKS + 1 }, () => trackOp())),
+    );
     expect(full.status).toBe(200);
     expect(full.body.applied).toHaveLength(MAX_TRACKS);
     expect(full.body.skipped).toEqual([{ index: MAX_TRACKS, op: 'track.create', reason: 'limit' }]);
 
     const presence = `${path}/presence`;
-    expect((await call('alice', 'POST', presence, { selection: { noteIds: Array.from({ length: 65 }, id) } })).status).toBe(400);
+    expect(
+      (
+        await call('alice', 'POST', presence, {
+          selection: { noteIds: Array.from({ length: 65 }, id) },
+        })
+      ).status,
+    ).toBe(400);
     expect((await call('alice', 'POST', presence, { view: 'Mixer!' })).status).toBe(400);
     expect((await call('alice', 'POST', presence, { cursor: 1 })).status).toBe(400);
     expect((await call('alice', 'GET', `${path}?afterSeq=0&waitMs=25001`)).status).toBe(400);
-    expect((await call('alice', 'POST', projects, { protocolVersion: 1, name: ' boşluk' })).status).toBe(400);
-    expect((await call('alice', 'POST', projects, { protocolVersion: 1, name: 'a', tempo: 300 })).status).toBe(400);
+    expect(
+      (await call('alice', 'POST', projects, { protocolVersion: 1, name: ' boşluk' })).status,
+    ).toBe(400);
+    expect(
+      (await call('alice', 'POST', projects, { protocolVersion: 1, name: 'a', tempo: 300 })).status,
+    ).toBe(400);
 
     const template = await call('alice', 'POST', projects, {
       protocolVersion: 1,
@@ -399,12 +443,15 @@ describe('Studio sync over real HTTP clients', () => {
       template: 'drums-bass',
     });
     expect(template.body.project).toMatchObject({ tempo: 90, tracks: 2 });
-    for (let i = 2; i < MAX_PROJECTS_PER_ROOM; i++) await createProject(call, 'alice', `Şarkı ${i}`);
+    for (let i = 2; i < MAX_PROJECTS_PER_ROOM; i++)
+      await createProject(call, 'alice', `Şarkı ${i}`);
     expect(await call('alice', 'POST', projects, { protocolVersion: 1, name: 'Fazla' })).toEqual({
       status: 409,
       body: { error: 'STUDIO_ROOM_FULL' },
     });
-    expect((await call('alice', 'GET', projects)).body.projects).toHaveLength(MAX_PROJECTS_PER_ROOM);
+    expect((await call('alice', 'GET', projects)).body.projects).toHaveLength(
+      MAX_PROJECTS_PER_ROOM,
+    );
   });
 
   it('flushes on close, reloads from the file store and quarantines corrupt records', async () => {
@@ -416,7 +463,12 @@ describe('Studio sync over real HTTP clients', () => {
     const projectId = path.split('/').pop()!;
     const track = id();
     await server.call('alice', 'POST', `${path}/ops`, batch([trackOp(track)]));
-    await server.call('alice', 'POST', `${path}/ops`, batch([{ op: 'track.set', id: track, field: 'solo', value: true }]));
+    await server.call(
+      'alice',
+      'POST',
+      `${path}/ops`,
+      batch([{ op: 'track.set', id: track, field: 'solo', value: true }]),
+    );
     const before = await pull(server.call, 'alice', path, 0);
     // A project deleted with an unsaved edit is not written back by the pending save.
     const gone = await createProject(server.call, 'alice', 'Silinecek');
@@ -432,19 +484,26 @@ describe('Studio sync over real HTTP clients', () => {
     const reloaded = await pull(server.call, 'alice', path, 0);
     expect(reloaded.seq).toBe(2);
     expect(reloaded.snapshot).toEqual(before.snapshot);
-    expect((await pull(server.call, 'alice', path, 1)).batches?.map((entry) => entry.seq)).toEqual([2]);
+    expect((await pull(server.call, 'alice', path, 1)).batches?.map((entry) => entry.seq)).toEqual([
+      2,
+    ]);
 
     // Corrupt records: unparsable JSON, a broken document, and one filed under another project id.
     const room = join(directory, 'room-1');
     const stored = JSON.parse(await readFile(file, 'utf8')) as { project: { tempo: number } };
     await writeFile(join(room, 'broken-json.json'), '{"version":1,', { mode: 0o600 });
-    await writeFile(join(room, 'bad-tempo.json'), JSON.stringify({ ...stored, project: { ...stored.project, tempo: 999 } }));
+    await writeFile(
+      join(room, 'bad-tempo.json'),
+      JSON.stringify({ ...stored, project: { ...stored.project, tempo: 999 } }),
+    );
     await writeFile(join(room, 'elsewhere.json'), JSON.stringify(stored));
     await mkdir(join(directory, 'room-2'), { recursive: true });
     const list = await server.call('alice', 'GET', projects);
     expect(list.status).toBe(200);
     expect((list.body.projects as { id: string }[]).map((p) => p.id)).toEqual([projectId]);
-    expect((await server.call('alice', 'GET', `${projects}/bad-tempo?afterSeq=0`)).status).toBe(404);
+    expect((await server.call('alice', 'GET', `${projects}/bad-tempo?afterSeq=0`)).status).toBe(
+      404,
+    );
     const names = (await readdir(room)).sort();
     expect(names.filter((name) => name.endsWith('.json'))).toEqual([`${projectId}.json`]);
     expect(names.filter((name) => name.includes('.json.corrupt-'))).toHaveLength(3);
@@ -452,7 +511,9 @@ describe('Studio sync over real HTTP clients', () => {
       expect.objectContaining({ category: 'storage-incompatible', operation: 'studio-load' }),
     );
     // The good project still works after the quarantine.
-    expect((await server.call('alice', 'POST', `${path}/ops`, batch([trackOp()]))).body).toMatchObject({ seq: 3 });
+    expect(
+      (await server.call('alice', 'POST', `${path}/ops`, batch([trackOp()]))).body,
+    ).toMatchObject({ seq: 3 });
   });
 
   it(`answers with a snapshot once a client is behind the ${RETAINED_BATCHES} retained batches`, async () => {

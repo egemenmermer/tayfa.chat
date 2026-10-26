@@ -201,7 +201,11 @@ export interface StudioRouteOptions {
    * Current membership for the room behind the project. `counted` applies the Studio rate budget; the re-check
    * after a long-poll wake is not counted again.
    */
-  authorize: (request: FastifyRequest, roomId: string, counted?: boolean) => Promise<ActivityIdentity>;
+  authorize: (
+    request: FastifyRequest,
+    roomId: string,
+    counted?: boolean,
+  ) => Promise<ActivityIdentity>;
   serialize: <T>(key: string, task: () => Promise<T>) => Promise<T>;
   onStorageError: (error: unknown, operation: 'studio-save' | 'studio-load') => void;
 }
