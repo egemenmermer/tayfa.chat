@@ -229,7 +229,10 @@ export function planProject(project: StudioProject, options: PlanOptions = {}): 
   };
 }
 
-/** True when both plans schedule exactly the same notes (live updates then skip rescheduling). */
+/**
+ * True when both plans schedule exactly the same notes, drum voices included (live updates then skip
+ * rescheduling). An instrument switch between melodic and drum-kit keeps every other field the same.
+ */
 export function sameNotes(a: readonly PlannedNote[], b: readonly PlannedNote[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i += 1) {
@@ -241,7 +244,9 @@ export function sameNotes(a: readonly PlannedNote[], b: readonly PlannedNote[]):
       x.beat !== y.beat ||
       x.lengthBeats !== y.lengthBeats ||
       x.pitch !== y.pitch ||
-      x.velocity !== y.velocity
+      x.velocity !== y.velocity ||
+      x.drum?.voice !== y.drum?.voice ||
+      x.drum?.frequency !== y.drum?.frequency
     )
       return false;
   }

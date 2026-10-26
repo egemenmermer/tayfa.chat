@@ -311,6 +311,20 @@ describe('Studio project plan', () => {
     expect(sameNotes(a, planProject(moved.doc).notes)).toBe(false);
     expect(sameNotes(a, a.slice(1))).toBe(false);
   });
+
+  it('reschedules when a track switches between a melodic instrument and the drum kit', () => {
+    // Pitches 36–51 all have kit voices, so only the drum mapping tells the plans apart.
+    const project = withPiano([note('n1', 'pc', 36, 0, 1), note('n2', 'pc', 45, 1, 1)]);
+    const melodic = planProject(setTrack(project, 'piano', { instrument: 'bass@1' }), {
+      trackIds: ['piano'],
+    }).notes;
+    const drums = planProject(setTrack(project, 'piano', { instrument: 'drum-kit@1' }), {
+      trackIds: ['piano'],
+    }).notes;
+    expect(drums.every((n) => n.drum)).toBe(true);
+    expect(melodic.some((n) => n.drum)).toBe(false);
+    expect(sameNotes(melodic, drums)).toBe(false);
+  });
 });
 
 describe('Studio timing', () => {
