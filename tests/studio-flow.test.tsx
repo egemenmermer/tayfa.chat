@@ -1,12 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import {
-  applyOps,
-  createProject,
-  type StudioOp,
-  type StudioProject,
-} from '@rooms/studio';
+import { applyOps, createProject, type StudioOp, type StudioProject } from '@rooms/studio';
 import type {
   StudioBridge,
   StudioProjectSummary,
@@ -21,17 +16,17 @@ import {
   removeStudioProject,
   setStudioBridgeForTesting,
 } from '../apps/desktop/src/studio/store';
-import { exportFileStem, STUDIO_SHARE_LIMIT_BYTES } from '../apps/desktop/src/studio/ui/ExportDialog';
+import {
+  exportFileStem,
+  STUDIO_SHARE_LIMIT_BYTES,
+} from '../apps/desktop/src/studio/ui/ExportDialog';
 import { panLabel } from '../apps/desktop/src/studio/ui/Mixer';
 import { ProjectList } from '../apps/desktop/src/studio/ui/ProjectList';
 import { StudioProjectScreen } from '../apps/desktop/src/studio/ui/StudioPage';
 import { StudioSurface } from '../apps/desktop/src/studio/ui/StudioSurface';
 import { createLiveTransport } from '../apps/desktop/src/studio/ui/transport';
 import { barsOf } from '../apps/desktop/src/studio/ui/StudioEditor';
-import {
-  studioExportFileName,
-  validateStudioExport,
-} from '../apps/desktop/electron/studio-export';
+import { studioExportFileName, validateStudioExport } from '../apps/desktop/electron/studio-export';
 import type { DesktopBridge } from '../packages/shared-contracts/src';
 
 // One flow through the real store, session, transport and editors, with a fake activities service behind the
@@ -139,8 +134,14 @@ function mockEngine() {
   let loaded: StudioProject | null = null;
   const listeners = new Set<(beat: number, playing: boolean) => void>();
   const wav = new Uint8Array(64);
-  wav.set([...'RIFF'].map((c) => c.charCodeAt(0)), 0);
-  wav.set([...'WAVE'].map((c) => c.charCodeAt(0)), 8);
+  wav.set(
+    [...'RIFF'].map((c) => c.charCodeAt(0)),
+    0,
+  );
+  wav.set(
+    [...'WAVE'].map((c) => c.charCodeAt(0)),
+    8,
+  );
   const engine = {
     load: vi.fn(async (project: StudioProject) => {
       loaded = project;
@@ -166,11 +167,16 @@ function mockEngine() {
     },
     plan: () => null,
     renderOffline: vi.fn(),
-    exportWav: vi.fn(async (_project: StudioProject, options: { onProgress?: (n: number) => void }) => {
-      options.onProgress?.(0.5);
-      options.onProgress?.(1);
-      return { wav, range: { fromBeat: 0, toBeat: 4, musicSeconds: 2, tailSeconds: 1, totalSeconds: 3 } };
-    }),
+    exportWav: vi.fn(
+      async (_project: StudioProject, options: { onProgress?: (n: number) => void }) => {
+        options.onProgress?.(0.5);
+        options.onProgress?.(1);
+        return {
+          wav,
+          range: { fromBeat: 0, toBeat: 4, musicSeconds: 2, tailSeconds: 1, totalSeconds: 3 },
+        };
+      },
+    ),
     stats: vi.fn(),
     preview: vi.fn(),
     dispose: vi.fn(),
@@ -216,7 +222,11 @@ describe('Studio end to end over a fake bridge', () => {
         <ProjectList
           roomId={ROOM}
           roomName="Salon"
-          api={{ list: listStudioProjects, create: createStudioProject, remove: removeStudioProject }}
+          api={{
+            list: listStudioProjects,
+            create: createStudioProject,
+            remove: removeStudioProject,
+          }}
           selfId={SELF}
           nameOf={() => null}
           onOpen={opened}
@@ -267,9 +277,9 @@ describe('Studio end to end over a fake bridge', () => {
         Object.values(service.projects.get(projectId)!.doc.notes).map((note) => note.startBeat),
       ).toEqual([0, 2]),
     );
-    expect(screen.getByRole('gridcell', { name: 'Kick, adım 1' }).getAttribute('aria-pressed')).toBe(
-      'true',
-    );
+    expect(
+      screen.getByRole('gridcell', { name: 'Kick, adım 1' }).getAttribute('aria-pressed'),
+    ).toBe('true');
 
     // 5. Play: the live transport creates the (mock) engine, feeds it the document and reports playing.
     fireEvent.click(screen.getByRole('button', { name: 'Çal' }));
@@ -281,7 +291,9 @@ describe('Studio end to end over a fake bridge', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Mikser' }));
     expect(screen.getByRole('group', { name: 'Mikser' })).toBeTruthy();
     fireEvent.click(screen.getByRole('switch', { name: 'Solo' }));
-    await waitFor(() => expect(service.projects.get(projectId)!.doc.tracks[drumId]!.solo).toBe(true));
+    await waitFor(() =>
+      expect(service.projects.get(projectId)!.doc.tracks[drumId]!.solo).toBe(true),
+    );
 
     // 7. Export the whole song, save it through main, then share it to the room's chat.
     fireEvent.click(screen.getByRole('button', { name: 'Dışa aktar' }));
@@ -290,13 +302,20 @@ describe('Studio end to end over a fake bridge', () => {
     await within(dialog).findByText('Gece ritmi.wav kaydedildi.');
     expect(engine.exportWav).toHaveBeenCalledTimes(1);
     expect(engine.exportWav.mock.calls[0]![1]).not.toHaveProperty('fromBeat');
-    expect(service.bridge.saveExport).toHaveBeenCalledWith('Gece ritmi.wav', expect.any(Uint8Array));
+    expect(service.bridge.saveExport).toHaveBeenCalledWith(
+      'Gece ritmi.wav',
+      expect.any(Uint8Array),
+    );
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Sohbete paylaş' }));
     await within(dialog).findByText('Şarkı odanın sohbetine gönderildi.');
     // The render is reused: the document did not change between save and share.
     expect(engine.exportWav).toHaveBeenCalledTimes(1);
-    expect(social.dropAttachment).toHaveBeenCalledWith(ROOM, 'Gece ritmi.wav', expect.any(Uint8Array));
+    expect(social.dropAttachment).toHaveBeenCalledWith(
+      ROOM,
+      'Gece ritmi.wav',
+      expect.any(Uint8Array),
+    );
     expect(social.send).toHaveBeenCalledWith(ROOM, 'Stüdyo’dan yeni bir parça: Gece/ritmi', [
       'att1',
     ]);
@@ -365,8 +384,14 @@ describe('Studio export helpers', () => {
 
   it('accepts only bounded RIFF/WAVE bytes in main', () => {
     const wav = new Uint8Array(44);
-    wav.set([...'RIFF'].map((c) => c.charCodeAt(0)), 0);
-    wav.set([...'WAVE'].map((c) => c.charCodeAt(0)), 8);
+    wav.set(
+      [...'RIFF'].map((c) => c.charCodeAt(0)),
+      0,
+    );
+    wav.set(
+      [...'WAVE'].map((c) => c.charCodeAt(0)),
+      8,
+    );
     expect(validateStudioExport(wav)).toBe(wav);
     expect(() => validateStudioExport(new Uint8Array(44))).toThrow(/not a WAV/);
     expect(() => validateStudioExport('RIFF')).toThrow(/not a WAV/);

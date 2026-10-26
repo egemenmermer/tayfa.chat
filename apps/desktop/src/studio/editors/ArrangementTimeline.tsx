@@ -145,8 +145,7 @@ export function ArrangementTimeline({
   const contentH = rulerH + Math.max(1, lanes.length) * laneH;
   const xOf = (beat: number) => labelW + beat * pxPerBeat - scroll.left;
   const beatAt = (x: number) => (x - labelW + scroll.left) / pxPerBeat;
-  const laneAt = (y: number) =>
-    Math.floor((y - rulerH + scroll.top) / laneH);
+  const laneAt = (y: number) => Math.floor((y - rulerH + scroll.top) / laneH);
 
   const clipsByLane = useMemo(() => {
     const map = new Map<string, StudioClip[]>();
@@ -318,12 +317,7 @@ export function ArrangementTimeline({
         : port.loop;
     if (loop && loop.endBeat > loop.startBeat) {
       ctx.fillStyle = withAlpha(palette.loop, loop.enabled ? 0.07 : 0.03);
-      ctx.fillRect(
-        xOf(loop.startBeat),
-        rulerH,
-        (loop.endBeat - loop.startBeat) * pxPerBeat,
-        h,
-      );
+      ctx.fillRect(xOf(loop.startBeat), rulerH, (loop.endBeat - loop.startBeat) * pxPerBeat, h);
     }
     // Clips.
     lanes.forEach((trackId, lane) => {
@@ -337,8 +331,7 @@ export function ArrangementTimeline({
             x: xOf(Math.max(0, clip.startBeat + preview.deltaBeats)),
             y:
               rulerH +
-              Math.min(lanes.length - 1, Math.max(0, lane + preview.laneDelta)) *
-                laneH -
+              Math.min(lanes.length - 1, Math.max(0, lane + preview.laneDelta)) * laneH -
               scroll.top,
             w: rect.w,
           };
@@ -348,14 +341,7 @@ export function ArrangementTimeline({
     });
     if (preview?.kind === 'create') {
       const y = rulerH + preview.lane * laneH - scroll.top + 3;
-      roundRect(
-        ctx,
-        xOf(preview.from),
-        y,
-        (preview.to - preview.from) * pxPerBeat,
-        laneH - 6,
-        5,
-      );
+      roundRect(ctx, xOf(preview.from), y, (preview.to - preview.from) * pxPerBeat, laneH - 6, 5);
       ctx.setLineDash([5, 4]);
       ctx.strokeStyle = palette.accent;
       ctx.lineWidth = 1.5;
@@ -435,11 +421,7 @@ export function ArrangementTimeline({
         ctx.fillText(trackTitle(doc, trackId), 20, y + laneH / 2 - 7);
         ctx.fillStyle = palette.textMuted;
         ctx.font = '400 11px Inter, sans-serif';
-        ctx.fillText(
-          track ? instrumentLabel(track.instrument) : '',
-          20,
-          y + laneH / 2 + 9,
-        );
+        ctx.fillText(track ? instrumentLabel(track.instrument) : '', 20, y + laneH / 2 + 9);
         ctx.restore();
         ctx.strokeStyle = palette.gridBeat;
         ctx.beginPath();

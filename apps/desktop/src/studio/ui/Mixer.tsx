@@ -6,13 +6,7 @@ import { t } from '../../i18n';
 import { trackColor, trackDisplayName, volumePercent } from './music';
 
 type MixerField =
-  | 'volume'
-  | 'pan'
-  | 'sends.reverb'
-  | 'sends.delay'
-  | 'eq.low'
-  | 'eq.mid'
-  | 'eq.high';
+  'volume' | 'pan' | 'sends.reverb' | 'sends.delay' | 'eq.low' | 'eq.mid' | 'eq.high';
 
 export interface StudioMixerProps {
   doc: StudioProject;

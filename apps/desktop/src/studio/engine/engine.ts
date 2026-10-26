@@ -38,12 +38,7 @@ import {
   type ProjectPlan,
   type TrackPlan,
 } from './schedule';
-import {
-  drumHit,
-  midiToFrequency,
-  type DrumVoice,
-  type InstrumentVoice,
-} from './instruments';
+import { drumHit, midiToFrequency, type DrumVoice, type InstrumentVoice } from './instruments';
 import type { StudioProject } from '@rooms/studio';
 
 type ToneModule = typeof ToneTypes;

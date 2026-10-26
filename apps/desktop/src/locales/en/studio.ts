@@ -209,7 +209,8 @@ export const studio: Catalog = {
   Merkez: 'Center',
   'Sol {n}': 'Left {n}',
   'Sağ {n}': 'Right {n}',
-  'Mikserde gösterilecek parça yok. Önce bir parça ekle.': 'No tracks to mix yet. Add a track first.',
+  'Mikserde gösterilecek parça yok. Önce bir parça ekle.':
+    'No tracks to mix yet. Add a track first.',
   Mikser: 'Mixer',
   '{name} kanalı': '{name} channel',
   'Ses düzeyi': 'Volume',

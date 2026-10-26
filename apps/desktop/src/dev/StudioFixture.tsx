@@ -139,9 +139,13 @@ const silentTransport: StudioTransport = {
 
 const fixtureExport: StudioExportApi = {
   save: () =>
-    Promise.reject(new Error(sample('Örnekte dosya kaydedilmez.', 'The sample does not save files.'))),
+    Promise.reject(
+      new Error(sample('Örnekte dosya kaydedilmez.', 'The sample does not save files.')),
+    ),
   share: () =>
-    Promise.reject(new Error(sample('Örnekte sohbete gönderilmez.', 'The sample does not post to chat.'))),
+    Promise.reject(
+      new Error(sample('Örnekte sohbete gönderilmez.', 'The sample does not post to chat.')),
+    ),
 };
 
 const INITIAL: Partial<Record<StudioFixtureVariant, StudioWorkspaceProps['initial']>> = {

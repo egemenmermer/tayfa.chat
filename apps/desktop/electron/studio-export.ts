@@ -15,7 +15,6 @@ export function studioExportFileName(input: unknown): string {
   const raw = typeof input === 'string' ? input : '';
   const cleaned = raw
     // Path separators, characters Windows forbids and control characters.
-    // eslint-disable-next-line no-control-regex
     .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()

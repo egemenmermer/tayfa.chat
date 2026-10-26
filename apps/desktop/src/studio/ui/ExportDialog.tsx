@@ -34,7 +34,6 @@ const megabytes = (bytes: number) => (bytes / (1024 * 1024)).toFixed(1);
 /** `name` as a file name stem: no path or reserved characters, at most 80 characters. */
 export function exportFileStem(name: string): string {
   const stem = name
-    // eslint-disable-next-line no-control-regex
     .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -138,7 +137,10 @@ function ExportDialog({
       cache.current = { key, doc, wav };
       return wav;
     } catch (error) {
-      if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError'))
+      if (
+        controller.signal.aborted ||
+        (error instanceof DOMException && error.name === 'AbortError')
+      )
         setPhase({ kind: 'idle' });
       else setPhase({ kind: 'error', message: studioErrorMessage(error) });
       return null;
@@ -207,7 +209,10 @@ function ExportDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-background-full/80 p-4"
     >
       <Modal className="w-full max-w-[440px] rounded-2xl border border-border-button-default bg-background-primary-default shadow-lg outline-none">
-        <Dialog className="flex flex-col gap-4 p-5 outline-none" aria-label={t('Şarkıyı dışa aktar')}>
+        <Dialog
+          className="flex flex-col gap-4 p-5 outline-none"
+          aria-label={t('Şarkıyı dışa aktar')}
+        >
           <Heading slot="title" className="text-headline-semibold text-text-primary">
             {t('Şarkıyı dışa aktar')}
           </Heading>
