@@ -8,8 +8,8 @@
 
 [![Latest release](https://img.shields.io/github/v/release/egemenmermer/rooms?style=flat-square&label=latest&color=8B5CF6)](https://github.com/egemenmermer/rooms/releases/latest)
 [![MIT license](https://img.shields.io/badge/license-MIT-64748B?style=flat-square)](LICENSE)
-[![Download for macOS](https://img.shields.io/badge/macOS-download-18181B?style=flat-square&logo=apple&logoColor=white)](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.33/ROOMS-0.1.18-rc.33-arm64.dmg)
-[![Download for Windows](https://img.shields.io/badge/Windows-download-2563EB?style=flat-square)](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.33/ROOMS-0.1.18-rc.33-windows-x64-setup.exe)
+[![Download for macOS](https://img.shields.io/badge/macOS-download-18181B?style=flat-square&logo=apple&logoColor=white)](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.34/ROOMS-0.1.18-rc.34-arm64.dmg)
+[![Download for Windows](https://img.shields.io/badge/Windows-download-2563EB?style=flat-square)](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.34/ROOMS-0.1.18-rc.34-windows-x64-setup.exe)
 
 Voice rooms, screen sharing, chat, music and shared activities — in one desktop app.
 
@@ -48,8 +48,8 @@ Current builds are on the [GitHub releases](https://github.com/egemenmermer/room
 
 | Platform                  | Package                                                                                                                             | Status                                                  |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| macOS 14+ / Apple Silicon | [Download RC33 DMG](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.33/ROOMS-0.1.18-rc.33-arm64.dmg)             | Signed and notarized by Apple                           |
-| Windows x64               | [Download RC33 EXE](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.33/ROOMS-0.1.18-rc.33-windows-x64-setup.exe) | Unsigned friends-test build; Windows may show a warning |
+| macOS 14+ / Apple Silicon | [Download RC34 DMG](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.34/ROOMS-0.1.18-rc.34-arm64.dmg)             | Signed and notarized by Apple                           |
+| Windows x64               | [Download RC34 EXE](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.34/ROOMS-0.1.18-rc.34-windows-x64-setup.exe) | Unsigned friends-test build; Windows may show a warning |
 
 1. Download the package for your platform and install the app.
 2. Get an invite link (`https://<server>/davet/…`) from your community admin.
@@ -84,17 +84,18 @@ These screenshots come from the real interface with sample community data. They 
 
 ## What can you do?
 
-| Area                        | What it does                                              | Needs                                                                                                      |
-| --------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Community and chat          | Accounts, channels, messages, friends, profiles and roles | A compatible Stoat install and channel/role permissions                                                    |
-| Voice and screen share      | Talking, camera and sharing a chosen screen or window     | LiveKit, the access service, open media ports and OS permissions                                           |
-| Remote control with consent | Mouse and keyboard control with the sharer's approval     | Native input component, session authorization and platform permissions; real-device acceptance is separate |
-| Shared activities           | Shared tools and server-run game state                    | Activities service and persistent storage                                                                  |
-| Music                       | Community DJ, queue and shared playlists                  | Optional music service, supported sources and admin setup                                                  |
-| Cinema                      | A community hall that watches the same stream together    | Optional cinema service and the owner's own legal source                                                   |
-| Personal media              | Media connections you configure for yourself              | A supported provider/source and your own authorized access                                                 |
-| Server management           | Status and admin work for authorized people               | HostOps setup and separate admin permissions                                                               |
-| Agent                       | Optional tasks, progress and results                      | Isolated Agent setup, a model connection and explicitly granted permissions                                |
+| Area                        | What it does                                                                                | Needs                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Community and chat          | Accounts, channels, messages, friends, profiles and roles                                   | A compatible Stoat install and channel/role permissions                                                    |
+| Voice and screen share      | Talking, camera and sharing a chosen screen or window                                       | LiveKit, the access service, open media ports and OS permissions                                           |
+| Remote control with consent | Mouse and keyboard control with the sharer's approval                                       | Native input component, session authorization and platform permissions; real-device acceptance is separate |
+| Shared activities           | Shared tools and server-run game state                                                      | Activities service and persistent storage                                                                  |
+| Studio                      | Make music together: shared projects, timeline, piano roll, drum grid, mixer and WAV export | Activities service (Studio module) and persistent storage                                                  |
+| Music                       | Community DJ, queue and shared playlists                                                    | Optional music service, supported sources and admin setup                                                  |
+| Cinema                      | A community hall that watches the same stream together                                      | Optional cinema service and the owner's own legal source                                                   |
+| Personal media              | Media connections you configure for yourself                                                | A supported provider/source and your own authorized access                                                 |
+| Server management           | Status and admin work for authorized people                                                 | HostOps setup and separate admin permissions                                                               |
+| Agent                       | Optional tasks, progress and results                                                        | Isolated Agent setup, a model connection and explicitly granted permissions                                |
 
 Seeing a screen does not set up its service or provider account. Get chat and voice working first, then add optional services. Provider limits and platform differences apply.
 
@@ -257,8 +258,8 @@ Güncel paketler [GitHub sürümleri](https://github.com/egemenmermer/rooms/rele
 
 | Platform                  | Paket                                                                                                                            | Durum                                                    |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| macOS 14+ / Apple Silicon | [RC33 DMG indir](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.33/ROOMS-0.1.18-rc.33-arm64.dmg)             | Apple imzalı ve noter onaylı                             |
-| Windows x64               | [RC33 EXE indir](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.33/ROOMS-0.1.18-rc.33-windows-x64-setup.exe) | İmzasız arkadaş test paketi; sistem uyarısı gösterebilir |
+| macOS 14+ / Apple Silicon | [RC34 DMG indir](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.34/ROOMS-0.1.18-rc.34-arm64.dmg)             | Apple imzalı ve noter onaylı                             |
+| Windows x64               | [RC34 EXE indir](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.34/ROOMS-0.1.18-rc.34-windows-x64-setup.exe) | İmzasız arkadaş test paketi; sistem uyarısı gösterebilir |
 
 1. Platformuna uygun paketi indirip uygulamayı kur.
 2. Topluluk yöneticisinden davet bağlantısını (`https://<sunucu>/davet/…`) al.
@@ -293,16 +294,17 @@ Bu görüntüler, uygulamanın gerçek arayüzünden örnek topluluk verileriyle
 
 ### Neler yapabilirsin?
 
-| Alan                   | Ne işe yarar?                                              | Gereken altyapı                                                                               |
-| ---------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Topluluk ve sohbet     | Hesap, kanal, mesaj, arkadaşlık, profil ve rol yönetimi    | Uyumlu Stoat kurulumu ve kanal/rol izinleri                                                   |
-| Ses ve ekran paylaşımı | Konuşma, kamera ve seçilen ekran/pencere yayını            | LiveKit, erişim servisi, açık medya portları ve işletim sistemi izinleri                      |
-| İzinli uzaktan kontrol | Yayıncının onayıyla fare ve klavye kontrolü                | Yerel giriş bileşeni, oturum yetkisi ve platform izinleri; gerçek cihaz kabulü ayrıca gerekir |
-| Ortak etkinlikler      | Paylaşılan araçlar ve sunucunun yönettiği oyun durumu      | Activities servisi ve kalıcı depolama                                                         |
-| Müzik                  | Topluluk DJ'i, kuyruk ve ortak listeler                    | İsteğe bağlı müzik servisi, desteklenen kaynaklar ve yönetici yapılandırması                  |
-| Kişisel medya          | Sana ait yapılandırılmış medya bağlantıları                | Desteklenen sağlayıcı/kaynak ve kendi yetkili erişimin                                        |
-| Sunucu yönetimi        | Yetkili kişinin sunucu durumu ve yönetim işlerini izlemesi | HostOps kurulumu ve ayrı yönetici yetkileri                                                   |
-| Agent                  | İsteğe bağlı görevler, ilerleme ve sonuçlar                | Yalıtılmış Agent kurulumu, model bağlantısı ve açıkça verilmiş yetkiler                       |
+| Alan                   | Ne işe yarar?                                                                                           | Gereken altyapı                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Topluluk ve sohbet     | Hesap, kanal, mesaj, arkadaşlık, profil ve rol yönetimi                                                 | Uyumlu Stoat kurulumu ve kanal/rol izinleri                                                   |
+| Ses ve ekran paylaşımı | Konuşma, kamera ve seçilen ekran/pencere yayını                                                         | LiveKit, erişim servisi, açık medya portları ve işletim sistemi izinleri                      |
+| İzinli uzaktan kontrol | Yayıncının onayıyla fare ve klavye kontrolü                                                             | Yerel giriş bileşeni, oturum yetkisi ve platform izinleri; gerçek cihaz kabulü ayrıca gerekir |
+| Ortak etkinlikler      | Paylaşılan araçlar ve sunucunun yönettiği oyun durumu                                                   | Activities servisi ve kalıcı depolama                                                         |
+| Stüdyo                 | Birlikte müzik: ortak proje, zaman çizelgesi, piyano rulosu, davul ızgarası, mikser ve WAV dışa aktarma | Activities servisi (Stüdyo modülü) ve kalıcı depolama                                         |
+| Müzik                  | Topluluk DJ'i, kuyruk ve ortak listeler                                                                 | İsteğe bağlı müzik servisi, desteklenen kaynaklar ve yönetici yapılandırması                  |
+| Kişisel medya          | Sana ait yapılandırılmış medya bağlantıları                                                             | Desteklenen sağlayıcı/kaynak ve kendi yetkili erişimin                                        |
+| Sunucu yönetimi        | Yetkili kişinin sunucu durumu ve yönetim işlerini izlemesi                                              | HostOps kurulumu ve ayrı yönetici yetkileri                                                   |
+| Agent                  | İsteğe bağlı görevler, ilerleme ve sonuçlar                                                             | Yalıtılmış Agent kurulumu, model bağlantısı ve açıkça verilmiş yetkiler                       |
 
 Bir ekranın görünmesi o servisi veya sağlayıcı hesabını kendiliğinden kurmaz. Önce temel sohbet ve sesi çalıştır; isteğe bağlı servisleri daha sonra ekle. Sağlayıcı kısıtları ve platform farkları geçerlidir.
 
