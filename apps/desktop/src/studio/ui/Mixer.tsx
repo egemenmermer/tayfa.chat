@@ -22,7 +22,7 @@ export interface StudioMixerProps {
 
 export function panLabel(pan: number): string {
   const amount = Math.round(Math.abs(pan) * 100);
-  if (amount === 0) return t('Orta');
+  if (amount === 0) return t('Merkez');
   return pan < 0 ? t('Sol {n}', { n: amount }) : t('Sağ {n}', { n: amount });
 }
 
@@ -109,7 +109,7 @@ function ChannelStrip({
           {name}
         </h3>
       </header>
-      {knob('volume', t('Ses'), track.volume, [0, 1.5, 0.01], volumePercent)}
+      {knob('volume', t('Ses düzeyi'), track.volume, [0, 1.5, 0.01], volumePercent)}
       {knob('pan', t('Pan'), track.pan, [-1, 1, 0.01], panLabel)}
       <div className="flex items-center gap-3">
         <Switch
@@ -134,7 +134,7 @@ function ChannelStrip({
       {knob('sends.delay', t('Gecikme'), track.sends.delay, [0, 1, 0.01], percent)}
       <h4 className="text-caption-2-semibold text-text-tertiary">{t('Ekolayzer')}</h4>
       {knob('eq.low', t('Bas'), track.eq.low, [-12, 12, 0.5], decibels)}
-      {knob('eq.mid', t('Orta frekans'), track.eq.mid, [-12, 12, 0.5], decibels)}
+      {knob('eq.mid', t('Orta'), track.eq.mid, [-12, 12, 0.5], decibels)}
       {knob('eq.high', t('Tiz'), track.eq.high, [-12, 12, 0.5], decibels)}
     </section>
   );
