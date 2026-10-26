@@ -15,9 +15,10 @@ import {
 } from '../store';
 import type { StudioEditorModel, StudioProjectsApi } from './model';
 import { ProjectList } from './ProjectList';
-import { StudioEditor } from './StudioEditor';
 import { StudioSurface } from './StudioSurface';
-import { createLiveTransport } from './transport';
+import { StudioWorkspace } from './StudioWorkspace';
+import { createLiveTransport, type StudioTransport } from './transport';
+import type { StudioExportApi } from './ExportDialog';
 import { useOwnedTransport } from './use-owned-transport';
 
 const realApi: StudioProjectsApi = {
@@ -130,12 +131,44 @@ function ProjectListEntry({ roomId, roomName }: { roomId: string; roomName: stri
 function OpenProject({ roomId, projectId }: { roomId: string; projectId: string }) {
   const navigate = useNavigate();
   const location = useLocation();
+  return (
+    <StudioProjectScreen
+      roomId={roomId}
+      projectId={projectId}
+      createTransport={createLiveTransport}
+      startRenaming={new URLSearchParams(location.search).get('rename') === '1'}
+      onBack={() => navigate(`/studio/${roomId}`)}
+    />
+  );
+}
+
+/**
+ * An open project on the live store: the session, this screen's transport, editors, mixer and export. Routing
+ * stays outside, so tests can drive it with a fake bridge and a transport over a mock engine.
+ */
+export function StudioProjectScreen({
+  roomId,
+  projectId,
+  createTransport,
+  exportApi,
+  startRenaming,
+  onBack,
+}: {
+  roomId: string;
+  projectId: string;
+  /** Must be a stable reference (the transport is created once per mount). */
+  createTransport: () => StudioTransport;
+  exportApi?: StudioExportApi;
+  startRenaming?: boolean;
+  onBack(): void;
+}) {
+  const selfId = useCommunity((state) => state.user?.id ?? null);
   const view = useStudioStore((state) =>
     state.roomId === roomId && state.projectId === projectId ? state.view : null,
   );
   // The session outlives this screen on purpose (store.ts); opening is a no-op when it is already open.
   useEffect(() => openStudioProject(roomId, projectId), [roomId, projectId]);
-  const transport = useOwnedTransport(createLiveTransport);
+  const transport = useOwnedTransport(createTransport);
   const model: StudioEditorModel = {
     status: view?.status ?? 'connecting',
     doc: view?.doc ?? null,
@@ -150,14 +183,18 @@ function OpenProject({ roomId, projectId }: { roomId: string; projectId: string 
     redo: () => studioActions.redo(),
     clearError: () => studioActions.clearError(),
     retry: () => openStudioProject(roomId, projectId),
+    setSelection: (selection) => studioActions.setPresence({ selection }),
   };
   if (!transport) return null;
   return (
-    <StudioEditor
+    <StudioWorkspace
       model={model}
       transport={transport}
-      startRenaming={new URLSearchParams(location.search).get('rename') === '1'}
-      onBack={() => navigate(`/studio/${roomId}`)}
+      roomId={roomId}
+      selfUserId={selfId ?? ''}
+      exportApi={exportApi}
+      startRenaming={startRenaming}
+      onBack={onBack}
     />
   );
 }

@@ -204,6 +204,7 @@ const bridge: DesktopBridge = {
       ipcRenderer.invoke('rooms:studio-ops', roomId, projectId, batch),
     presence: (roomId, projectId, state) =>
       ipcRenderer.invoke('rooms:studio-presence', roomId, projectId, state),
+    saveExport: (fileName, wav) => ipcRenderer.invoke('rooms:studio-save-export', fileName, wav),
   },
   updates: {
     status: () => ipcRenderer.invoke('rooms:update-status'),

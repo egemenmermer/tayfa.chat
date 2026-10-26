@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState, type Key } from 'react';
+import { useCallback, useEffect, useRef, useState, type Key, type ReactNode } from 'react';
 import { RiZoomInLine, RiZoomOutLine } from '@remixicon/react';
 import { Badge } from '@boardui/base/badge';
+import { cx } from '@boardui/foundations/cx';
 import { IconButton } from '@boardui/base/icon-button';
 import { SegmentedControl, SegmentedControlItem } from '@boardui/base/segmented-control';
 import { MAX_PRESENCE_NOTE_IDS } from '@rooms/studio';
@@ -33,7 +34,20 @@ export interface StudioEditorsProps {
   showLaneLabels?: boolean;
   /** Development measurement hook for the piano roll's draw time. */
   onPianoRollDrawn?(ms: number, drawn: number): void;
+  /**
+   * The shell's track headers, drawn left of the lanes and scrolled with them. Pass the header row
+   * heights as `laneHeight`/`rulerHeight` so every header lines up with its lane.
+   */
+  laneHeaders?: ReactNode;
+  laneHeight?: number;
+  rulerHeight?: number;
+  /** A mixer panel, offered as a tab beside the clip editor. */
+  mixer?: ReactNode;
+  /** Which lower panel shows first (fixtures). */
+  initialPanel?: LowerPanel;
 }
+
+export type LowerPanel = 'clip' | 'mixer';
 
 export type DetailView = 'piano' | 'steps';
 
@@ -52,7 +66,15 @@ export function StudioEditors({
   initialDetail,
   showLaneLabels = true,
   onPianoRollDrawn,
+  laneHeaders,
+  laneHeight,
+  rulerHeight,
+  mixer,
+  initialPanel = 'clip',
 }: StudioEditorsProps) {
+  const [lower, setLower] = useState<LowerPanel>(initialPanel);
+  const headers = useRef<HTMLDivElement>(null);
+  const lanes = useRef<HTMLDivElement | null>(null);
   const { doc, canEdit } = port;
   const [snap, setSnap] = useState<SnapId>('1/16');
   const [arrangeZoom, setArrangeZoom] = useState(ARRANGE_ZOOM.initial);
@@ -95,6 +117,7 @@ export function StudioEditors({
   }, [hint]);
 
   const activate = useCallback((id: string | null) => {
+    if (id) setLower('clip');
     setActiveClipId((current) => {
       if (current !== id) setSelectedNotes(new Set());
       return id;
@@ -146,6 +169,19 @@ export function StudioEditors({
             onClick={() => zoomArrange(1.4)}
           />
         </div>
+        {mixer ? (
+          <SegmentedControl
+            aria-label={t('Alt panel')}
+            selectedKeys={[lower]}
+            onSelectionChange={(keys) => {
+              const next = single(keys);
+              if (next) setLower(next as LowerPanel);
+            }}
+          >
+            <SegmentedControlItem id="clip">{t('Klip düzenleyici')}</SegmentedControlItem>
+            <SegmentedControlItem id="mixer">{t('Mikser')}</SegmentedControlItem>
+          </SegmentedControl>
+        ) : null}
         <span className="flex-1" />
         {hint ? (
           <span role="status" className="text-caption-1-medium text-text-secondary">
@@ -162,24 +198,57 @@ export function StudioEditors({
         ) : null}
       </div>
 
-      <div className="flex min-h-[160px] flex-[1_1_44%] flex-col">
-        <ArrangementTimeline
-          port={port}
-          snap={snap}
-          pxPerBeat={arrangeZoom}
-          onZoom={zoomArrange}
-          selectedClipIds={selectedClips}
-          onSelectClips={setSelectedClips}
-          activeClipId={activeClipId}
-          onActivateClip={activate}
-          onHint={setHint}
-          newId={newId}
-          showLaneLabels={showLaneLabels}
-        />
+      {/* The lanes get more room until a clip editor or the mixer needs the lower half. */}
+      <div
+        className={cx(
+          'flex min-h-[160px]',
+          (mixer && lower === 'mixer') || activeClip ? 'flex-[1_1_40%]' : 'flex-[1_1_60%]',
+        )}
+      >
+        {laneHeaders ? (
+          <div
+            ref={headers}
+            className="w-[clamp(260px,32vw,320px)] shrink-0 overflow-hidden border-e border-separator-border bg-background-secondary-default"
+            onWheel={(event) => {
+              if (lanes.current) lanes.current.scrollTop += event.deltaY;
+            }}
+          >
+            {/* Room for the timeline's horizontal scrollbar, so the last header can line up too. */}
+            <div className="pb-4">{laneHeaders}</div>
+          </div>
+        ) : null}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <ArrangementTimeline
+            port={port}
+            snap={snap}
+            pxPerBeat={arrangeZoom}
+            onZoom={zoomArrange}
+            selectedClipIds={selectedClips}
+            onSelectClips={setSelectedClips}
+            activeClipId={activeClipId}
+            onActivateClip={activate}
+            onHint={setHint}
+            newId={newId}
+            showLaneLabels={laneHeaders ? false : showLaneLabels}
+            laneHeight={laneHeight}
+            rulerHeight={rulerHeight}
+            scrollerRef={lanes}
+            onScrollTop={(top) => {
+              if (headers.current) headers.current.scrollTop = top;
+            }}
+          />
+        </div>
       </div>
 
-      <div className="flex min-h-[200px] flex-[1_1_56%] flex-col border-t border-separator-border-strong">
-        {activeClip && activeTrack ? (
+      <div
+        className={cx(
+          'flex min-h-[200px] flex-col border-t border-separator-border-strong',
+          (mixer && lower === 'mixer') || activeClip ? 'flex-[1_1_60%]' : 'flex-[1_1_40%]',
+        )}
+      >
+        {mixer && lower === 'mixer' ? (
+          mixer
+        ) : activeClip && activeTrack ? (
           <>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
               <span

@@ -50,6 +50,8 @@ import { newStudioId } from './model';
 
 /** Height of one track row; the arrangement lanes beside the headers use the same height. */
 export const STUDIO_TRACK_ROW_HEIGHT = 88;
+/** The strip above the first row (count + add); the arrangement ruler has the same height. */
+export const STUDIO_TRACK_HEADER_HEIGHT = 40;
 
 const DRAG_TYPE = 'application/x-tayfa-studio-track';
 

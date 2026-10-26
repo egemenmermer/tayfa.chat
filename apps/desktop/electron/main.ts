@@ -21,6 +21,7 @@ import { readCaptionFile, readSubtitleFile } from './caption-file';
 import { Readable } from 'node:stream';
 import { setupCommunity } from './community';
 import { createStudioHttp } from './studio-http';
+import { studioExportFileName, validateStudioExport } from './studio-export';
 import { setupNotifications } from './notifications';
 import { setupWindowPolicy } from './window-policy';
 import { readWindowState, showRestored, showWindow, trackWindowState } from './window-state';
@@ -299,6 +300,22 @@ app.whenReady().then(async () => {
       assertSender(event);
       return (method as (...input: unknown[]) => Promise<unknown>)(...args);
     });
+  // The renderer renders the song; main validates the WAV bytes and writes them where the user chooses.
+  ipcMain.handle('rooms:studio-save-export', async (event, fileName, data) => {
+    assertSender(event);
+    if (!win) return false;
+    if (devUrl && new URL(event.senderFrame!.url).searchParams.has('fixture'))
+      throw new Error('File export is disabled in development fixtures.');
+    const wav = validateStudioExport(data);
+    const result = await dialog.showSaveDialog(win, {
+      title: t('Şarkıyı kaydet'),
+      defaultPath: studioExportFileName(fileName),
+      filters: [{ name: 'WAV', extensions: ['wav'] }],
+    });
+    if (result.canceled || !result.filePath) return false;
+    writeFileSync(result.filePath, wav, { mode: 0o600 });
+    return true;
+  });
   app.on('before-quit', () => providers.clearPlayback());
   ipcMain.handle('rooms:youtube-details', async (event, videoId) => {
     assertSender(event);

@@ -10,9 +10,10 @@ import type { StudioPresence } from '../../../../../packages/shared-contracts/sr
 import { t } from '../../i18n';
 import { initials, parseSignature, presenceColorIndex, signatureKey, trackColor } from './music';
 import type { StudioEditorModel } from './model';
-import { STUDIO_TRACK_ROW_HEIGHT, TrackHeaders } from './TrackHeaders';
+import { STUDIO_TRACK_HEADER_HEIGHT, STUDIO_TRACK_ROW_HEIGHT, TrackHeaders } from './TrackHeaders';
 import { loopRegion, TransportBar, type LoopSetting } from './TransportBar';
 import type { StudioTransport } from './transport';
+import { barBeats, type LoopRegion } from '../engine/schedule';
 
 /** What the arrangement/editor slot receives; ST-ui-b's editors render there. */
 export interface StudioArrangementSlotProps {
@@ -23,6 +24,19 @@ export interface StudioArrangementSlotProps {
   rowHeight: number;
   /** Height of the header strip above the first row (the arrangement ruler goes there). */
   headerHeight: number;
+  /** The track header column; the slot draws it beside its lanes and keeps both scrolled together. */
+  trackHeaders: ReactNode;
+  /** Loop range in beats while the loop is on (export of the loop range). */
+  loop: LoopRegion | null;
+  /** Sets the loop from a ruler drag (rounded out to whole bars); null turns it off. */
+  setLoop(region: LoopRegion | null): void;
+}
+
+/** What the export control receives. */
+export interface StudioExportSlotProps {
+  doc: StudioProject;
+  /** Loop range in beats while the loop is on, else null. */
+  loop: LoopRegion | null;
 }
 
 export interface StudioEditorProps {
@@ -33,8 +47,8 @@ export interface StudioEditorProps {
   startRenaming?: boolean;
   /** The arrangement + editors region (ST-ui-b); a neutral placeholder until it is wired. */
   arrangement?: (slot: StudioArrangementSlotProps) => ReactNode;
-  /** ST-ui-c's export control for the transport bar. */
-  exportSlot?: ReactNode;
+  /** The export control for the transport bar. */
+  exportSlot?: ReactNode | ((slot: StudioExportSlotProps) => ReactNode);
 }
 
 const typingTarget = (target: EventTarget | null) =>
@@ -120,6 +134,8 @@ export function StudioEditor({
     );
 
   const order = doc.trackOrder.filter((id) => doc.tracks[id]);
+  const loopRange = loopRegion(loop, doc);
+  const headers = <TrackHeaders doc={doc} readOnly={readOnly} dispatch={model.dispatch} />;
   const banner = readOnly
     ? t('Bu projeyi düzenleme iznin yok. Dinleyebilir ve izleyebilirsin.')
     : null;
@@ -153,7 +169,9 @@ export function StudioEditor({
         metronome={metronome}
         onMetronomeChange={setMetronome}
         onError={setNotice}
-        exportSlot={exportSlot}
+        exportSlot={
+          typeof exportSlot === 'function' ? exportSlot({ doc, loop: loopRange }) : exportSlot
+        }
         presence={<PresenceChips presence={model.presence} />}
       />
       {banner && (
@@ -184,26 +202,44 @@ export function StudioEditor({
           </Button>
         </p>
       )}
-      <div className="flex min-h-0 flex-1 overflow-auto">
-        <div className="sticky start-0 z-10 w-[clamp(260px,32vw,320px)] shrink-0 self-start border-e border-separator-border bg-background-secondary-default">
-          <TrackHeaders doc={doc} readOnly={readOnly} dispatch={model.dispatch} />
+      {arrangement ? (
+        <div className="flex min-h-0 flex-1 flex-col" data-studio-slot="arrangement">
+          {arrangement({
+            doc,
+            readOnly,
+            trackOrder: order,
+            rowHeight: STUDIO_TRACK_ROW_HEIGHT,
+            headerHeight: STUDIO_TRACK_HEADER_HEIGHT,
+            trackHeaders: headers,
+            loop: loopRange,
+            setLoop: (region) => setLoop(barsOf(region, doc, loop)),
+          })}
         </div>
-        <div className="flex min-w-0 flex-1 flex-col" data-studio-slot="arrangement">
-          {arrangement ? (
-            arrangement({
-              doc,
-              readOnly,
-              trackOrder: order,
-              rowHeight: STUDIO_TRACK_ROW_HEIGHT,
-              headerHeight: 40,
-            })
-          ) : (
+      ) : (
+        <div className="flex min-h-0 flex-1 overflow-auto">
+          <div className="sticky start-0 z-10 w-[clamp(260px,32vw,320px)] shrink-0 self-start border-e border-separator-border bg-background-secondary-default">
+            {headers}
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col" data-studio-slot="arrangement">
             <ArrangementPlaceholder rows={order.length} />
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
+}
+
+/** A beat range as whole bars (the transport's loop unit); null keeps the bars and turns the loop off. */
+export function barsOf(
+  region: LoopRegion | null,
+  doc: Pick<StudioProject, 'timeSignature'>,
+  current: LoopSetting,
+): LoopSetting {
+  if (!region) return { ...current, on: false };
+  const perBar = barBeats(doc.timeSignature);
+  const startBar = Math.max(1, Math.floor(region.startBeat / perBar + 1e-9) + 1);
+  const endBar = Math.max(startBar + 1, Math.ceil(region.endBeat / perBar - 1e-9) + 1);
+  return { on: true, startBar, endBar };
 }
 
 function EditorHeader({

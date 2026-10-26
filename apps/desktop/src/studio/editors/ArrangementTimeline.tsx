@@ -5,6 +5,7 @@ import {
   useState,
   type KeyboardEvent,
   type MouseEvent,
+  type MutableRefObject,
   type PointerEvent,
 } from 'react';
 import type { StudioClip, StudioProject } from '@rooms/studio';
@@ -67,6 +68,13 @@ export interface ArrangementTimelineProps {
   newId: NewId;
   /** Draws track names on the left; the shell turns it off when its track headers line up. */
   showLaneLabels?: boolean;
+  /** Lane and ruler heights; the shell passes its track-header row heights so rows line up exactly. */
+  laneHeight?: number;
+  rulerHeight?: number;
+  /** Vertical scroll of the lanes, for headers drawn outside the timeline. */
+  onScrollTop?(top: number): void;
+  /** Receives the scrolling element, so headers beside the timeline can forward wheel input. */
+  scrollerRef?: MutableRefObject<HTMLDivElement | null>;
 }
 
 /** Track display name: its own name, else the instrument's label. */
@@ -96,6 +104,10 @@ export function ArrangementTimeline({
   onHint,
   newId,
   showLaneLabels = true,
+  laneHeight: laneH = ARRANGEMENT_LANE_HEIGHT,
+  rulerHeight: rulerH = ARRANGEMENT_RULER_HEIGHT,
+  onScrollTop,
+  scrollerRef,
 }: ArrangementTimelineProps) {
   const { doc, canEdit } = port;
   // The adapter may pass the server's whole list; this user is never drawn as a remote member.
@@ -118,16 +130,22 @@ export function ArrangementTimeline({
   };
   const [cursor, setCursor] = useState('default');
   useElementSize(scroller, (w, h) => setSize({ w, h }));
+  useLayoutEffect(() => {
+    if (!scrollerRef) return;
+    scrollerRef.current = scroller.current;
+    return () => {
+      scrollerRef.current = null;
+    };
+  }, [scrollerRef]);
 
   const labelW = showLaneLabels ? ARRANGEMENT_LABEL_WIDTH : 0;
   const lanes = doc.trackOrder;
   const totalBeats = contentBeats(doc);
   const contentW = labelW + totalBeats * pxPerBeat;
-  const contentH = ARRANGEMENT_RULER_HEIGHT + Math.max(1, lanes.length) * ARRANGEMENT_LANE_HEIGHT;
+  const contentH = rulerH + Math.max(1, lanes.length) * laneH;
   const xOf = (beat: number) => labelW + beat * pxPerBeat - scroll.left;
   const beatAt = (x: number) => (x - labelW + scroll.left) / pxPerBeat;
-  const laneAt = (y: number) =>
-    Math.floor((y - ARRANGEMENT_RULER_HEIGHT + scroll.top) / ARRANGEMENT_LANE_HEIGHT);
+  const laneAt = (y: number) => Math.floor((y - rulerH + scroll.top) / laneH);
 
   const clipsByLane = useMemo(() => {
     const map = new Map<string, StudioClip[]>();
@@ -175,7 +193,7 @@ export function ArrangementTimeline({
     }
     return {
       x: xOf(start),
-      y: ARRANGEMENT_RULER_HEIGHT + laneIndex * ARRANGEMENT_LANE_HEIGHT - scroll.top,
+      y: rulerH + laneIndex * laneH - scroll.top,
       w: length * pxPerBeat,
     };
   }
@@ -189,7 +207,7 @@ export function ArrangementTimeline({
   ) {
     const track = doc.tracks[clip.trackId];
     const colour = palette.chart[track?.color ?? 0];
-    const h = ARRANGEMENT_LANE_HEIGHT - 6;
+    const h = laneH - 6;
     const y = rect.y + 3;
     const w = Math.max(3, rect.w - 1);
     ctx.globalAlpha = ghost ? 0.45 : 1;
@@ -265,16 +283,16 @@ export function ArrangementTimeline({
     ctx.fillRect(0, 0, w, h);
     // Lanes.
     lanes.forEach((_, lane) => {
-      const y = ARRANGEMENT_RULER_HEIGHT + lane * ARRANGEMENT_LANE_HEIGHT - scroll.top;
-      if (y > h || y + ARRANGEMENT_LANE_HEIGHT < ARRANGEMENT_RULER_HEIGHT) return;
+      const y = rulerH + lane * laneH - scroll.top;
+      if (y > h || y + laneH < rulerH) return;
       ctx.fillStyle = lane % 2 ? palette.laneAlt : palette.lane;
-      ctx.fillRect(labelW, y, w - labelW, ARRANGEMENT_LANE_HEIGHT);
+      ctx.fillRect(labelW, y, w - labelW, laneH);
     });
     // Project end.
     const endX = xOf(doc.lengthBeats);
     if (endX < w) {
       ctx.fillStyle = withAlpha(palette.background, 0.55);
-      ctx.fillRect(Math.max(labelW, endX), ARRANGEMENT_RULER_HEIGHT, w, h);
+      ctx.fillRect(Math.max(labelW, endX), rulerH, w, h);
     }
     // Grid.
     const from = Math.max(0, beatAt(labelW));
@@ -287,7 +305,7 @@ export function ArrangementTimeline({
       ctx.strokeStyle = isBar ? palette.gridBar : palette.gridBeat;
       ctx.globalAlpha = isBar ? 1 : 0.6;
       ctx.beginPath();
-      ctx.moveTo(x, ARRANGEMENT_RULER_HEIGHT);
+      ctx.moveTo(x, rulerH);
       ctx.lineTo(x, h);
       ctx.stroke();
     }
@@ -299,12 +317,7 @@ export function ArrangementTimeline({
         : port.loop;
     if (loop && loop.endBeat > loop.startBeat) {
       ctx.fillStyle = withAlpha(palette.loop, loop.enabled ? 0.07 : 0.03);
-      ctx.fillRect(
-        xOf(loop.startBeat),
-        ARRANGEMENT_RULER_HEIGHT,
-        (loop.endBeat - loop.startBeat) * pxPerBeat,
-        h,
-      );
+      ctx.fillRect(xOf(loop.startBeat), rulerH, (loop.endBeat - loop.startBeat) * pxPerBeat, h);
     }
     // Clips.
     lanes.forEach((trackId, lane) => {
@@ -317,9 +330,8 @@ export function ArrangementTimeline({
           const copy = {
             x: xOf(Math.max(0, clip.startBeat + preview.deltaBeats)),
             y:
-              ARRANGEMENT_RULER_HEIGHT +
-              Math.min(lanes.length - 1, Math.max(0, lane + preview.laneDelta)) *
-                ARRANGEMENT_LANE_HEIGHT -
+              rulerH +
+              Math.min(lanes.length - 1, Math.max(0, lane + preview.laneDelta)) * laneH -
               scroll.top,
             w: rect.w,
           };
@@ -328,15 +340,8 @@ export function ArrangementTimeline({
       }
     });
     if (preview?.kind === 'create') {
-      const y = ARRANGEMENT_RULER_HEIGHT + preview.lane * ARRANGEMENT_LANE_HEIGHT - scroll.top + 3;
-      roundRect(
-        ctx,
-        xOf(preview.from),
-        y,
-        (preview.to - preview.from) * pxPerBeat,
-        ARRANGEMENT_LANE_HEIGHT - 6,
-        5,
-      );
+      const y = rulerH + preview.lane * laneH - scroll.top + 3;
+      roundRect(ctx, xOf(preview.from), y, (preview.to - preview.from) * pxPerBeat, laneH - 6, 5);
       ctx.setLineDash([5, 4]);
       ctx.strokeStyle = palette.accent;
       ctx.lineWidth = 1.5;
@@ -351,18 +356,18 @@ export function ArrangementTimeline({
       ctx.strokeStyle = palette.chart[member.colorIndex % 12];
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(x, ARRANGEMENT_RULER_HEIGHT - 6);
+      ctx.moveTo(x, rulerH - 6);
       ctx.lineTo(x, h);
       ctx.stroke();
     }
     // Ruler.
     ctx.fillStyle = palette.ruler;
-    ctx.fillRect(0, 0, w, ARRANGEMENT_RULER_HEIGHT);
+    ctx.fillRect(0, 0, w, rulerH);
     ctx.strokeStyle = palette.gridBar;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(0, ARRANGEMENT_RULER_HEIGHT - 0.5);
-    ctx.lineTo(w, ARRANGEMENT_RULER_HEIGHT - 0.5);
+    ctx.moveTo(0, rulerH - 0.5);
+    ctx.lineTo(w, rulerH - 0.5);
     ctx.stroke();
     if (loop && loop.endBeat > loop.startBeat) {
       ctx.fillStyle = withAlpha(palette.loop, loop.enabled ? 0.85 : 0.35);
@@ -377,11 +382,11 @@ export function ArrangementTimeline({
       const x = Math.round(xOf(index * bar)) + 0.5;
       ctx.strokeStyle = palette.gridBar;
       ctx.beginPath();
-      ctx.moveTo(x, ARRANGEMENT_RULER_HEIGHT - 8);
-      ctx.lineTo(x, ARRANGEMENT_RULER_HEIGHT);
+      ctx.moveTo(x, rulerH - 8);
+      ctx.lineTo(x, rulerH);
       ctx.stroke();
       ctx.fillStyle = palette.rulerText;
-      ctx.fillText(String(index + 1), x + 4, ARRANGEMENT_RULER_HEIGHT - 6);
+      ctx.fillText(String(index + 1), x + 4, rulerH - 6);
     }
     for (const member of presence) {
       if (member.playheadBeat === undefined) continue;
@@ -390,46 +395,42 @@ export function ArrangementTimeline({
       const colour = palette.chart[member.colorIndex % 12];
       ctx.fillStyle = colour;
       ctx.beginPath();
-      ctx.moveTo(x - 5, ARRANGEMENT_RULER_HEIGHT - 9);
-      ctx.lineTo(x + 5, ARRANGEMENT_RULER_HEIGHT - 9);
-      ctx.lineTo(x, ARRANGEMENT_RULER_HEIGHT - 2);
+      ctx.moveTo(x - 5, rulerH - 9);
+      ctx.lineTo(x + 5, rulerH - 9);
+      ctx.lineTo(x, rulerH - 2);
       ctx.fill();
     }
     // Lane labels.
     if (labelW) {
       ctx.fillStyle = palette.ruler;
-      ctx.fillRect(0, ARRANGEMENT_RULER_HEIGHT, labelW, h);
+      ctx.fillRect(0, rulerH, labelW, h);
       lanes.forEach((trackId, lane) => {
-        const y = ARRANGEMENT_RULER_HEIGHT + lane * ARRANGEMENT_LANE_HEIGHT - scroll.top;
-        if (y > h || y + ARRANGEMENT_LANE_HEIGHT < ARRANGEMENT_RULER_HEIGHT) return;
+        const y = rulerH + lane * laneH - scroll.top;
+        if (y > h || y + laneH < rulerH) return;
         const track = doc.tracks[trackId];
         ctx.fillStyle = palette.chart[track?.color ?? 0];
-        roundRect(ctx, 8, y + 10, 4, ARRANGEMENT_LANE_HEIGHT - 20, 2);
+        roundRect(ctx, 8, y + 10, 4, laneH - 20, 2);
         ctx.fill();
         ctx.save();
         ctx.beginPath();
-        ctx.rect(18, y, labelW - 24, ARRANGEMENT_LANE_HEIGHT);
+        ctx.rect(18, y, labelW - 24, laneH);
         ctx.clip();
         ctx.fillStyle = palette.text;
         ctx.font = '500 12px Inter, sans-serif';
         ctx.textBaseline = 'middle';
-        ctx.fillText(trackTitle(doc, trackId), 20, y + ARRANGEMENT_LANE_HEIGHT / 2 - 7);
+        ctx.fillText(trackTitle(doc, trackId), 20, y + laneH / 2 - 7);
         ctx.fillStyle = palette.textMuted;
         ctx.font = '400 11px Inter, sans-serif';
-        ctx.fillText(
-          track ? instrumentLabel(track.instrument) : '',
-          20,
-          y + ARRANGEMENT_LANE_HEIGHT / 2 + 9,
-        );
+        ctx.fillText(track ? instrumentLabel(track.instrument) : '', 20, y + laneH / 2 + 9);
         ctx.restore();
         ctx.strokeStyle = palette.gridBeat;
         ctx.beginPath();
-        ctx.moveTo(0, y + ARRANGEMENT_LANE_HEIGHT - 0.5);
-        ctx.lineTo(labelW, y + ARRANGEMENT_LANE_HEIGHT - 0.5);
+        ctx.moveTo(0, y + laneH - 0.5);
+        ctx.lineTo(labelW, y + laneH - 0.5);
         ctx.stroke();
       });
       ctx.fillStyle = palette.ruler;
-      ctx.fillRect(0, 0, labelW, ARRANGEMENT_RULER_HEIGHT);
+      ctx.fillRect(0, 0, labelW, rulerH);
       ctx.strokeStyle = palette.gridBar;
       ctx.beginPath();
       ctx.moveTo(labelW - 0.5, 0);
@@ -444,7 +445,7 @@ export function ArrangementTimeline({
   }
 
   function hit(x: number, y: number): { clip: StudioClip; edge: boolean } | null {
-    if (x < labelW || y < ARRANGEMENT_RULER_HEIGHT) return null;
+    if (x < labelW || y < rulerH) return null;
     const lane = laneAt(y);
     const trackId = lanes[lane];
     if (!trackId) return null;
@@ -464,7 +465,7 @@ export function ArrangementTimeline({
     if (event.button !== 0) return;
     scroller.current?.focus({ preventScroll: true });
     const { x, y } = local(event);
-    if (y < ARRANGEMENT_RULER_HEIGHT) {
+    if (y < rulerH) {
       if (x < labelW) return;
       if (!port.setLoop) {
         if (port.seek) port.seek(snap(Math.max(0, beatAt(x)), snapId));
@@ -520,7 +521,7 @@ export function ArrangementTimeline({
           ? found.edge
             ? 'ew-resize'
             : 'grab'
-          : y < ARRANGEMENT_RULER_HEIGHT && (port.setLoop || port.seek)
+          : y < rulerH && (port.setLoop || port.seek)
             ? 'text'
             : 'default',
       );
@@ -535,7 +536,7 @@ export function ArrangementTimeline({
     current.moved = true;
     const rawDelta = (x - current.x0) / pxPerBeat;
     if (current.kind === 'move') {
-      const laneDelta = Math.round((y - current.y0) / ARRANGEMENT_LANE_HEIGHT);
+      const laneDelta = Math.round((y - current.y0) / laneH);
       showPreview({
         kind: 'move',
         ids: current.idSet,
@@ -630,7 +631,7 @@ export function ArrangementTimeline({
   function onDoubleClick(event: MouseEvent<HTMLCanvasElement>) {
     if (!canEdit) return;
     const { x, y } = local(event);
-    if (x < labelW || y < ARRANGEMENT_RULER_HEIGHT || hit(x, y)) return;
+    if (x < labelW || y < rulerH || hit(x, y)) return;
     const trackId = lanes[laneAt(y)];
     if (!trackId) return;
     const bar = barBeats(doc.timeSignature);
@@ -681,9 +682,10 @@ export function ArrangementTimeline({
         aria-label={t('Düzenleme zaman çizelgesi')}
         aria-roledescription={t('Zaman çizelgesi')}
         onKeyDown={onKeyDown}
-        onScroll={(event) =>
-          setScroll({ left: event.currentTarget.scrollLeft, top: event.currentTarget.scrollTop })
-        }
+        onScroll={(event) => {
+          setScroll({ left: event.currentTarget.scrollLeft, top: event.currentTarget.scrollTop });
+          onScrollTop?.(event.currentTarget.scrollTop);
+        }}
         onWheel={(event) => {
           if (!event.ctrlKey && !event.metaKey) return;
           event.preventDefault();
