@@ -24,6 +24,7 @@ import {
   Gamepad2,
   PartyPopper,
   Film,
+  Music,
   VolumeX,
 } from 'lucide-react';
 import { IconButton, Modal } from '@rooms/design';
@@ -386,6 +387,14 @@ export function MinimalSidebar({
             selected={location.pathname === '/cinema'}
             onOpen={() => navigate('/cinema')}
           />
+          <button
+            className={`minimal-nav ${location.pathname.startsWith('/studio') ? 'selected' : ''}`}
+            aria-current={location.pathname.startsWith('/studio') ? 'page' : undefined}
+            onClick={() => navigate('/studio')}
+          >
+            <Music size={15} aria-hidden="true" />
+            <span>{t('Stüdyo')}</span>
+          </button>
           <SectionHeader
             type="text"
             label={t('Sohbetler')}

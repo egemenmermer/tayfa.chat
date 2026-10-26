@@ -1778,6 +1778,17 @@ export function CommunityVoice({
               {t('Kaynağı değiştir')}
             </button>
           )}
+          {!share && (
+            <button
+              className="button secondary"
+              disabled={!stageRoom}
+              title={stageRoom ? undefined : t('Stüdyoyu açmak için önce bir ses odası seç.')}
+              onClick={() => stageRoom && navigate(`/studio/${stageRoom.id}`)}
+            >
+              <ReferenceIcon name="headphones" size={16} />
+              {t('Stüdyo')}
+            </button>
+          )}
           {!share && !video && (
             <button className="button secondary" onClick={() => setInviting(true)}>
               <ReferenceIcon name="plus" size={16} />

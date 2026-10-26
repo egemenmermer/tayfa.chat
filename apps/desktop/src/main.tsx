@@ -63,6 +63,12 @@ async function bootstrap() {
     );
     return;
   }
+  if (fixture === 'S91') {
+    // Studio frame with fake data (development only); it replaces the app shell.
+    const { renderStudioFixture } = await import('./dev/StudioFixture');
+    renderStudioFixture(document.getElementById('root')!, params.get('variant') || 'default');
+    return;
+  }
   if (fixture) {
     const { installReferenceFixture } = await import('./dev/reference-fixtures');
     if (/^S5[678]$/.test(fixture)) {
