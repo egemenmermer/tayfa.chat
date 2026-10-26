@@ -156,11 +156,7 @@ function AddTrack({
           <span className="text-body-medium">{t('Davul')}</span>
         </DropdownItem>
         <DropdownDivider />
-        <div
-          role="note"
-          aria-disabled
-          className="flex items-start gap-2 p-2 text-text-tertiary"
-        >
+        <div role="note" aria-disabled className="flex items-start gap-2 p-2 text-text-tertiary">
           <RiMicLine className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span className="flex flex-col">
             <span className="text-body-medium">{t('Ses kaydı')}</span>
@@ -178,7 +174,12 @@ function DrumIcon() {
   return (
     <svg viewBox="0 0 24 24" className="size-4 text-foreground-icon-secondary" aria-hidden>
       <ellipse cx="12" cy="8" rx="8" ry="3" fill="none" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M4 8v8c0 1.7 3.6 3 8 3s8-1.3 8-3V8" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M4 8v8c0 1.7 3.6 3 8 3s8-1.3 8-3V8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
     </svg>
   );
 }
@@ -344,11 +345,20 @@ function TrackHeader({
         )}
       </div>
       {confirming ? (
-        <div role="group" aria-label={t('Silmeyi onayla')} className="flex items-center gap-1.5 ps-6">
+        <div
+          role="group"
+          aria-label={t('Silmeyi onayla')}
+          className="flex items-center gap-1.5 ps-6"
+        >
           <span className="min-w-0 flex-1 truncate text-caption-1-medium text-text-secondary">
             {t('Parça ve notaları herkes için silinsin mi?')}
           </span>
-          <Button size="xs" variant="secondary" className="h-6 px-2" onClick={() => setConfirming(false)}>
+          <Button
+            size="xs"
+            variant="secondary"
+            className="h-6 px-2"
+            onClick={() => setConfirming(false)}
+          >
             {t('Vazgeç')}
           </Button>
           <Button

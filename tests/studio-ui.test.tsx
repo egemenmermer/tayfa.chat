@@ -9,7 +9,12 @@ import {
   type StudioProject,
 } from '@rooms/studio';
 import type { StudioProjectList } from '../packages/shared-contracts/src/studio';
-import { formatPosition, parseTempo, projectBars, trackDisplayName } from '../apps/desktop/src/studio/ui/music';
+import {
+  formatPosition,
+  parseTempo,
+  projectBars,
+  trackDisplayName,
+} from '../apps/desktop/src/studio/ui/music';
 import type { StudioEditorModel, StudioProjectsApi } from '../apps/desktop/src/studio/ui/model';
 import { ProjectList } from '../apps/desktop/src/studio/ui/ProjectList';
 import { StudioEditor } from '../apps/desktop/src/studio/ui/StudioEditor';
@@ -24,7 +29,10 @@ class NoopResizeObserver {
 }
 vi.stubGlobal('ResizeObserver', NoopResizeObserver);
 if (!globalThis.CSS?.escape)
-  vi.stubGlobal('CSS', { ...globalThis.CSS, escape: (value: string) => value.replace(/[^\w-]/g, '\\$&') });
+  vi.stubGlobal('CSS', {
+    ...globalThis.CSS,
+    escape: (value: string) => value.replace(/[^\w-]/g, '\\$&'),
+  });
 
 afterEach(() => cleanup());
 
@@ -56,8 +64,24 @@ function list(overrides: Partial<StudioProjectList> = {}): StudioProjectList {
     protocolVersion: 1,
     access: { canCreate: true },
     projects: [
-      { id: 'old', name: 'Eski', createdBy: 'me', createdAt: 1, updatedAt: NOW - 3 * 86_400_000, tempo: 90, tracks: 1 },
-      { id: 'new', name: 'Yeni', createdBy: 'u2', createdAt: 2, updatedAt: NOW - 120_000, tempo: 120, tracks: 3 },
+      {
+        id: 'old',
+        name: 'Eski',
+        createdBy: 'me',
+        createdAt: 1,
+        updatedAt: NOW - 3 * 86_400_000,
+        tempo: 90,
+        tracks: 1,
+      },
+      {
+        id: 'new',
+        name: 'Yeni',
+        createdBy: 'u2',
+        createdAt: 2,
+        updatedAt: NOW - 120_000,
+        tempo: 120,
+        tracks: 3,
+      },
     ],
     ...overrides,
   };
@@ -68,7 +92,15 @@ function fakeApi(result: StudioProjectList | Error = list()) {
     list: vi.fn(() => (result instanceof Error ? Promise.reject(result) : Promise.resolve(result))),
     create: vi.fn((_room: string, input: { name: string }) =>
       Promise.resolve({
-        project: { id: 'created', name: input.name, createdBy: 'me', createdAt: NOW, updatedAt: NOW, tempo: 120, tracks: 0 },
+        project: {
+          id: 'created',
+          name: input.name,
+          createdBy: 'me',
+          createdAt: NOW,
+          updatedAt: NOW,
+          tempo: 120,
+          tracks: 0,
+        },
       }),
     ),
     remove: vi.fn(() => Promise.resolve({ protocolVersion: 1, removed: 'old' })),
@@ -163,7 +195,10 @@ function doc(): StudioProject {
     template: 'drums-bass',
   });
   return applyOps(base, [
-    { op: 'track.create', track: defaultTrack('ud', 'instrument', { name: 'Ud', instrument: 'oud@2' }) },
+    {
+      op: 'track.create',
+      track: defaultTrack('ud', 'instrument', { name: 'Ud', instrument: 'oud@2' }),
+    },
   ]).doc;
 }
 
@@ -213,7 +248,9 @@ describe('Studio transport and editor frame', () => {
     const tempo = screen.getByRole('textbox', { name: 'Tempo (BPM)' });
     fireEvent.change(tempo, { target: { value: '300' } });
     fireEvent.keyDown(tempo, { key: 'Enter' });
-    expect(model.dispatch).toHaveBeenCalledWith([{ op: 'project.set', field: 'tempo', value: 240 }]);
+    expect(model.dispatch).toHaveBeenCalledWith([
+      { op: 'project.set', field: 'tempo', value: 240 },
+    ]);
 
     fireEvent.click(screen.getByRole('button', { name: 'Döngü' }));
     await waitFor(() =>
@@ -221,7 +258,9 @@ describe('Studio transport and editor frame', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Metronom' }));
     await waitFor(() => expect(transport.setMetronome).toHaveBeenLastCalledWith(true));
-    expect(screen.getByRole('button', { name: 'Metronom' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Metronom' }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
     expect(screen.getByRole('img', { name: 'Ece Kaya' }).textContent).toBe('EK');
   });
 
@@ -250,20 +289,33 @@ describe('Studio transport and editor frame', () => {
     expect(exportButton.getAttribute('aria-disabled')).toBe('true');
     fireEvent.keyDown(document.body, { key: 'Tab' });
     act(() => exportButton.focus());
-    expect((await screen.findByRole('tooltip')).textContent).toContain('Dışa aktarma henüz hazır değil');
+    expect((await screen.findByRole('tooltip')).textContent).toContain(
+      'Dışa aktarma henüz hazır değil',
+    );
   });
 
   it('shows read-only, loading and error states', () => {
     const view = render(
-      <StudioEditor model={fakeModel({ readOnly: true })} transport={fakeTransport()} onBack={() => {}} />,
+      <StudioEditor
+        model={fakeModel({ readOnly: true })}
+        transport={fakeTransport()}
+        onBack={() => {}}
+      />,
     );
     expect(screen.getByText(/düzenleme iznin yok. Dinleyebilir/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Parça ekle' }).getAttribute('aria-disabled')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Parça ekle' }).getAttribute('aria-disabled')).toBe(
+      'true',
+    );
     view.unmount();
     const retry = vi.fn();
     render(
       <StudioEditor
-        model={fakeModel({ doc: null, status: 'error', error: 'Bu proje silinmiş ya da artık yok.', retry })}
+        model={fakeModel({
+          doc: null,
+          status: 'error',
+          error: 'Bu proje silinmiş ya da artık yok.',
+          retry,
+        })}
         transport={fakeTransport()}
         onBack={() => {}}
       />,
@@ -277,7 +329,9 @@ describe('Studio transport and editor frame', () => {
 describe('Studio track headers', () => {
   const setup = (readOnly = false) => {
     const dispatch = vi.fn((_ops: StudioOp[]) => true);
-    render(<TrackHeaders doc={doc()} readOnly={readOnly} dispatch={dispatch} newId={() => 'new1'} />);
+    render(
+      <TrackHeaders doc={doc()} readOnly={readOnly} dispatch={dispatch} newId={() => 'new1'} />,
+    );
     return dispatch;
   };
 
@@ -299,13 +353,19 @@ describe('Studio track headers', () => {
     const field = screen.getByRole('textbox', { name: 'Parça adı' });
     fireEvent.change(field, { target: { value: 'Ud solo' } });
     fireEvent.keyDown(field, { key: 'Enter' });
-    expect(dispatch).toHaveBeenLastCalledWith([{ op: 'track.set', id: 'ud', field: 'name', value: 'Ud solo' }]);
+    expect(dispatch).toHaveBeenLastCalledWith([
+      { op: 'track.set', id: 'ud', field: 'name', value: 'Ud solo' },
+    ]);
 
     const drums = screen.getByRole('listitem', { name: 'Davul 1' });
     fireEvent.click(within(drums).getByRole('button', { name: 'Sustur' }));
-    expect(dispatch).toHaveBeenLastCalledWith([{ op: 'track.set', id: 'tpl-drums', field: 'mute', value: true }]);
+    expect(dispatch).toHaveBeenLastCalledWith([
+      { op: 'track.set', id: 'tpl-drums', field: 'mute', value: true },
+    ]);
     fireEvent.click(within(drums).getByRole('button', { name: 'Solo dinle' }));
-    expect(dispatch).toHaveBeenLastCalledWith([{ op: 'track.set', id: 'tpl-drums', field: 'solo', value: true }]);
+    expect(dispatch).toHaveBeenLastCalledWith([
+      { op: 'track.set', id: 'tpl-drums', field: 'solo', value: true },
+    ]);
 
     fireEvent.click(within(drums).getByRole('button', { name: 'Davul 1 için diğer işlemler' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Aşağı taşı' }));
@@ -323,12 +383,16 @@ describe('Studio track headers', () => {
     setup();
     const ud = screen.getByRole('listitem', { name: 'Ud' });
     expect(ud.textContent).toContain('Bilinmeyen enstrüman');
-    expect(within(ud).getByRole('img', { name: 'Bu enstrüman için Tayfa’yı güncelle' })).toBeTruthy();
+    expect(
+      within(ud).getByRole('img', { name: 'Bu enstrüman için Tayfa’yı güncelle' }),
+    ).toBeTruthy();
   });
 
   it('leaves a read-only member nothing to change', () => {
     const dispatch = setup(true);
-    expect(screen.getByRole('button', { name: 'Parça ekle' }).getAttribute('aria-disabled')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Parça ekle' }).getAttribute('aria-disabled')).toBe(
+      'true',
+    );
     expect(screen.queryByRole('button', { name: /diğer işlemler/ })).toBeNull();
     for (const mute of screen.getAllByRole('button', { name: 'Sustur' })) fireEvent.click(mute);
     expect(dispatch).not.toHaveBeenCalled();

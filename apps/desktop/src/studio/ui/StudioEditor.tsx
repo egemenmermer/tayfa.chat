@@ -78,7 +78,10 @@ export function StudioEditor({
       <section className="flex min-h-0 flex-1 flex-col">
         <EditorHeader onBack={onBack} title={t('Proje')} />
         {model.status === 'error' ? (
-          <div role="alert" className="m-6 flex flex-col items-start gap-3 rounded-xl border border-border-button-default bg-background-secondary-default p-5">
+          <div
+            role="alert"
+            className="m-6 flex flex-col items-start gap-3 rounded-xl border border-border-button-default bg-background-secondary-default p-5"
+          >
             <span className="flex items-center gap-2 text-headline-medium text-text-primary">
               <RiAlertLine className="size-5 text-foreground-icon-error" aria-hidden />
               {t('Proje açılamadı')}
@@ -96,10 +99,17 @@ export function StudioEditor({
             </div>
           </div>
         ) : (
-          <div role="status" aria-label={t('Proje yükleniyor.')} className="flex flex-col gap-2 p-6">
+          <div
+            role="status"
+            aria-label={t('Proje yükleniyor.')}
+            className="flex flex-col gap-2 p-6"
+          >
             <div className="h-10 animate-pulse rounded-lg bg-background-secondary-default" />
             {[0, 1, 2, 3].map((row) => (
-              <div key={row} className="h-[72px] animate-pulse rounded-lg bg-background-secondary-default" />
+              <div
+                key={row}
+                className="h-[72px] animate-pulse rounded-lg bg-background-secondary-default"
+              />
             ))}
           </div>
         )}
@@ -143,13 +153,19 @@ export function StudioEditor({
         presence={<PresenceChips presence={model.presence} />}
       />
       {banner && (
-        <p role="status" className="flex items-center gap-2 border-b border-separator-border bg-background-inner-default px-4 py-2 text-body-medium text-text-secondary">
+        <p
+          role="status"
+          className="flex items-center gap-2 border-b border-separator-border bg-background-inner-default px-4 py-2 text-body-medium text-text-secondary"
+        >
           <RiEyeLine className="size-4 shrink-0 text-foreground-icon-secondary" aria-hidden />
           {banner}
         </p>
       )}
       {failure && (
-        <p role="alert" className="flex items-center gap-2 border-b border-separator-border bg-background-tertiary-error px-4 py-2 text-body-medium text-text-error-primary">
+        <p
+          role="alert"
+          className="flex items-center gap-2 border-b border-separator-border bg-background-tertiary-error px-4 py-2 text-body-medium text-text-error-primary"
+        >
           <RiAlertLine className="size-4 shrink-0" aria-hidden />
           <span className="min-w-0 flex-1">{failure}</span>
           <Button
@@ -240,7 +256,9 @@ function EditorHeader({
           {title}
         </button>
       ) : (
-        <h1 className="min-w-0 truncate px-1.5 text-headline-semibold text-text-primary">{title}</h1>
+        <h1 className="min-w-0 truncate px-1.5 text-headline-semibold text-text-primary">
+          {title}
+        </h1>
       )}
       <span className="flex-1" />
       {status}

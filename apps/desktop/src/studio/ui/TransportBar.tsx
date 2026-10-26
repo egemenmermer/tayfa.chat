@@ -135,28 +135,30 @@ export function TransportBar(props: TransportBarProps) {
         <TempoField
           tempo={doc.tempo}
           reason={editReason}
-          onCommit={(tempo) =>
-            dispatch([{ op: 'project.set', field: 'tempo', value: tempo }])
-          }
+          onCommit={(tempo) => dispatch([{ op: 'project.set', field: 'tempo', value: tempo }])}
         />
         <Select
-            size="sm"
-            isDisabled={readOnly}
-            aria-label={t('Ölçü birimi')}
-            className="w-[84px]"
-            selectedKey={signatureKey(doc.timeSignature)}
-            onSelectionChange={(key) => {
-              const next = parseSignature(String(key));
-              if (next && signatureKey(next) !== signatureKey(doc.timeSignature))
-                dispatch([{ op: 'project.set', field: 'timeSignature', value: next }]);
-            }}
-          >
-            {signatureChoices(doc.timeSignature).map((choice) => (
-              <SelectItem key={signatureKey(choice)} id={signatureKey(choice)} textValue={signatureKey(choice)}>
-                {signatureKey(choice)}
-              </SelectItem>
-            ))}
-          </Select>
+          size="sm"
+          isDisabled={readOnly}
+          aria-label={t('Ölçü birimi')}
+          className="w-[84px]"
+          selectedKey={signatureKey(doc.timeSignature)}
+          onSelectionChange={(key) => {
+            const next = parseSignature(String(key));
+            if (next && signatureKey(next) !== signatureKey(doc.timeSignature))
+              dispatch([{ op: 'project.set', field: 'timeSignature', value: next }]);
+          }}
+        >
+          {signatureChoices(doc.timeSignature).map((choice) => (
+            <SelectItem
+              key={signatureKey(choice)}
+              id={signatureKey(choice)}
+              textValue={signatureKey(choice)}
+            >
+              {signatureKey(choice)}
+            </SelectItem>
+          ))}
+        </Select>
       </div>
 
       <span className="flex-1" />
@@ -183,7 +185,11 @@ export function TransportBar(props: TransportBarProps) {
         </Explained>
       </div>
       {props.exportSlot ?? (
-        <Explained reason={t('Dışa aktarma henüz hazır değil; bir sonraki sürümle WAV olarak kaydedebileceksin.')}>
+        <Explained
+          reason={t(
+            'Dışa aktarma henüz hazır değil; bir sonraki sürümle WAV olarak kaydedebileceksin.',
+          )}
+        >
           <Button size="small" variant="secondary" leadingIcon={RiDownloadLine}>
             {t('Dışa aktar')}
           </Button>

@@ -11,12 +11,7 @@ import {
 } from '@remixicon/react';
 import { MAX_PROJECTS_PER_ROOM, type StudioTemplateId } from '@rooms/studio';
 import { Button } from '@boardui/base/button';
-import {
-  Dropdown,
-  DropdownItem,
-  DropdownPopover,
-  DropdownTrigger,
-} from '@boardui/base/dropdown';
+import { Dropdown, DropdownItem, DropdownPopover, DropdownTrigger } from '@boardui/base/dropdown';
 import { Input } from '@boardui/base/input';
 import { SegmentedControl, SegmentedControlItem } from '@boardui/base/segmented-control';
 import { Tooltip, TooltipTrigger } from '@boardui/base/tooltip';
@@ -88,7 +83,10 @@ export function ProjectList({
         : null;
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-6" aria-labelledby="studio-list-title">
+    <section
+      className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-6"
+      aria-labelledby="studio-list-title"
+    >
       <header className="flex flex-wrap items-center gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <h1 id="studio-list-title" className="text-title-3-semibold text-text-primary">
@@ -117,7 +115,10 @@ export function ProjectList({
       </header>
 
       {notice && (
-        <p role="alert" className="flex items-center gap-2 rounded-lg bg-background-tertiary-error px-3 py-2 text-body-medium text-text-error-primary">
+        <p
+          role="alert"
+          className="flex items-center gap-2 rounded-lg bg-background-tertiary-error px-3 py-2 text-body-medium text-text-error-primary"
+        >
           <RiAlertLine className="size-4 shrink-0" aria-hidden />
           <span className="flex-1">{notice}</span>
           <Button size="xs" variant="secondary" onClick={() => setNotice(null)}>
@@ -140,13 +141,19 @@ export function ProjectList({
       {load.state === 'loading' && (
         <div role="status" className="flex flex-col gap-2" aria-label={t('Projeler yükleniyor.')}>
           {[0, 1, 2].map((row) => (
-            <div key={row} className="h-16 animate-pulse rounded-xl bg-background-secondary-default" />
+            <div
+              key={row}
+              className="h-16 animate-pulse rounded-xl bg-background-secondary-default"
+            />
           ))}
         </div>
       )}
 
       {load.state === 'error' && (
-        <div role="alert" className="flex flex-col items-start gap-3 rounded-xl border border-border-button-default bg-background-secondary-default p-5">
+        <div
+          role="alert"
+          className="flex flex-col items-start gap-3 rounded-xl border border-border-button-default bg-background-secondary-default p-5"
+        >
           <span className="flex items-center gap-2 text-headline-medium text-text-primary">
             <RiAlertLine className="size-5 text-foreground-icon-error" aria-hidden />
             {t('Projeler yüklenemedi')}
@@ -164,8 +171,12 @@ export function ProjectList({
           <h2 className="text-headline-semibold text-text-primary">{t('Henüz proje yok')}</h2>
           <p className="max-w-[420px] text-body-regular text-text-secondary">
             {canCreate
-              ? t('Boş bir projeyle ya da hazır davul ve bas kalıbıyla başla. Odadaki herkes katılıp parça ekleyebilir.')
-              : t('Bu odada henüz proje yok. Proje oluşturma izni olan biri başlattığında burada görünür.')}
+              ? t(
+                  'Boş bir projeyle ya da hazır davul ve bas kalıbıyla başla. Odadaki herkes katılıp parça ekleyebilir.',
+                )
+              : t(
+                  'Bu odada henüz proje yok. Proje oluşturma izni olan biri başlattığında burada görünür.',
+                )}
           </p>
           {canCreate && (
             <Button leadingIcon={RiAddLine} onClick={() => setCreating(true)}>
@@ -183,7 +194,9 @@ export function ProjectList({
               project={project}
               canDelete={canCreate || project.createdBy === selfId}
               creator={
-                project.createdBy === selfId ? t('Sen') : (nameOf(project.createdBy) ?? t('Bir üye'))
+                project.createdBy === selfId
+                  ? t('Sen')
+                  : (nameOf(project.createdBy) ?? t('Bir üye'))
               }
               updated={relativeTime(project.updatedAt, now())}
               onOpen={(rename) => onOpen(project.id, { rename })}
@@ -316,7 +329,10 @@ function ProjectRow({
         className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-start"
         onClick={() => onOpen()}
       >
-        <span className="w-full truncate text-headline-semibold text-text-primary" title={project.name}>
+        <span
+          className="w-full truncate text-headline-semibold text-text-primary"
+          title={project.name}
+        >
           {project.name}
         </span>
         <span className="text-caption-1-regular text-text-secondary">
@@ -333,7 +349,12 @@ function ProjectRow({
           <span className="text-body-medium text-text-secondary">
             {t('Proje herkes için silinsin mi?')}
           </span>
-          <Button size="small" variant="secondary" onClick={() => setConfirming(false)} disabled={deleting}>
+          <Button
+            size="small"
+            variant="secondary"
+            onClick={() => setConfirming(false)}
+            disabled={deleting}
+          >
             {t('Vazgeç')}
           </Button>
           <Button

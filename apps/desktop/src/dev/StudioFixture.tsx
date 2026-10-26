@@ -72,8 +72,14 @@ function fixtureApi(variant: StudioFixtureVariant): StudioProjectsApi {
       variant === 'loading'
         ? new Promise(() => {})
         : Promise.resolve(projectList(variant === 'empty')),
-    create: () => Promise.reject(new Error(sample('Örnekte proje oluşturulmaz.', 'The sample does not create projects.'))),
-    remove: () => Promise.reject(new Error(sample('Örnekte proje silinmez.', 'The sample does not delete projects.'))),
+    create: () =>
+      Promise.reject(
+        new Error(sample('Örnekte proje oluşturulmaz.', 'The sample does not create projects.')),
+      ),
+    remove: () =>
+      Promise.reject(
+        new Error(sample('Örnekte proje silinmez.', 'The sample does not delete projects.')),
+      ),
   };
 }
 
@@ -167,14 +173,20 @@ function FixtureEditor({ readOnly }: { readOnly: boolean }) {
 export function StudioFixture({ variant }: { variant: StudioFixtureVariant }) {
   const api = useMemo(() => fixtureApi(variant), [variant]);
   return (
-    <div className="studio-fixture" style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div
+      className="studio-fixture"
+      style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}
+    >
       <StudioSurface>
         <div className="flex items-center gap-2 border-b border-separator-border px-4 py-1">
           <span className="rounded-full border border-border-button-default px-2 py-0.5 text-caption-2-semibold tracking-[0.08em] text-text-secondary">
             {sample('GELİŞTİRME ÖRNEĞİ', 'DEVELOPMENT SAMPLE')}
           </span>
           <span className="text-caption-1-regular text-text-tertiary">
-            {sample('Yerel örnek veri; sunucu bağlantısı yok.', 'Local sample data; no server connection.')}
+            {sample(
+              'Yerel örnek veri; sunucu bağlantısı yok.',
+              'Local sample data; no server connection.',
+            )}
           </span>
         </div>
         {variant === 'editor' || variant === 'readonly' ? (
