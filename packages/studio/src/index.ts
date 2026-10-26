@@ -9,3 +9,4 @@ export { invertOps } from './invert';
 export { dropConfirmed, rebase } from './rebase';
 export type { StudioPendingBatch, StudioRebaseResult } from './rebase';
 export * from './templates';
+export * from './wire';

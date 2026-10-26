@@ -34,6 +34,8 @@ export interface ActivityServerOptions {
   sweepIntervalMs?: number;
   /** Collaborative Studio projects; the routes exist only when a store is given. */
   studio?: StudioStore;
+  /** Byte cap of a project's persisted op log (default 4 MiB); tests lower it. */
+  studioLogByteLimit?: number;
   /** Internal test/deployment tuning; never accepts values from a client. */
   rateLimits?: { ingressPerMinute: number; identityPerMinute: number; studioPerMinute?: number };
 }
@@ -151,6 +153,7 @@ export async function createActivityServer(options: ActivityServerOptions) {
     });
     registerStudio(app, {
       store: options.studio,
+      logByteLimit: options.studioLogByteLimit,
       now,
       serialize,
       onStorageError: operationalError,
