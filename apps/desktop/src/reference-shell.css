@@ -440,7 +440,7 @@
 .friend-row {
   padding: 10px 2px;
   gap: 10px;
-  border-radius: 6px;
+  border-radius: var(--surface-radius-row);
 }
 .friend-row strong {
   font-size: 12px;
@@ -673,10 +673,10 @@
   width: 100%;
   padding: 10px 2px;
   text-align: left;
-  border-radius: 6px;
+  border-radius: var(--surface-radius-row);
 }
 .room-member-row:hover {
-  background: #2b2f38;
+  background: var(--color-background-hover);
 }
 .room-member-row > span:nth-child(2) {
   display: flex;

@@ -99,27 +99,28 @@
   width: 100%;
   height: 41px;
   padding: 10px 12px;
-  background: #0e131bcc;
-  border: 1px solid #c4d4ed16;
-  border-radius: 10px;
+  background: var(--color-background-tertiary-default);
+  border: 1px solid transparent;
+  border-radius: var(--surface-radius-field);
   font-size: 12px;
   letter-spacing: 0;
-  color: #e4ebf5;
+  color: var(--color-text-primary);
   transition:
-    border-color 0.15s,
-    background 0.15s;
+    background-color var(--motion-quick) ease,
+    box-shadow var(--motion-quick) ease;
 }
 .rooms-onboarding .field-label input::placeholder {
-  color: #778395;
+  color: var(--color-text-muted);
 }
-.rooms-onboarding .field-label input:hover:not(:disabled) {
-  border-color: #c4d4ed30;
+.rooms-onboarding .field-label input:hover:not(:disabled):not(:focus) {
+  box-shadow: var(--surface-field-ring-hover);
+}
+.rooms-onboarding .field-label input:focus {
+  box-shadow: var(--surface-field-ring-focus);
 }
 .rooms-onboarding .field-label input:focus-visible {
-  border-color: #aec7f373;
-  background: #111a28;
-  outline: 2px solid #b8cdff9c;
-  outline-offset: 2px;
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
 }
 .rooms-onboarding .field-label input:disabled {
   opacity: 0.55;
@@ -174,7 +175,7 @@
 .rooms-onboarding .onboarding-address input {
   height: 35px;
   font-size: 11px;
-  color: #b7c4d6;
+  color: var(--color-text-secondary);
 }
 .onboarding-credentials,
 .onboarding-registration {

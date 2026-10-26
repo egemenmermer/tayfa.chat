@@ -202,7 +202,7 @@
   align-items: center;
   gap: 20px;
   padding: 16px 0;
-  border-bottom: 1px solid #ffffff10;
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 .role-permission-row small {
   display: block;
@@ -214,12 +214,35 @@
 .role-permission-row select {
   width: 132px;
   flex-shrink: 0;
-  color: inherit;
-  background: #1c1f27;
-  border: 1px solid #51576a;
+  color: var(--color-text-primary);
+  background-color: var(--color-background-tertiary-default);
+  border: 1px solid transparent;
   padding: 10px;
-  border-radius: 7px;
+  border-radius: var(--surface-radius-field);
   font-size: 13px;
+  appearance: none;
+  padding-inline-end: 30px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-foreground-icon-secondary) 50%),
+    linear-gradient(135deg, var(--color-foreground-icon-secondary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) 50%,
+    calc(100% - 11px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  transition: box-shadow var(--motion-quick) ease;
+}
+.role-permission-row select:hover:not(:disabled):not(:focus) {
+  box-shadow: var(--surface-field-ring-hover);
+}
+.role-permission-row select:focus {
+  box-shadow: var(--surface-field-ring-focus);
+}
+.role-permission-row select:disabled {
+  background-color: var(--color-input-disabled-background);
+  color: var(--color-input-disabled-text);
+  cursor: not-allowed;
 }
 .role-save-bar {
   position: sticky;

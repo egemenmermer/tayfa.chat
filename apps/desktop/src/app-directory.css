@@ -17,10 +17,14 @@
   gap: 10px;
   margin: 14px 14px 6px;
   padding: 0 12px;
-  border: 1px solid #ffffff1f;
-  border-radius: 10px;
-  background: #15171c;
+  border: 1px solid transparent;
+  border-radius: var(--surface-radius-field);
+  background: var(--color-background-tertiary-default);
   color: var(--color-text-secondary, #b1b5c2);
+  transition: box-shadow var(--motion-quick) ease;
+}
+.appdir-search:hover:not(:focus-within) {
+  box-shadow: var(--surface-field-ring-hover);
 }
 .appdir-search input {
   flex: 1;
@@ -29,7 +33,7 @@
   border: 0;
   outline: none;
   background: transparent;
-  color: inherit;
+  color: var(--color-text-primary);
   font-size: 15px;
 }
 .appdir-scroll {
@@ -95,9 +99,10 @@
   flex-direction: column;
   overflow: hidden;
   padding: 0;
-  border: 1px solid #ffffff10;
+  border: 1px solid var(--color-border-subtle);
   border-radius: 12px;
-  background: #262a32;
+  background: var(--color-background-raised);
+  box-shadow: var(--surface-shadow-card);
   color: inherit;
   text-align: left;
   transition:
@@ -223,8 +228,7 @@
 
 /* The field carries the focus ring, so the input inside does not draw a second one. */
 .appdir-search:focus-within {
-  border-color: #8b83ff;
-  box-shadow: 0 0 0 3px #8b83ff33;
+  box-shadow: var(--surface-field-ring-focus);
 }
 .appdir-search input:focus-visible {
   outline: none;

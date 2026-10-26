@@ -1490,11 +1490,17 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   gap: 11px;
-  background: #070c1555;
-  border: 1px solid #ffffff12;
-  border-radius: 10px;
+  background: var(--color-background-tertiary-default);
+  border: 1px solid transparent;
+  border-radius: var(--surface-radius-field);
   padding: 13px;
-  color: #8392a8;
+  color: var(--color-foreground-icon-secondary);
+}
+.launcher-search:hover:not(:focus-within) {
+  box-shadow: var(--surface-field-ring-hover);
+}
+.launcher-search:focus-within {
+  box-shadow: var(--surface-field-ring-focus);
 }
 .command-input input,
 .launcher-search input {
@@ -1503,7 +1509,7 @@ textarea::placeholder {
   background: none;
   border: 0;
   font-size: 12px;
-  color: #dde4ee;
+  color: var(--color-text-primary);
   outline: none;
 }
 .command-input kbd {
@@ -1519,13 +1525,13 @@ textarea::placeholder {
   gap: 14px;
   padding: 13px 11px;
   text-align: left;
-  border-radius: 9px;
-  color: #c5cfdd;
+  border-radius: var(--surface-radius-row);
+  color: var(--color-text-primary);
   font-size: 12px;
 }
 .command-list > button:hover,
 .command-list > button:focus-visible {
-  background: #b5c9f010;
+  background: var(--color-background-hover);
 }
 .command-list small {
   display: block;
@@ -2217,8 +2223,9 @@ textarea::placeholder {
 }
 .poll-card {
   padding: 23px;
-  background: #151c27;
-  border: 1px solid #ffffff07;
+  background: var(--color-background-raised);
+  box-shadow: var(--surface-shadow-card);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 14px;
 }
 .poll-card h3 {
@@ -2537,9 +2544,10 @@ textarea::placeholder {
 }
 .connection-card {
   padding: 20px;
-  border: 1px solid #ffffff0b;
+  border: 1px solid var(--color-border-subtle);
   border-radius: 12px;
-  background: #17202b55;
+  background: var(--color-background-raised);
+  box-shadow: var(--surface-shadow-card);
   margin: 18px 0;
 }
 .connection-card-heading {

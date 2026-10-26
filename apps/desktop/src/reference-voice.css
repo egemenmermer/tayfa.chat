@@ -755,9 +755,10 @@
   padding: 18px;
   text-align: left;
   min-height: 155px;
-  border: 1px solid #3f4351;
+  border: 1px solid var(--color-border-subtle);
   border-radius: 10px;
-  background: #252831;
+  background: var(--color-background-raised);
+  box-shadow: var(--surface-shadow-card);
   color: #b3abd9;
 }
 .reference-activity-card:hover {
@@ -1676,10 +1677,10 @@
   width: min(420px, calc(100vw - 28px));
   transform: translateX(-50%);
   padding: 8px;
-  border: 1px solid #454a56;
-  border-radius: 14px;
-  background: #20232a;
-  box-shadow: 0 12px 36px #0008;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--surface-radius-menu);
+  background: var(--color-background-raised);
+  box-shadow: var(--surface-shadow-menu);
 }
 .reference-dock-handoff-popover .reference-handoff-panel {
   margin: 0;
