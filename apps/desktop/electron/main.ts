@@ -31,6 +31,7 @@ import { setupAgent } from './agent';
 import { whiteboardSvg } from './whiteboard-export';
 import { whiteboardPng } from './whiteboard-raster';
 import { setupLocale } from './locale';
+import { isRendererPermissionAllowed } from './permissions';
 import { t } from '@rooms/i18n';
 import type { ActivityResponse } from '@rooms/activity-protocol';
 const isolatedProfile = isolatedProfilePath(app.getPath('appData'), process.env.ROOMS_PROFILE);
@@ -367,27 +368,24 @@ app.whenReady().then(async () => {
       nonce,
     };
   });
+  const permissionContext = (
+    contents: Electron.WebContents | null,
+    details: { isMainFrame: boolean; requestingUrl?: string },
+  ) => {
+    const ownWindow = !!contents && contents === win?.webContents;
+    return {
+      isMainFrame: details.isMainFrame,
+      requestingUrl: details.requestingUrl,
+      contentsUrl: ownWindow ? contents.getURL() : '',
+      ownWindow,
+      isTrusted,
+    };
+  };
   session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) =>
-    callback(
-      details.isMainFrame &&
-        isTrusted(details.requestingUrl) &&
-        contents === win?.webContents &&
-        isTrusted(contents.getURL()) &&
-        (permission === 'media' ||
-          permission === 'fullscreen' ||
-          permission === 'clipboard-sanitized-write'),
-    ),
+    callback(isRendererPermissionAllowed(permission, permissionContext(contents, details))),
   );
-  session.defaultSession.setPermissionCheckHandler(
-    (contents, permission, _origin, details) =>
-      details.isMainFrame &&
-      !!details.requestingUrl &&
-      isTrusted(details.requestingUrl) &&
-      contents === win?.webContents &&
-      (permission === 'media' ||
-        permission === 'fullscreen' ||
-        permission === 'clipboard-sanitized-write') &&
-      isTrusted(contents.getURL()),
+  session.defaultSession.setPermissionCheckHandler((contents, permission, _origin, details) =>
+    isRendererPermissionAllowed(permission, permissionContext(contents, details)),
   );
   protocol.handle('rooms-media', (request) => {
     const id = new URL(request.url).hostname;
