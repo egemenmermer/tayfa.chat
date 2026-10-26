@@ -186,6 +186,8 @@ export function createStudioSession(options: StudioSessionOptions): StudioSessio
     const readOnly = !response.access.canEdit;
     const presence = response.presence.filter((entry) => entry.userId !== actorId);
     const serverOffsetMs = response.serverTimeMs - Date.now();
+    const confirmedBefore = confirmed;
+    const pendingBefore = pending.length;
     if (response.snapshot) {
       if (response.snapshot.id !== projectId || response.snapshot.roomId !== roomId)
         throw new Error('INVALID_ACTIVITY_RESPONSE');
@@ -225,13 +227,17 @@ export function createStudioSession(options: StudioSessionOptions): StudioSessio
       undoStack = [];
       redoStack = [];
     }
+    // Presence-only answers keep the same document object, so the editor and the engine do not redo work.
+    const changed = confirmed !== confirmedBefore || pending.length !== pendingBefore;
+    const recovered = pollFailing && !sendFailing;
     pollFailing = false;
     publish({
       readOnly,
       canDelete: response.access.canDelete,
       presence,
       serverOffsetMs,
-      doc: rebase(confirmed, pending).doc,
+      ...(changed ? { doc: rebase(confirmed, pending).doc } : {}),
+      ...(recovered ? { error: null } : {}),
     });
     void pump();
   };
@@ -320,8 +326,11 @@ export function createStudioSession(options: StudioSessionOptions): StudioSessio
             recompute();
             return;
           }
-          // Refused for good (invalid, too large, conflicting id): drop it; the view falls back without it.
+          // Refused for good (invalid, too large, conflicting id): drop it; the view falls back without it. Its
+          // undo entry cannot be told apart from merged ones, and undoing it would overwrite others' edits.
           pending = pending.filter((entry) => entry !== batch);
+          undoStack = [];
+          redoStack = [];
           publish({ error: studioErrorMessage(error) });
           recompute();
         }

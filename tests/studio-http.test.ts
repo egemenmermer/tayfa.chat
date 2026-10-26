@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createProject } from '@rooms/studio';
+import { StoatError } from '@rooms/stoat';
 import { createStudioHttp, type StudioServiceSession } from '../apps/desktop/electron/studio-http';
 
 const json = (value: unknown, status = 200) =>
@@ -23,15 +24,16 @@ const syncAnswer = {
 function setup(answer: (url: string, init: RequestInit) => Promise<Response> | Response) {
   const calls: { url: string; init: RequestInit }[] = [];
   let sessionController = new AbortController();
-  let current = 'token-1';
+  let current: string | null = 'token-1';
   const session = (): StudioServiceSession => {
     const token = current;
+    if (!token) throw new StoatError(401, 'SIGN_IN_REQUIRED');
     return {
       origin: 'https://chat.example',
       token,
       signal: sessionController.signal,
       assertSession: () => {
-        if (current !== token) throw new Error('SESSION_CHANGED');
+        if (current !== token) throw new StoatError(401, 'SESSION_CHANGED');
       },
     };
   };
@@ -43,6 +45,9 @@ function setup(answer: (url: string, init: RequestInit) => Promise<Response> | R
   return {
     ...http,
     calls,
+    signOut() {
+      current = null;
+    },
     switchAccount() {
       current = 'token-2';
       sessionController.abort();
@@ -107,6 +112,7 @@ describe('Studio main-process bridge', () => {
     const answers = [
       json({ error: 'STUDIO_BATCH_CONFLICT' }, 409),
       new Response('Not Found', { status: 404 }),
+      json({ statusCode: 404, error: 'Not Found', message: 'Route GET:/v1/… not found' }, 404),
       new Response('<html>', { status: 413 }),
       new Response('Bad gateway', { status: 502 }),
       json({ error: 'not a code <script>' }, 403),
@@ -114,6 +120,7 @@ describe('Studio main-process bridge', () => {
     const { bridge } = setup(() => answers.shift()!);
     const batch = { batchId: crypto.randomUUID(), ops: [{ op: 'track.delete' as const, id: 't' }] };
     await expect(bridge.ops('room1', 'p1', batch)).rejects.toThrow('STUDIO_BATCH_CONFLICT');
+    await expect(bridge.list('room1')).rejects.toThrow('STUDIO_UNAVAILABLE');
     await expect(bridge.list('room1')).rejects.toThrow('STUDIO_UNAVAILABLE');
     await expect(bridge.ops('room1', 'p1', batch)).rejects.toThrow('PAYLOAD_TOO_LARGE');
     await expect(bridge.list('room1')).rejects.toThrow('ACTIVITY_SERVICE_UNAVAILABLE');
@@ -152,9 +159,12 @@ describe('Studio main-process bridge', () => {
     const http = setup(hanging);
     const poll = http.bridge.sync('room1', 'p1', 4, 25_000);
     http.switchAccount();
-    await expect(poll).rejects.toThrow('SESSION_CHANGED');
+    // The code itself is the message: only `message` crosses IPC.
+    await expect(poll).rejects.toThrow(/^SESSION_CHANGED$/);
     const next = http.bridge.sync('room1', 'p1', 4, 25_000);
     http.abortAll();
     await expect(next).rejects.toThrow('REQUEST_CANCELLED');
+    http.signOut();
+    await expect(http.bridge.list('room1')).rejects.toThrow(/^SIGN_IN_REQUIRED$/);
   });
 });

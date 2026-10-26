@@ -136,7 +136,7 @@ export function createStudioHttp(
   /** The running long poll per project: a newer poll from the renderer replaces it. */
   const polls = new Map<string, AbortController>();
 
-  async function call<T>(
+  async function send<T>(
     path: string,
     schema: z.ZodType<T>,
     init: { method?: string; body?: unknown; timeoutMs?: number; poll?: string } = {},
@@ -187,6 +187,24 @@ export function createStudioHttp(
     } finally {
       inflight.delete(controller);
       if (init.poll && polls.get(init.poll) === controller) polls.delete(init.poll);
+    }
+  }
+  async function call<T>(
+    path: string,
+    schema: z.ZodType<T>,
+    init: { method?: string; body?: unknown; timeoutMs?: number; poll?: string } = {},
+  ): Promise<T> {
+    try {
+      return await send(path, schema, init);
+    } catch (error) {
+      // Session checks throw a StoatError whose message is prose; only the code survives IPC usefully.
+      if (
+        error instanceof StoatError &&
+        error.message !== error.code &&
+        PUBLIC_CODE.test(error.code)
+      )
+        throw failure(error.status, error.code);
+      throw error;
     }
   }
 

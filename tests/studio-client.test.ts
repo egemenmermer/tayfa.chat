@@ -256,7 +256,7 @@ describe('Studio client session', () => {
     expect(syncs[2]).toMatchObject({ afterSeq: 4, waitMs: 0 });
     syncs[2].resolve(batches(4, []));
     await flush();
-    expect(session.view()).toMatchObject({ status: 'live', seq: 4 });
+    expect(session.view()).toMatchObject({ status: 'live', seq: 4, error: null });
     expect(syncs[3]).toMatchObject({ afterSeq: 4, waitMs: 25_000 });
   });
 
@@ -375,7 +375,7 @@ describe('Studio client session', () => {
     ops[0].reject(new Error('PAYLOAD_TOO_LARGE'));
     await vi.advanceTimersByTimeAsync(20_000);
     expect(ops).toHaveLength(1);
-    expect(session.view()).toMatchObject({ pending: 0, status: 'live' });
+    expect(session.view()).toMatchObject({ pending: 0, status: 'live', canUndo: false });
     expect(track(session).volume).toBe(1);
   });
 
@@ -402,8 +402,10 @@ describe('Studio client session', () => {
     expect(presence.at(-1)!.state).toEqual({ view: 'arrangement', playheadBeat: 40 });
   });
 
-  it('lists other members from sync answers, not this user', async () => {
+  it('lists other members from sync answers, not this user, keeping the same document', async () => {
     const { session, syncs } = await open();
+    session.dispatch([volume(0.5)]);
+    const before = session.view().doc;
     syncs[1].resolve({
       ...batches(0, []),
       presence: [
@@ -415,6 +417,7 @@ describe('Studio client session', () => {
     expect(session.view().presence).toEqual([
       { userId: 'bob', displayName: 'Bob', lastSeenAt: 1, playheadBeat: 8 },
     ]);
+    expect(session.view().doc).toBe(before);
   });
 
   it('keeps undo history when a never-edited project answers its poll with a snapshot', async () => {
