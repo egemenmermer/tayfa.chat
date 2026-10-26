@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -13,20 +13,25 @@ import {
   RETAINED_BATCHES,
   STUDIO_PROTOCOL_VERSION,
   studioBatchSchema,
+  studioCreateRequestSchema,
   studioIdSchema,
+  studioPresenceRequestSchema,
+  studioSyncQuerySchema,
+  type StudioOpsReply,
+  type StudioPresence,
+  type StudioPresenceState,
+  type StudioProjectSummary,
+  type StudioSyncResponse,
 } from '../../../packages/studio/src/index';
 import { ActivityError, type ActivityIdentity } from './engine';
 import { ActivityStorageError } from './storage-codec';
 import {
+  assertSaveable,
   decodeStudioProject,
   STUDIO_STORAGE_VERSION,
-  studioCreateRequestSchema,
-  studioPresenceRequestSchema,
-  studioSyncQuerySchema,
   type StoredStudioProject,
   type StudioLogEntry,
-  type StudioPresence,
-  type StudioPresenceState,
+  type StudioReceipt,
 } from './studio-schemas';
 
 /** Projects held in memory; idle, saved ones beyond this are dropped and reloaded on demand. */
@@ -37,6 +42,10 @@ export const STUDIO_SAVE_DELAY_MS = 1000;
 export const STUDIO_SAVE_RETRY_MS = 5000;
 /** Presence changes wake long polls at most this often per project; op batches wake them at once. */
 export const STUDIO_PRESENCE_WAKE_MS = 1000;
+/** The persisted op log keeps the newest batches that fit; clients further behind receive a snapshot. */
+export const STUDIO_LOG_BYTE_LIMIT = 4 * 1024 * 1024;
+/** Same bound for the retry receipts (a few hundred bytes each, so the batch count usually binds first). */
+export const STUDIO_RECEIPT_BYTE_LIMIT = 1024 * 1024;
 
 export interface StudioStore {
   /** Called once per record that failed strict validation and was moved aside. */
@@ -121,10 +130,10 @@ export class FileStudioStore implements StudioStore {
     }
   }
   async save(stored: StoredStudioProject) {
-    const validated = decodeStudioProject(stored);
-    await mkdir(this.folder(validated.roomId), { recursive: true, mode: 0o700 });
-    const file = this.file(validated.roomId, validated.project.id);
-    await writeFile(`${file}.tmp`, JSON.stringify(validated), { mode: 0o600 });
+    assertSaveable(stored);
+    await mkdir(this.folder(stored.roomId), { recursive: true, mode: 0o700 });
+    const file = this.file(stored.roomId, stored.project.id);
+    await writeFile(`${file}.tmp`, JSON.stringify(stored), { mode: 0o600 });
     await rename(`${file}.tmp`, file);
   }
   async remove(roomId: string, projectId: string) {
@@ -180,10 +189,10 @@ export class PostgresStudioStore implements StudioStore {
     return result.rows[0] ? this.decode(roomId, projectId, result.rows[0].state) : null;
   }
   async save(stored: StoredStudioProject) {
-    const validated = decodeStudioProject(stored);
+    assertSaveable(stored);
     await this.pool.query(
       'INSERT INTO rooms_studio_projects(room_id,project_id,state) VALUES($1,$2,$3) ON CONFLICT(room_id,project_id) DO UPDATE SET state=EXCLUDED.state, updated_at=now()',
-      [validated.roomId, validated.project.id, validated],
+      [stored.roomId, stored.project.id, stored],
     );
   }
   async remove(roomId: string, projectId: string) {
@@ -208,9 +217,11 @@ export interface StudioRouteOptions {
   ) => Promise<ActivityIdentity>;
   serialize: <T>(key: string, task: () => Promise<T>) => Promise<T>;
   onStorageError: (error: unknown, operation: 'studio-save' | 'studio-load') => void;
+  /** Overrides STUDIO_LOG_BYTE_LIMIT (tests). */
+  logByteLimit?: number;
 }
 
-function summary(stored: StoredStudioProject) {
+function summary(stored: StoredStudioProject): StudioProjectSummary {
   const { project } = stored;
   return {
     id: project.id,
@@ -222,12 +233,32 @@ function summary(stored: StoredStudioProject) {
     tracks: project.trackOrder.length,
   };
 }
-const response = (entry: StudioLogEntry) => ({
+const response = (entry: StudioReceipt): StudioOpsReply => ({
   protocolVersion: STUDIO_PROTOCOL_VERSION,
   seq: entry.seq,
   applied: entry.applied,
   skipped: entry.skipped,
 });
+const hashOps = (ops: unknown) => createHash('sha256').update(JSON.stringify(ops)).digest('hex');
+
+const sizes = new WeakMap<object, number>();
+/** Serialized size of a stored entry, measured once (entries are never mutated). */
+function sizeOf(entry: object) {
+  let size = sizes.get(entry);
+  if (size === undefined) {
+    size = Buffer.byteLength(JSON.stringify(entry));
+    sizes.set(entry, size);
+  }
+  return size;
+}
+/** The newest entries: at most `maxCount`, and at most `maxBytes` serialized (possibly none). */
+function newest<T extends object>(entries: T[], maxCount: number, maxBytes: number): T[] {
+  let start = Math.max(0, entries.length - maxCount);
+  let bytes = 0;
+  for (let i = start; i < entries.length; i++) bytes += sizeOf(entries[i]);
+  while (start < entries.length && bytes > maxBytes) bytes -= sizeOf(entries[start++]);
+  return start ? entries.slice(start) : entries;
+}
 
 /**
  * Collaborative Studio projects (Contract v1, coordinator/specs/studio.md). Separate from the room command
@@ -244,6 +275,11 @@ export function registerStudio(app: FastifyInstance, options: StudioRouteOptions
   let saveTimer: NodeJS.Timeout | null = null;
   let flushing: Promise<void> = Promise.resolve();
   let closed = false;
+  const logByteLimit = options.logByteLimit ?? STUDIO_LOG_BYTE_LIMIT;
+  // Summary index per room, built once from the store (the only full decode of a room's files) and then kept
+  // current by create, delete and every op batch, so listing never touches the store again.
+  const indexes = new Map<string, Map<string, StudioProjectSummary>>();
+  const building = new Map<string, Promise<Map<string, StudioProjectSummary>>>();
   options.store.onQuarantine ??= (error) => options.onStorageError(error, 'studio-load');
 
   const keyOf = (roomId: string, projectId: string) => `${roomId}/${projectId}`;
@@ -306,6 +342,30 @@ export function registerStudio(app: FastifyInstance, options: StudioRouteOptions
     if (!stored) throw new ActivityError(404, 'STUDIO_PROJECT_NOT_FOUND');
     return stored;
   };
+  const indexOf = (roomId: string) => {
+    const ready = indexes.get(roomId);
+    if (ready) return Promise.resolve(ready);
+    let pending = building.get(roomId);
+    if (!pending) {
+      pending = options
+        .serialize(`studio-room:${roomId}`, async () => {
+          const again = indexes.get(roomId);
+          if (again) return again;
+          const entries = new Map<string, StudioProjectSummary>();
+          for (const stored of await options.store.list(roomId))
+            // The live copy is newer than the store until the next save.
+            entries.set(
+              stored.project.id,
+              summary(live.get(keyOf(roomId, stored.project.id)) ?? stored),
+            );
+          indexes.set(roomId, entries);
+          return entries;
+        })
+        .finally(() => building.delete(roomId));
+      building.set(roomId, pending);
+    }
+    return pending;
+  };
   const presenceOf = (key: string): StudioPresence[] => {
     const people = presence.get(key);
     if (!people) return [];
@@ -331,10 +391,14 @@ export function registerStudio(app: FastifyInstance, options: StudioRouteOptions
     const first = stored.log[0]?.seq ?? stored.seq + 1;
     return afterSeq === 0 || afterSeq > stored.seq || afterSeq < first - 1;
   };
-  const sync = (stored: StoredStudioProject, afterSeq: number, identity: ActivityIdentity) => {
+  const sync = (
+    stored: StoredStudioProject,
+    afterSeq: number,
+    identity: ActivityIdentity,
+  ): StudioSyncResponse => {
     const key = keyOf(stored.roomId, stored.project.id);
     const base = {
-      protocolVersion: STUDIO_PROTOCOL_VERSION,
+      protocolVersion: STUDIO_PROTOCOL_VERSION as typeof STUDIO_PROTOCOL_VERSION,
       serverTimeMs: options.now(),
       seq: stored.seq,
       presence: presenceOf(key),
@@ -359,12 +423,9 @@ export function registerStudio(app: FastifyInstance, options: StudioRouteOptions
   app.get('/v1/rooms/:roomId/studio/projects', async (request) => {
     const { roomId } = roomParams.parse(request.params);
     const identity = await options.authorize(request, roomId);
-    const stored = await options.store.list(roomId);
-    // The live copy is newer than the store until the next save.
-    const projects = stored
-      .map((p) => live.get(keyOf(roomId, p.project.id)) ?? p)
-      .map(summary)
-      .sort((a, b) => b.updatedAt - a.updatedAt);
+    const projects = [...(await indexOf(roomId)).values()].sort(
+      (a, b) => b.updatedAt - a.updatedAt,
+    );
     return {
       protocolVersion: STUDIO_PROTOCOL_VERSION,
       projects,
@@ -377,9 +438,10 @@ export function registerStudio(app: FastifyInstance, options: StudioRouteOptions
     const identity = await options.authorize(request, roomId);
     if (!identity.canCreate) throw new ActivityError(403, 'STUDIO_CREATE_DENIED');
     const body = studioCreateRequestSchema.parse(request.body);
+    // Resolved before taking the room lock (the build takes it too).
+    const index = await indexOf(roomId);
     return options.serialize(`studio-room:${roomId}`, async () => {
-      if ((await options.store.list(roomId)).length >= MAX_PROJECTS_PER_ROOM)
-        throw new ActivityError(409, 'STUDIO_ROOM_FULL');
+      if (index.size >= MAX_PROJECTS_PER_ROOM) throw new ActivityError(409, 'STUDIO_ROOM_FULL');
       const now = options.now();
       const project = createProject({
         id: randomUUID(),
@@ -397,11 +459,13 @@ export function registerStudio(app: FastifyInstance, options: StudioRouteOptions
         seq: 0,
         project,
         log: [],
+        receipts: [],
       };
       // Saved at once so the room list and the project limit see it.
       await options.store.save(stored);
       live.set(keyOf(roomId, project.id), stored);
       evictIdle();
+      index.set(project.id, summary(stored));
       return { protocolVersion: STUDIO_PROTOCOL_VERSION, project: summary(stored) };
     });
   });
@@ -418,6 +482,10 @@ export function registerStudio(app: FastifyInstance, options: StudioRouteOptions
       live.delete(key);
       dirty.delete(key);
       presence.delete(key);
+      // After a running index build, which may have listed the project before it was removed.
+      await options.serialize(`studio-room:${roomId}`, async () => {
+        indexes.get(roomId)?.delete(projectId);
+      });
       // Waiting pollers re-open the project and receive 404.
       notify(key);
       return { protocolVersion: STUDIO_PROTOCOL_VERSION, removed: projectId };
@@ -471,39 +539,54 @@ export function registerStudio(app: FastifyInstance, options: StudioRouteOptions
     const key = keyOf(roomId, projectId);
     return options.serialize(`studio:${key}`, async () => {
       const stored = await open(roomId, projectId);
-      // Idempotent per (actor, batchId) within the retained log.
-      const previous = stored.log.find(
+      // Idempotent per (actor, batchId) within the retained receipts.
+      const previous = stored.receipts.find(
         (entry) => entry.actorId === identity.userId && entry.batchId === batch.batchId,
       );
       if (previous) {
         // Both sides went through the same schema, so equal batches serialize identically.
-        if (JSON.stringify(previous.ops) !== JSON.stringify(batch.ops))
+        if (previous.opsHash !== hashOps(batch.ops))
           throw new ActivityError(409, 'STUDIO_BATCH_CONFLICT');
         return response(previous);
       }
       const result = applyOps(stored.project, batch.ops);
       // Every batch is logged, even when all its ops were skipped: clients drop a pending batch once they see it.
+      const seq = stored.seq + 1;
       const entry: StudioLogEntry = {
-        seq: stored.seq + 1,
+        seq,
         actorId: identity.userId,
         batchId: batch.batchId,
         ops: batch.ops,
+      };
+      const receipt: StudioReceipt = {
+        seq,
+        actorId: identity.userId,
+        batchId: batch.batchId,
+        opsHash: hashOps(batch.ops),
         applied: result.applied,
         skipped: result.skipped,
       };
       const next: StoredStudioProject = {
         ...stored,
         project: result.doc,
-        seq: entry.seq,
+        seq,
         updatedAt: options.now(),
-        // Compaction: the document is the snapshot; only the newest batches are kept for catch-up.
-        log: [...stored.log, entry].slice(-RETAINED_BATCHES),
+        // Compaction: the document is the snapshot; only the newest batches that fit the byte cap are kept for
+        // catch-up (older ones are dropped and a client behind them gets the snapshot), plus the small receipts
+        // that make a retry idempotent.
+        log: newest([...stored.log, entry], RETAINED_BATCHES, logByteLimit),
+        receipts: newest(
+          [...stored.receipts, receipt],
+          RETAINED_BATCHES,
+          STUDIO_RECEIPT_BYTE_LIMIT,
+        ),
       };
       live.set(key, next);
+      indexes.get(roomId)?.set(projectId, summary(next));
       scheduleSave(key);
       touch(key, identity);
       notify(key);
-      return response(entry);
+      return response(receipt);
     });
   });
 
