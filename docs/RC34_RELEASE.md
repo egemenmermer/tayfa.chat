@@ -9,8 +9,8 @@
   - Davul ızgarası: davul parçaları için adım adım vuruş.
 - **Hazır enstrümanlar:** Piyano, davul seti, bas, synth lead ve synth pad.
 - **Mikser:** Parça başına ses, pan, sustur/solo, yankı, eko ve üç bantlı EQ.
-- **Çalma çubuğu:** Tempo, ölçü, döngü, metronom; geri al / yinele (Cmd/Ctrl+Z).
-- **Dışa aktar ve paylaş:** Şarkının tamamı ya da döngü aralığı WAV olarak kaydedilir ya da odanın sohbetine gönderilir.
+- **Çalma çubuğu:** Tempo, ölçü, döngü, metronom; geri al / yinele düğmeleri.
+- **Dışa aktar ve paylaş:** Şarkının tamamı ya da döngü aralığı WAV olarak kaydedilir; sunucunun dosya sınırı izin veriyorsa odanın sohbetine de gönderilir.
 - **Ses yerelde çalınır:** Ağdan yalnızca notalar ve ayarlar gider; her bilgisayar müziği kendisi çalar, bu yüzden gecikme düzenlemeyi etkilemez.
 - **Henüz yok:** Mikrofon/ses kartıyla kayıt, MIDI klavye, Türk enstrümanları paketi ve birlikte canlı çalma (jam). Bunlar sonraki sürümlerde gelecek; ilgili düğmeler neden kapalı olduğunu söyler.
 

@@ -43,11 +43,18 @@ try {
     ].join(' '),
   };
   const git = (...args) => execFileSync('git', args, { stdio: 'inherit', env });
-  git('submodule', 'init', '--', SUBMODULE);
-  // .gitmodules carries the HTTPS URL; the deploy key needs SSH. This only changes .git/config.
-  git('config', `submodule.${SUBMODULE}.url`, SSH_URL);
-  git('submodule', 'update', '--depth', '1', '--', SUBMODULE);
-  console.log('BoardUI Pro: submodule fetched.');
+  try {
+    git('submodule', 'init', '--', SUBMODULE);
+    // .gitmodules carries the HTTPS URL; the deploy key needs SSH. This only changes .git/config.
+    git('config', `submodule.${SUBMODULE}.url`, SSH_URL);
+    git('submodule', 'update', '--depth', '1', '--', SUBMODULE);
+    console.log('BoardUI Pro: submodule fetched.');
+  } catch {
+    // The fallback builds the same app; a fetch failure must not fail every job.
+    console.log(
+      '::warning::BoardUI Pro: fetching the submodule failed; building with apps/desktop/src/boardui-pro-fallback.',
+    );
+  }
 } finally {
   rmSync(dir, { recursive: true, force: true });
 }

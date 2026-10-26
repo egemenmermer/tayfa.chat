@@ -21,6 +21,7 @@ Bağımlılıkların kendi lisansları geçerlidir. Tam sürümler için kurulu 
 - Tailwind CSS / MIT: https://github.com/tailwindlabs/tailwindcss (derleme aracı; pakete yalnız üretilen CSS girer).
 - React Aria ve React Aria Components / Apache-2.0: https://github.com/adobe/react-spectrum
 - tailwind-merge / MIT: https://github.com/dcastil/tailwind-merge
+- Tone.js / MIT: https://github.com/Tonejs/Tone.js (Stüdyo ses motoru).
 - Remix Icon (`@remixicon/react`) / Remix Icon License 1.0: https://github.com/Remix-Design/RemixIcon. Uygulama içi simge olarak kullanılabilir; simgeler logo veya marka işareti yapılamaz ve tek başına simge paketi olarak dağıtılamaz.
 - Playwright / Apache-2.0: https://github.com/microsoft/playwright
 
