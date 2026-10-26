@@ -59,6 +59,8 @@ export interface DesktopBridge {
   hostOps?: import('./hostops').HostOpsBridge;
   soundboard?: import('./soundboard').SoundboardBridge;
   personalSounds?: import('./personal-sounds').PersonalSoundsBridge;
+  /** Collaborative Studio projects (op log + long poll); absent in fixtures and old preloads. */
+  studio?: import('./studio').StudioBridge;
   desktopWindow: {
     status(): Promise<DesktopWindowPreferences>;
     setPreference(

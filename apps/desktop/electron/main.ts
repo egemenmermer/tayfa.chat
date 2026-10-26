@@ -20,6 +20,7 @@ import { localMediaId } from './media-capabilities';
 import { readCaptionFile, readSubtitleFile } from './caption-file';
 import { Readable } from 'node:stream';
 import { setupCommunity } from './community';
+import { createStudioHttp } from './studio-http';
 import { setupNotifications } from './notifications';
 import { setupWindowPolicy } from './window-policy';
 import { readWindowState, showRestored, showWindow, trackWindowState } from './window-state';
@@ -286,6 +287,18 @@ app.whenReady().then(async () => {
     assertSender(event);
     return community.activityRequest(roomId, command);
   });
+  const studio = createStudioHttp(community.serviceSession);
+  // Long polls of a closed main window must not keep running against the service.
+  app.on('browser-window-created', (_event, window) =>
+    window.on('closed', () => {
+      if (!win || win === window) studio.abortAll();
+    }),
+  );
+  for (const [name, method] of Object.entries(studio.bridge))
+    ipcMain.handle(`rooms:studio-${name}`, (event, ...args: unknown[]) => {
+      assertSender(event);
+      return (method as (...input: unknown[]) => Promise<unknown>)(...args);
+    });
   app.on('before-quit', () => providers.clearPlayback());
   ipcMain.handle('rooms:youtube-details', async (event, videoId) => {
     assertSender(event);
