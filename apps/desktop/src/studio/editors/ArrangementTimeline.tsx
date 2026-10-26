@@ -33,7 +33,16 @@ const EDGE_PX = 7;
 const DRAG_THRESHOLD = 4;
 
 type Drag =
-  | { kind: 'move'; anchor: StudioClip; ids: string[]; x0: number; y0: number; moved: boolean }
+  | {
+      kind: 'move';
+      anchor: StudioClip;
+      ids: string[];
+      idSet: Set<string>;
+      minStart: number;
+      x0: number;
+      y0: number;
+      moved: boolean;
+    }
   | { kind: 'resize'; ids: string[]; x0: number; moved: boolean }
   | { kind: 'create'; trackId: string; lane: number; beat0: number; x0: number; moved: boolean }
   | { kind: 'loop'; beat0: number; x0: number; moved: boolean };
@@ -88,7 +97,12 @@ export function ArrangementTimeline({
   newId,
   showLaneLabels = true,
 }: ArrangementTimelineProps) {
-  const { doc, canEdit, presence } = port;
+  const { doc, canEdit } = port;
+  // The adapter may pass the server's whole list; this user is never drawn as a remote member.
+  const presence = useMemo(
+    () => port.presence.filter((member) => member.userId !== port.selfUserId),
+    [port.presence, port.selfUserId],
+  );
   const scroller = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const playhead = useRef<HTMLDivElement>(null);
@@ -96,6 +110,12 @@ export function ArrangementTimeline({
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [scroll, setScroll] = useState({ left: 0, top: 0 });
   const [preview, setPreview] = useState<Preview>(null);
+  // Pointer-up reads the last preview from a ref: it can fire before React renders the last move.
+  const previewRef = useRef<Preview>(null);
+  const showPreview = (next: Preview) => {
+    previewRef.current = next;
+    setPreview(next);
+  };
   const [cursor, setCursor] = useState('default');
   useElementSize(scroller, (w, h) => setSize({ w, h }));
 
@@ -446,6 +466,11 @@ export function ArrangementTimeline({
     const { x, y } = local(event);
     if (y < ARRANGEMENT_RULER_HEIGHT) {
       if (x < labelW) return;
+      if (!port.setLoop) {
+        if (port.seek) port.seek(snap(Math.max(0, beatAt(x)), snapId));
+        else onHint(t('Döngü ve çalma konumu üstteki çalma çubuğundan ayarlanır'));
+        return;
+      }
       drag.current = { kind: 'loop', beat0: Math.max(0, beatAt(x)), x0: x, moved: false };
       event.currentTarget.setPointerCapture(event.pointerId);
       return;
@@ -463,7 +488,16 @@ export function ArrangementTimeline({
       const list = [...ids].filter((id) => doc.clips[id]);
       drag.current = found.edge
         ? { kind: 'resize', ids: list, x0: x, moved: false }
-        : { kind: 'move', anchor: found.clip, ids: list, x0: x, y0: y, moved: false };
+        : {
+            kind: 'move',
+            anchor: found.clip,
+            ids: list,
+            idSet: new Set(list),
+            minStart: Math.min(...list.map((id) => doc.clips[id].startBeat)),
+            x0: x,
+            y0: y,
+            moved: false,
+          };
       event.currentTarget.setPointerCapture(event.pointerId);
       return;
     }
@@ -486,7 +520,7 @@ export function ArrangementTimeline({
           ? found.edge
             ? 'ew-resize'
             : 'grab'
-          : y < ARRANGEMENT_RULER_HEIGHT
+          : y < ARRANGEMENT_RULER_HEIGHT && (port.setLoop || port.seek)
             ? 'text'
             : 'default',
       );
@@ -502,11 +536,11 @@ export function ArrangementTimeline({
     const rawDelta = (x - current.x0) / pxPerBeat;
     if (current.kind === 'move') {
       const laneDelta = Math.round((y - current.y0) / ARRANGEMENT_LANE_HEIGHT);
-      setPreview({
+      showPreview({
         kind: 'move',
-        ids: new Set(current.ids),
+        ids: current.idSet,
         deltaBeats: Math.max(
-          -Math.min(...current.ids.map((id) => doc.clips[id]?.startBeat ?? 0)),
+          -current.minStart,
           snappedDelta(current.anchor.startBeat, rawDelta, snapId),
         ),
         laneDelta,
@@ -514,13 +548,13 @@ export function ArrangementTimeline({
       });
       setCursor(event.altKey ? 'copy' : 'grabbing');
     } else if (current.kind === 'resize') {
-      setPreview({ kind: 'resize', ids: new Set(current.ids), deltaBeats: rawDelta });
+      showPreview({ kind: 'resize', ids: new Set(current.ids), deltaBeats: rawDelta });
     } else {
       const a = Math.max(0, current.beat0);
       const b = Math.max(0, beatAt(x));
       const from = snapFloor(Math.min(a, b), snapId);
       const to = Math.max(from + (snapBeats(snapId) || 1 / 32), snap(Math.max(a, b), snapId));
-      setPreview(
+      showPreview(
         current.kind === 'create'
           ? { kind: 'create', lane: current.lane, from, to }
           : { kind: 'loop', from, to },
@@ -531,8 +565,8 @@ export function ArrangementTimeline({
   function onPointerUp(event: PointerEvent<HTMLCanvasElement>) {
     const current = drag.current;
     drag.current = null;
-    const done = preview;
-    setPreview(null);
+    const done = previewRef.current;
+    showPreview(null);
     if (!current) return;
     if (!current.moved) {
       if (current.kind === 'loop') port.seek?.(snap(current.beat0, snapId));
@@ -673,7 +707,7 @@ export function ArrangementTimeline({
             onPointerUp={onPointerUp}
             onPointerCancel={() => {
               drag.current = null;
-              setPreview(null);
+              showPreview(null);
             }}
             onDoubleClick={onDoubleClick}
           />

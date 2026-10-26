@@ -62,6 +62,9 @@ type Drag =
       y0: number;
       moved: boolean;
       lastPitch: number;
+      /** Selected notes and their id set, computed once at pointer-down (2 000-note drags). */
+      chosen: StudioNote[];
+      idSet: Set<string>;
     }
   | { kind: 'resize'; ids: string[]; x0: number; moved: boolean }
   | { kind: 'marquee'; x0: number; y0: number; additive: boolean; moved: boolean }
@@ -98,7 +101,12 @@ export function PianoRoll({
   newId,
   onDrawn,
 }: PianoRollProps) {
-  const { doc, canEdit, presence } = port;
+  const { doc, canEdit } = port;
+  // The adapter may pass the server's whole list; this user is never drawn as a remote member.
+  const presence = useMemo(
+    () => port.presence.filter((member) => member.userId !== port.selfUserId),
+    [port.presence, port.selfUserId],
+  );
   const clip = doc.clips[clipId];
   const track = clip ? doc.tracks[clip.trackId] : undefined;
   const notes = clip ? clipNotes(doc, clip.id) : [];
@@ -110,6 +118,12 @@ export function PianoRoll({
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [scroll, setScroll] = useState({ left: 0, top: 0 });
   const [preview, setPreview] = useState<Preview>(null);
+  // Pointer-up reads the last preview from a ref: it can fire before React renders the last move.
+  const previewRef = useRef<Preview>(null);
+  const showPreview = (next: Preview) => {
+    previewRef.current = next;
+    setPreview(next);
+  };
   const [cursor, setCursor] = useState('default');
   useElementSize(scroller, (w, h) => setSize({ w, h }));
 
@@ -448,6 +462,8 @@ export function PianoRoll({
             kind: 'move',
             anchor: found.note,
             ids: list,
+            chosen: notes.filter((note) => ids.has(note.id)),
+            idSet: ids,
             x0: x,
             y0: y,
             moved: false,
@@ -479,9 +495,8 @@ export function PianoRoll({
     current.moved = true;
     const rawDelta = (x - current.x0) / pxPerBeat;
     if (current.kind === 'move') {
-      const chosen = notes.filter((note) => current.ids.includes(note.id));
       const delta = clampNoteDelta(
-        chosen,
+        current.chosen,
         snappedDelta(current.anchor.startBeat, rawDelta, snapId),
         Math.round(-(y - current.y0) / PIANO_ROW_HEIGHT),
       );
@@ -490,20 +505,20 @@ export function PianoRoll({
         current.lastPitch = pitch;
         audition(pitch, current.anchor.velocity);
       }
-      setPreview({ kind: 'move', ids: new Set(current.ids), ...delta, duplicate: event.altKey });
+      showPreview({ kind: 'move', ids: current.idSet, ...delta, duplicate: event.altKey });
       setCursor(event.altKey ? 'copy' : 'grabbing');
     } else if (current.kind === 'resize') {
-      setPreview({ kind: 'resize', ids: new Set(current.ids), deltaBeats: rawDelta });
+      showPreview({ kind: 'resize', ids: new Set(current.ids), deltaBeats: rawDelta });
     } else {
-      setPreview({ kind: 'marquee', x0: current.x0, y0: current.y0, x1: x, y1: y });
+      showPreview({ kind: 'marquee', x0: current.x0, y0: current.y0, x1: x, y1: y });
     }
   }
 
   function onPointerUp(event: PointerEvent<HTMLCanvasElement>) {
     const current = drag.current;
     drag.current = null;
-    const done = preview;
-    setPreview(null);
+    const done = previewRef.current;
+    showPreview(null);
     if (!current || !clip) return;
     if (current.kind === 'marquee') {
       if (!current.moved) {
@@ -595,14 +610,14 @@ export function PianoRoll({
     const { y } = local(event, velocity.current);
     current.moved = true;
     const delta = Math.round(((current.y0 - y) / (VELOCITY_LANE_HEIGHT - 10)) * 127);
-    setPreview({ kind: 'velocity', ids: new Set(current.ids), delta });
+    showPreview({ kind: 'velocity', ids: new Set(current.ids), delta });
   }
 
   function onVelocityUp() {
     const current = drag.current;
     drag.current = null;
-    const done = preview;
-    setPreview(null);
+    const done = previewRef.current;
+    showPreview(null);
     if (current?.kind !== 'velocity' || done?.kind !== 'velocity' || !done.delta) return;
     const ops = velocityOps(doc, current.ids, done.delta, true);
     if (ops.length) port.dispatch(ops);
@@ -704,7 +719,7 @@ export function PianoRoll({
             onPointerUp={onPointerUp}
             onPointerCancel={() => {
               drag.current = null;
-              setPreview(null);
+              showPreview(null);
             }}
             onDoubleClick={onDoubleClick}
           />

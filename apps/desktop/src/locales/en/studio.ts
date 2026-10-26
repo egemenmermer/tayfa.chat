@@ -60,4 +60,6 @@ export const studio: Catalog = {
   '{row}, adım {step}': '{row}, step {step}',
   'Bu nota kitin satırlarında yok': 'This note has no row in the kit',
   'kit dışı': 'not in kit',
+  'Döngü ve çalma konumu üstteki çalma çubuğundan ayarlanır':
+    'Set the loop and play position in the transport bar above',
 };

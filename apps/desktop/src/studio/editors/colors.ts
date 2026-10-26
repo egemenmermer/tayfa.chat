@@ -58,7 +58,7 @@ export function resolvePalette(host: Element): EditorPalette {
   const read = (token: string, fallback: string) => {
     probe.style.color = '';
     probe.style.color = `var(${token}, ${fallback})`;
-    return getComputedStyle(probe).color || fallback;
+    return toRgb(getComputedStyle(probe).color || fallback);
   };
   const palette = Object.fromEntries(
     Object.entries(TOKENS).map(([key, token]) => [key, read(token, '#888')]),
@@ -70,7 +70,38 @@ export function resolvePalette(host: Element): EditorPalette {
   return result;
 }
 
-/** `color` with alpha, for canvas fills from a resolved CSS colour string. */
+let pixel: CanvasRenderingContext2D | null | undefined;
+
+/**
+ * Normalises any computed CSS colour (oklab(), color(srgb …), color-mix results) to `r,g,b` by
+ * painting one pixel, so every canvas fill below is plain rgb()/rgba() the 2D context always parses.
+ */
+function toRgb(color: string): string {
+  if (/^rgba?\(/.test(color)) return color;
+  if (pixel === undefined) {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 1;
+      pixel = canvas.getContext('2d', { willReadFrequently: true });
+    } catch {
+      pixel = null;
+    }
+  }
+  if (!pixel) return 'rgb(136, 136, 136)';
+  pixel.clearRect(0, 0, 1, 1);
+  pixel.fillStyle = '#888';
+  pixel.fillStyle = color;
+  pixel.fillRect(0, 0, 1, 1);
+  const data = pixel.getImageData(0, 0, 1, 1)?.data;
+  if (!data) return color;
+  const [r, g, b, a] = data;
+  return a === 255 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
+}
+
+/** A palette colour (always rgb()/rgba()) with its alpha multiplied, for canvas fills. */
 export function withAlpha(color: string, alpha: number): string {
-  return `color-mix(in srgb, ${color} ${Math.round(alpha * 100)}%, transparent)`;
+  const match = /^rgba?\(([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?/.exec(color);
+  if (!match) return color;
+  const base = match[4] === undefined ? 1 : Number(match[4]);
+  return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${(base * alpha).toFixed(3)})`;
 }

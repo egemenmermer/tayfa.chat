@@ -28,6 +28,7 @@ import {
   toggleAccentOps,
   velocityOps,
 } from '../apps/desktop/src/studio/editors/edit-ops';
+import { chartToken, withAlpha } from '../apps/desktop/src/studio/editors/colors';
 import { FakeEditorStore } from '../apps/desktop/src/studio/editors/fake-port';
 import { editorCommand, isTypingTarget } from '../apps/desktop/src/studio/editors/shortcuts';
 
@@ -287,5 +288,16 @@ describe('keyboard', () => {
       editorCommand(key('Backspace', { target: input as unknown as EventTarget }), true),
     ).toBeNull();
     expect(editorCommand(key('a', { metaKey: true, isComposing: true }), true)).toBeNull();
+  });
+});
+
+describe('canvas colours', () => {
+  it('maps 12 track colours onto the chart ramp and multiplies alpha', () => {
+    expect(chartToken(0)).toBe('--color-chart-1');
+    expect(chartToken(8)).toBe('--color-chart-9');
+    expect(chartToken(9)).toBe('--color-chart-1-active');
+    expect(chartToken(13)).toBe('--color-chart-2');
+    expect(withAlpha('rgb(10, 20, 30)', 0.5)).toBe('rgba(10, 20, 30, 0.500)');
+    expect(withAlpha('rgba(10, 20, 30, 0.5)', 0.5)).toBe('rgba(10, 20, 30, 0.250)');
   });
 });
