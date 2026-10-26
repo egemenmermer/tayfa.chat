@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type Key, type ReactNode } from 'react';
 import { RiZoomInLine, RiZoomOutLine } from '@remixicon/react';
 import { Badge } from '@boardui/base/badge';
+import { cx } from '@boardui/foundations/cx';
 import { IconButton } from '@boardui/base/icon-button';
 import { SegmentedControl, SegmentedControlItem } from '@boardui/base/segmented-control';
 import { MAX_PRESENCE_NOTE_IDS } from '@rooms/studio';
@@ -168,6 +169,19 @@ export function StudioEditors({
             onClick={() => zoomArrange(1.4)}
           />
         </div>
+        {mixer ? (
+          <SegmentedControl
+            aria-label={t('Alt panel')}
+            selectedKeys={[lower]}
+            onSelectionChange={(keys) => {
+              const next = single(keys);
+              if (next) setLower(next as LowerPanel);
+            }}
+          >
+            <SegmentedControlItem id="clip">{t('Klip düzenleyici')}</SegmentedControlItem>
+            <SegmentedControlItem id="mixer">{t('Mikser')}</SegmentedControlItem>
+          </SegmentedControl>
+        ) : null}
         <span className="flex-1" />
         {hint ? (
           <span role="status" className="text-caption-1-medium text-text-secondary">
@@ -184,7 +198,13 @@ export function StudioEditors({
         ) : null}
       </div>
 
-      <div className="flex min-h-[160px] flex-[1_1_44%]">
+      {/* The lanes get more room until a clip editor or the mixer needs the lower half. */}
+      <div
+        className={cx(
+          'flex min-h-[160px]',
+          (mixer && lower === 'mixer') || activeClip ? 'flex-[1_1_40%]' : 'flex-[1_1_60%]',
+        )}
+      >
         {laneHeaders ? (
           <div
             ref={headers}
@@ -220,22 +240,12 @@ export function StudioEditors({
         </div>
       </div>
 
-      <div className="flex min-h-[200px] flex-[1_1_56%] flex-col border-t border-separator-border-strong">
-        {mixer ? (
-          <div className="flex items-center gap-2 border-b border-separator-border px-3 py-1.5">
-            <SegmentedControl
-              aria-label={t('Alt panel')}
-              selectedKeys={[lower]}
-              onSelectionChange={(keys) => {
-                const next = single(keys);
-                if (next) setLower(next as LowerPanel);
-              }}
-            >
-              <SegmentedControlItem id="clip">{t('Klip düzenleyici')}</SegmentedControlItem>
-              <SegmentedControlItem id="mixer">{t('Mikser')}</SegmentedControlItem>
-            </SegmentedControl>
-          </div>
-        ) : null}
+      <div
+        className={cx(
+          'flex min-h-[200px] flex-col border-t border-separator-border-strong',
+          (mixer && lower === 'mixer') || activeClip ? 'flex-[1_1_60%]' : 'flex-[1_1_40%]',
+        )}
+      >
         {mixer && lower === 'mixer' ? (
           mixer
         ) : activeClip && activeTrack ? (
