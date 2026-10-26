@@ -109,6 +109,10 @@
   --surface-radius-menu: 16px;
   --surface-radius-notification: 12px;
   --surface-radius-modal: 20px;
+  --surface-radius-field: 10px;
+  /* BoardUI field: filled, no resting border, 2px inset ring on hover and focus (styles.css). */
+  --surface-field-ring-hover: inset 0 0 0 2px var(--color-border-button-hover);
+  --surface-field-ring-focus: inset 0 0 0 2px var(--color-border-button-active);
 
   --focus-ring-width: 2px;
   --focus-ring-offset: 3px;

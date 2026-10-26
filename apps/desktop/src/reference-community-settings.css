@@ -98,18 +98,20 @@
 .rcs-notice.success > svg {
   color: #88d8b2;
 }
-.rcs-modal {
+/* Same surface as .modal in boardui-surfaces.css; `.modal.rcs-modal` out-ranks it without !important. */
+.modal.rcs-modal {
   font-family: var(--font-family);
   padding: 0 !important;
-  background: #252a33 !important;
-  border: 1px solid #4c5362 !important;
-  border-radius: 15px !important;
+  background: var(--color-background-main);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--surface-radius-modal);
+  box-shadow: var(--surface-shadow-modal);
   width: min(600px, calc(100vw - 40px)) !important;
   max-width: 600px !important;
 }
 .rcs-modal .modal-heading {
   padding: 25px 27px !important;
-  border-bottom: 1px solid #383f4c;
+  border-bottom: 1px solid var(--color-border-subtle);
   margin: 0 !important;
 }
 .rcs-modal .modal-heading h2 {
@@ -123,28 +125,21 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  border-top: 1px solid #383f4c;
+  border-top: 1px solid var(--color-border-subtle);
   padding: 17px 26px;
-  background: #222730;
-  border-radius: 0 0 15px 15px;
+  background: transparent;
+  border-radius: 0 0 calc(var(--surface-radius-modal) - 1px) calc(var(--surface-radius-modal) - 1px);
 }
 .rcs-modal .button,
 .rcs-page .button,
 .rcs-notifications .button {
   min-height: 37px;
-  border-radius: 7px;
   font-size: 12px;
   padding: 9px 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-}
-.rcs-modal .button.primary,
-.rcs-page .button.primary,
-.rcs-notifications .button.primary {
-  background: #8b83ff;
-  color: #19152c;
 }
 .rcs-community-editor {
   width: min(530px, calc(100vw - 40px)) !important;
@@ -165,34 +160,53 @@
   gap: 10px;
   font-size: 12px;
   font-weight: 600;
-  color: #b1b5c2;
+  color: var(--color-text-secondary);
   margin: 19px 0 17px;
   letter-spacing: 0.3px;
 }
+/* BoardUI field look, see the .field-label block in styles.css. */
 .rcs-field input,
 .rcs-field select {
   width: 100%;
   box-sizing: border-box;
   padding: 12px;
-  border: 1px solid #616a7c;
-  border-radius: 7px;
-  background: #1b1d22;
-  color: #e7e9ef;
+  border: 1px solid transparent;
+  border-radius: var(--surface-radius-field);
+  background-color: var(--color-background-tertiary-default);
+  color: var(--color-text-primary);
   min-height: 42px;
   font-family: inherit;
   font-size: 13px;
-  outline: none;
+  transition:
+    background-color var(--motion-quick) ease,
+    box-shadow var(--motion-quick) ease;
+}
+.rcs-field select {
+  appearance: none;
+  padding-inline-end: 34px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-foreground-icon-secondary) 50%),
+    linear-gradient(135deg, var(--color-foreground-icon-secondary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 13px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+.rcs-field input:hover:not(:disabled):not(:focus),
+.rcs-field select:hover:not(:disabled):not(:focus) {
+  box-shadow: var(--surface-field-ring-hover);
 }
 .rcs-field input:focus,
 .rcs-field select:focus {
-  border-color: #b9b2ff;
-  box-shadow: 0 0 0 2px #8b83ff22;
+  box-shadow: var(--surface-field-ring-focus);
 }
 .rcs-field input:disabled,
 .rcs-field select:disabled {
-  color: #969daf;
-  border-color: #48505e;
-  opacity: 0.8;
+  background-color: var(--color-input-disabled-background);
+  color: var(--color-input-disabled-text);
+  cursor: not-allowed;
 }
 .rcs-readonly {
   margin: 0;
@@ -207,11 +221,11 @@
   align-items: center;
   gap: 14px;
   padding: 17px;
-  border: 1px solid #454d5c;
-  border-radius: 8px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--surface-radius-row);
   text-align: left;
-  color: #e7e9ef;
-  background: #222730;
+  color: var(--color-text-primary);
+  background: var(--color-background-main);
   min-width: 0;
 }
 .rcs-option.selected {
@@ -402,17 +416,17 @@
 .rcs-badge {
   display: inline-block;
   font-size: var(--font-size-micro);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0.3px;
-  border-radius: 5px;
-  background: #373e49;
-  color: #c0c5d2;
+  border-radius: var(--radius-4);
+  background: var(--color-badge-neutral-background);
+  color: var(--color-text-secondary);
   padding: 5px 7px;
   margin-right: 4px;
 }
 .rcs-badge.purple {
-  color: #c1baff;
-  background: #8b83ff1c;
+  color: var(--color-text-accent);
+  background: var(--color-action-primarySubtle);
 }
 .rcs-role-summary {
   padding-top: 28px;

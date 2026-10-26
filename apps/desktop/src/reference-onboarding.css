@@ -178,27 +178,34 @@
 .ref-auth-form .field-label input {
   width: 100%;
   height: 42px;
-  border: 1px solid #3c414e;
-  background: #22252c;
-  border-radius: 8px;
+  border: 1px solid transparent;
+  background: var(--color-background-tertiary-default);
+  border-radius: var(--surface-radius-field);
   padding: 0 13px;
   font:
     400 13px Inter,
     sans-serif;
-  color: #f2f3f7;
+  color: var(--color-text-primary);
   box-shadow: none;
   min-width: 0;
+  transition:
+    background-color var(--motion-quick) ease,
+    box-shadow var(--motion-quick) ease;
 }
 .ref-auth-form .field-label input::placeholder {
-  color: #717889;
+  color: var(--color-text-muted);
+}
+.ref-auth-form .field-label input:hover:not(:disabled):not(:focus):not(:read-only) {
+  box-shadow: var(--surface-field-ring-hover);
 }
 .ref-auth-form .field-label input:focus {
-  outline: 2px solid #a59bff;
-  outline-offset: 2px;
+  box-shadow: var(--surface-field-ring-focus);
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
 }
 .ref-auth-form .field-label input:read-only {
-  color: #9298a7;
-  background: #1b1d22;
+  color: var(--color-text-muted);
+  background: var(--color-background-field);
 }
 .ref-auth-form .button.full {
   display: flex;

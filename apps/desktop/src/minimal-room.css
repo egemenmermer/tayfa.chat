@@ -802,7 +802,7 @@
   align-items: center;
   gap: 14px;
   padding: 10px 11px;
-  border-radius: var(--radius-8);
+  border-radius: var(--surface-radius-row);
   color: var(--color-text-secondary);
   font-size: var(--font-size-ui);
   cursor: pointer;

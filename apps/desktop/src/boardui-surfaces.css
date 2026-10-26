@@ -408,3 +408,70 @@ kbd {
     box-shadow: inset 0 0 0 1px var(--color-text-primary);
   }
 }
+
+/* Sidebar search button (VoiceSidebar): a BoardUI field. The 1px border is kept (transparent) so the
+   footprint of the previous bordered button does not change. */
+.sidebar-search {
+  border-color: transparent;
+  border-radius: var(--surface-radius-field);
+  background: var(--color-background-tertiary-default);
+  color: var(--color-text-secondary);
+  transition: box-shadow var(--motion-quick) ease;
+}
+.sidebar-search:hover:not(:disabled) {
+  box-shadow: var(--surface-field-ring-hover);
+}
+.sidebar-search kbd {
+  background: var(--color-background-raised);
+}
+
+/* Fields and search wrappers outside .field-label (restyled in their own stylesheets, see the
+   BoardUI field block in styles.css): visible edge for high contrast and forced colours. The leading
+   `html` out-ranks the lazily loaded stylesheets' own selectors. */
+@media (prefers-contrast: more) {
+  html
+    :is(
+      .sidebar-search,
+      .launcher-search,
+      .command-input,
+      .appdir-search,
+      .gif-search,
+      .ref-media-search,
+      .ss-search-input input,
+      .ss-search-filters select,
+      .rcs-field input,
+      .rcs-field select,
+      .role-permission-row select,
+      .agent-management-filters select,
+      .s62-modal :is(input, select, textarea),
+      .rooms-onboarding .field-label input,
+      .ref-auth-form .field-label input
+    ) {
+    border-color: var(--color-border-interactive);
+  }
+  html :is(.rcs-badge, .s59-badge) {
+    box-shadow: inset 0 0 0 1px var(--color-border-interactive);
+  }
+}
+@media (forced-colors: active) {
+  html
+    :is(
+      .sidebar-search,
+      .launcher-search,
+      .command-input,
+      .appdir-search,
+      .gif-search,
+      .ref-media-search,
+      .ss-search-input input,
+      .ss-search-filters select,
+      .rcs-field input,
+      .rcs-field select,
+      .role-permission-row select,
+      .agent-management-filters select,
+      .s62-modal :is(input, select, textarea),
+      .rooms-onboarding .field-label input,
+      .ref-auth-form .field-label input
+    ) {
+    border-color: FieldText;
+  }
+}

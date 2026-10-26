@@ -13,9 +13,10 @@
   align-items: center;
   gap: 12px;
   padding: 14px;
-  border: 1px solid #3d4350;
+  border: 1px solid var(--color-border-subtle);
   border-radius: 9px;
-  background: #242830;
+  background: var(--color-background-raised);
+  box-shadow: var(--surface-shadow-card);
   min-height: 68px;
 }
 .ref-rd-account-card > div {
