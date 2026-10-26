@@ -112,7 +112,8 @@ export async function createStudioEngine(
   options: { clockSource?: 'worker' | 'timeout'; lookAhead?: number } = {},
 ): Promise<StudioEngine> {
   const Tone = await import('tone');
-  const context = Tone.getContext();
+  // The default context is always a realtime Tone Context here; BaseContext lacks the clock accessors.
+  const context = Tone.getContext() as InstanceType<ToneModule['Context']>;
   const defaultClock = context.clockSource;
   if (options.clockSource) context.clockSource = options.clockSource;
   if (options.lookAhead !== undefined) context.lookAhead = options.lookAhead;
