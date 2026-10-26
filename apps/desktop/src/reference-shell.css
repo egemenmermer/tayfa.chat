@@ -232,8 +232,12 @@
 }
 /*
  * The one Button. <button class="button primary|secondary|ghost|subtle|danger [small|full]">.
- * Heights: 36px default, 30px small. Disabled comes from the global button:disabled rule; set
- * aria-busy="true" while an action runs. Focus ring: interaction-quality.css.
+ * BoardUI button look in Tayfa colours (boardui/base/button.tsx): 36px default (radius 10), 32px
+ * small (radius 8), vertical gradient fills on primary/danger (hover and pressed gradients), raised
+ * secondary with a hairline border and shadow-xs, an accent-tinted ghost, and BoardUI's own disabled
+ * colours under a lighter dimming than the global 0.38 (a surface that recolours a button still reads
+ * as disabled). Tayfa keeps its 13px UI type (BoardUI uses 14px).
+ * Set aria-busy="true" while an action runs. Focus ring and press motion: interaction-quality.css.
  *
  * This file loads after every surface stylesheet (main.tsx imports it after App), so specificity
  * decides who wins. Colour variants (primary, secondary, danger) stay (0,2,0), and primary's
@@ -245,75 +249,127 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   min-height: 36px;
-  padding: 7px 14px;
+  padding: 7px 12px;
   border: 1px solid transparent;
-  border-radius: var(--radius-8);
+  border-radius: 10px;
   font-size: var(--font-size-ui);
   line-height: var(--line-height-ui);
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
+  background-origin: border-box;
 }
 .button.primary {
-  background: var(--color-action-primary);
+  background: var(--gradient-button-primary-default);
+  background-origin: border-box;
   color: var(--color-text-onAccent);
-  font-weight: var(--font-weight-semibold);
-  border: 1px solid var(--color-action-primary);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-xs);
 }
 .button.primary:hover:where(:not(:disabled, .danger)) {
-  background: var(--color-action-primaryHover);
-  border-color: var(--color-action-primaryHover);
+  background: var(--gradient-button-primary-hover);
+  background-origin: border-box;
 }
 .button.primary:active:where(:not(:disabled, .danger)) {
-  background: var(--color-action-primaryActive);
-  border-color: var(--color-action-primaryActive);
+  background: var(--gradient-button-primary-active);
+  background-origin: border-box;
 }
 .button.secondary {
-  background: var(--color-action-secondary);
-  border: 1px solid var(--color-action-secondaryBorder);
+  background: var(--color-background-primary-default);
+  border: 1px solid var(--color-border-button-default);
   color: var(--color-text-primary);
+  box-shadow: var(--shadow-xs);
 }
 .button.secondary:where(:hover:not(:disabled)) {
-  background: var(--color-action-secondaryHover);
-  border-color: var(--color-border-interactive);
+  background: var(--color-background-primary-hover);
+  border-color: var(--color-border-button-hover);
+}
+.button.secondary:where(:active:not(:disabled)) {
+  background: var(--color-background-primary-active);
+  border-color: var(--color-border-button-active);
 }
 /* After primary so `button primary danger` renders as danger. */
 .button.danger {
-  background: var(--color-action-danger);
-  border: 1px solid var(--color-action-danger);
+  background: var(--gradient-button-danger-default);
+  background-origin: border-box;
+  border: 1px solid transparent;
   color: var(--color-text-onDanger);
+  box-shadow: var(--shadow-xs);
 }
 .button.danger:where(:hover:not(:disabled)) {
-  background: var(--color-action-dangerHover);
-  border-color: var(--color-action-dangerHover);
+  background: var(--gradient-button-danger-hover);
+  background-origin: border-box;
 }
 .button.danger:where(:active:not(:disabled)) {
-  background: var(--color-action-dangerActive);
-  border-color: var(--color-action-dangerActive);
+  background: var(--gradient-button-danger-active);
+  background-origin: border-box;
 }
 .button:where(.small) {
-  min-height: 30px;
-  padding: 4px 10px;
+  min-height: 32px;
+  padding: 5px 10px;
+  border-radius: 8px;
   font-size: var(--font-size-metadata);
 }
 .button:where(.full) {
   width: 100%;
   margin-top: 12px;
 }
-.button:where(.ghost, .subtle) {
+.button:where(.ghost) {
+  background: var(--color-button-ghost-background);
+  border-color: transparent;
+  color: var(--color-button-ghost-foreground);
+  box-shadow: none;
+}
+.button:where(.ghost):where(:hover:not(:disabled)) {
+  background: var(--color-button-ghost-hover);
+}
+.button:where(.ghost):where(:active:not(:disabled)) {
+  background: var(--color-button-ghost-active);
+}
+/* Subtle is Tayfa's quiet text button: no fill until hover (BoardUI secondary hover/active fills). */
+.button:where(.subtle) {
+  padding-inline: 8px;
   background: transparent;
   border-color: transparent;
   color: var(--color-text-secondary);
+  box-shadow: none;
 }
-.button:where(.subtle) {
-  padding-inline: 8px;
-}
-.button:where(.ghost, .subtle):where(:hover:not(:disabled)) {
-  background: var(--color-background-hover);
-}
-.button:where(.ghost):where(:hover:not(:disabled)) {
+.button:where(.subtle):where(:hover:not(:disabled)) {
+  background: var(--color-background-primary-hover);
   color: var(--color-text-primary);
+}
+.button:where(.subtle):where(:active:not(:disabled)) {
+  background: var(--color-background-primary-active);
+}
+/* BoardUI disabled colours; the dimming stays lighter than the global button:disabled rule. */
+.button:disabled,
+.button[aria-disabled='true'] {
+  opacity: 0.72;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.button.primary:where(:disabled, [aria-disabled='true']) {
+  background: var(--gradient-button-primary-disabled);
+  border-color: var(--color-border-button-default);
+  color: var(--color-button-primary-disabled-foreground);
+}
+.button.danger:where(:disabled, [aria-disabled='true']) {
+  background: var(--gradient-button-danger-disabled);
+  border-color: transparent;
+  color: var(--color-foreground-disabled-danger);
+}
+.button.secondary:where(:disabled, [aria-disabled='true']) {
+  background: var(--color-background-primary-disabled);
+  border-color: var(--color-border-button-default);
+  color: var(--color-text-tertiary);
+}
+.button:where(.ghost):where(:disabled, [aria-disabled='true']) {
+  background: var(--color-button-ghost-disabled);
+  color: var(--color-button-ghost-disabled-foreground);
+}
+.button:where(.subtle):where(:disabled, [aria-disabled='true']) {
+  color: var(--color-text-tertiary);
 }
 .button[aria-busy='true'] {
   cursor: progress;
@@ -333,9 +389,26 @@
     transform: rotate(360deg);
   }
 }
+@media (prefers-contrast: more) {
+  .button.secondary {
+    border-color: var(--color-text-secondary);
+  }
+  .button:where(.ghost) {
+    border-color: var(--color-action-primaryBorder);
+  }
+}
+@media (forced-colors: active) {
+  .button {
+    border-color: ButtonText;
+  }
+  .button:disabled {
+    border-color: GrayText;
+    color: GrayText;
+  }
+}
 .icon-button {
-  border-radius: 6px;
-  color: var(--muted);
+  border-radius: 8px;
+  color: var(--color-foreground-icon-secondary);
 }
 .avatar {
   font-family: Inter, sans-serif;

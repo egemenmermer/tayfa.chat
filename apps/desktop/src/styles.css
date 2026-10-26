@@ -536,12 +536,15 @@ kbd {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  color: #99a5b5;
+  color: var(--color-foreground-icon-secondary);
   flex-shrink: 0;
 }
 .icon-button:hover:not(:disabled) {
-  background: #ffffff0b;
-  color: #f1f3f8;
+  background: var(--color-background-primary-hover);
+  color: var(--color-foreground-icon-hover);
+}
+.icon-button:active:not(:disabled) {
+  background: var(--color-background-primary-active);
 }
 .hero {
   height: 396px;
@@ -1295,40 +1298,112 @@ kbd {
   line-height: var(--line-height-ui);
   font-weight: var(--font-weight-regular);
 }
-.field-label input:not([type='range']),
+/* BoardUI input look (boardui/base/input.tsx) in Tayfa colours: a filled field without a resting
+   border and BoardUI's 2px inset ring on hover, focus and error. Keyboard focus keeps Tayfa's global
+   focus-visible outline (interaction-quality.css), so a surface that drops the ring stays visible.
+   The 1px transparent border keeps the box size of the previous bordered field. */
+.field-label input:not([type='range'], [type='checkbox'], [type='radio']),
 input.option-input,
 .field-label select,
 .field-label textarea,
 .edit-textarea {
   display: block;
-  border: 1px solid var(--color-border-default);
-  background: var(--color-background-field);
-  border-radius: var(--radius-8);
+  border: 1px solid transparent;
+  background: var(--color-background-tertiary-default);
+  border-radius: 10px;
   padding: 8px 12px;
   min-height: 38px;
   width: 100%;
   color: var(--color-text-primary);
   outline-offset: 2px;
-  transition: border-color var(--motion-quick) ease;
+  transition:
+    background-color var(--input-transition-ms) ease,
+    box-shadow var(--input-transition-ms) ease;
 }
-:is(.field-label :is(input, select, textarea), input.option-input, .edit-textarea):hover:where(
-    :not(:disabled):not(:focus)
-  ) {
-  border-color: var(--color-border-interactive);
+.settings-row select {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 7px 12px;
+  background-color: var(--color-background-tertiary-default);
+  color: var(--color-text-primary);
+  transition: box-shadow var(--input-transition-ms) ease;
 }
-:is(.field-label :is(input, select, textarea), input.option-input, .edit-textarea):focus {
-  border-color: var(--color-action-primary);
+/* BoardUI select trigger: native select without the platform arrow, BoardUI chevron in its place. */
+:is(.field-label, .settings-row) select {
+  appearance: none;
+  padding-inline-end: 34px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-foreground-icon-secondary) 50%),
+    linear-gradient(135deg, var(--color-foreground-icon-secondary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 13px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
 }
 :is(
-  .field-label :is(input, select, textarea),
+    .field-label
+      :is(input:where(:not([type='range'], [type='checkbox'], [type='radio'])), select, textarea),
+    .settings-row select,
+    input.option-input,
+    .edit-textarea
+  ):hover:where(:not(:disabled):not(:focus)) {
+  box-shadow: inset 0 0 0 2px var(--color-border-button-hover);
+}
+:is(
+  .field-label
+    :is(input:where(:not([type='range'], [type='checkbox'], [type='radio'])), select, textarea),
+  .settings-row select,
+  input.option-input,
+  .edit-textarea
+):focus {
+  box-shadow: inset 0 0 0 2px var(--color-border-button-active);
+}
+:is(
+  .field-label
+    :is(input:where(:not([type='range'], [type='checkbox'], [type='radio'])), select, textarea),
+  .settings-row select,
   input.option-input,
   .edit-textarea
 )[aria-invalid='true'] {
-  border-color: var(--color-status-error);
+  background-color: var(--color-background-tertiary-error);
+  box-shadow: inset 0 0 0 2px var(--color-text-error-primary);
 }
-:is(.field-label :is(input, select, textarea), input.option-input, .edit-textarea):disabled {
-  opacity: 0.55;
+:is(
+  .field-label
+    :is(input:where(:not([type='range'], [type='checkbox'], [type='radio'])), select, textarea),
+  .settings-row select,
+  input.option-input,
+  .edit-textarea
+):disabled {
+  background-color: var(--color-input-disabled-background);
+  color: var(--color-input-disabled-text);
+  box-shadow: none;
   cursor: not-allowed;
+}
+@media (prefers-contrast: more) {
+  :is(
+    .field-label
+      :is(input:where(:not([type='range'], [type='checkbox'], [type='radio'])), select, textarea),
+    .settings-row select,
+    input.option-input,
+    .edit-textarea
+  ) {
+    border-color: var(--color-border-interactive);
+  }
+}
+@media (forced-colors: active) {
+  :is(
+    .field-label
+      :is(input:where(:not([type='range'], [type='checkbox'], [type='radio'])), select, textarea),
+    .settings-row select,
+    input.option-input,
+    .edit-textarea
+  ) {
+    border-color: FieldText;
+  }
 }
 .field-hint,
 .field-error {
@@ -2279,31 +2354,74 @@ textarea::placeholder {
   padding: 6px 8px;
   font-size: 9px;
 }
+/* BoardUI switch (boardui/base/switch.tsx, medium pill) in Tayfa colours:
+   <button class="toggle [on]" role="switch"><span/></button>. The thumb carries BoardUI's chip dot. */
 .toggle {
-  width: 33px;
-  height: 20px;
-  min-width: 33px;
+  width: 42px;
+  height: 24px;
+  min-width: 42px;
   padding: 3px;
-  background: #354252;
-  border: 1px solid #ffffff05;
-  border-radius: 20px;
-  transition: background 0.15s;
+  background: var(--color-background-tertiary-default);
+  border: 0;
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 1px 1px 0 rgb(0 0 0 / 0.12);
+  transition:
+    background-color var(--motion-quick) ease,
+    box-shadow var(--motion-quick) ease;
 }
 .toggle > span {
   display: block;
-  width: 12px;
-  height: 12px;
-  background: #9cabbc;
+  width: 18px;
+  height: 18px;
+  background:
+    radial-gradient(
+      circle,
+      var(--color-switch-off-chip-start) 0 3.25px,
+      var(--color-border-button-default) 3.5px 3.75px,
+      transparent 4px
+    ),
+    linear-gradient(
+      to bottom,
+      var(--color-control-indicator-background) 43.837%,
+      var(--color-control-indicator-background-subtle)
+    );
   border-radius: 50%;
-  box-shadow: 0 1px 4px #0004;
+  box-shadow:
+    0 3px 3px 0 rgb(0 0 0 / 0.08),
+    0 0.75px 0 0 rgb(0 0 0 / 0.12);
   transition: transform 0.15s;
 }
 .toggle.on {
-  background: #a9bbd6;
+  background: linear-gradient(to bottom, var(--color-accent-500), var(--color-accent-600));
+  box-shadow:
+    inset 0 1.5px 0 0 rgb(255 255 255 / 0.25),
+    inset 0 0 0 0.75px var(--color-accent-500);
 }
 .toggle.on > span {
-  transform: translateX(13px);
-  background: #f1f5fa;
+  transform: translateX(18px);
+  background:
+    radial-gradient(
+      circle,
+      var(--color-switch-on-chip-start) 0 3.25px,
+      var(--color-accent-600) 3.5px 3.75px,
+      transparent 4px
+    ),
+    linear-gradient(
+      to bottom,
+      var(--color-control-indicator-background) 43.837%,
+      var(--color-control-indicator-background-subtle)
+    );
+}
+@media (forced-colors: active) {
+  .toggle {
+    border: 1px solid ButtonText;
+  }
+  .toggle > span {
+    background: ButtonText;
+  }
+  .toggle.on > span {
+    background: Highlight;
+  }
 }
 .appearance-preview {
   height: 169px;
@@ -2542,23 +2660,137 @@ textarea::placeholder {
   align-items: flex-start;
   gap: 24px;
 }
+/* BoardUI slider (boardui/base/slider.tsx) on a native range: 6px rounded track with an inset
+   shadow, light thumb with a hairline border and the accent dot. The filled part of BoardUI's track
+   needs the value in CSS, which a native range does not expose, so the track stays one colour. The
+   thumb is 16px instead of 20px so dense rows keep their spacing. */
 input[type='range'] {
-  height: 3px;
+  height: 6px;
   appearance: none;
   -webkit-appearance: none;
-  background: #c5d7ed29;
-  border-radius: 4px;
-  accent-color: #d4e3f7;
+  background: var(--color-background-tertiary-default);
+  box-shadow: inset 0 1px 1px rgb(0 0 0 / 0.12);
+  border-radius: var(--radius-pill);
+  accent-color: var(--color-action-primary);
   cursor: pointer;
 }
 input[type='range']::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;
-  height: 8px;
-  width: 8px;
-  background: #dae5f5;
+  height: 16px;
+  width: 16px;
+  background:
+    radial-gradient(
+      circle,
+      var(--color-accent-500) 0 3px,
+      var(--color-accent-600) 3.5px 3.75px,
+      transparent 4.25px
+    ),
+    var(--color-control-indicator-background);
+  border: 1px solid var(--color-border-button-default);
   border-radius: 50%;
-  box-shadow: 0 1px 4px #0004;
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / 0.18),
+    inset 0 1px 0 rgb(255 255 255 / 0.8);
+  transition:
+    scale var(--motion-quick) ease,
+    box-shadow var(--motion-quick) ease,
+    border-color var(--motion-quick) ease;
+}
+input[type='range']:hover:not(:disabled)::-webkit-slider-thumb {
+  scale: 1.05;
+  border-color: var(--color-border-button-hover);
+}
+input[type='range']:active:not(:disabled)::-webkit-slider-thumb {
+  scale: 1.1;
+  border-color: var(--color-accent-500);
+}
+/* BoardUI puts the focus ring on the thumb. */
+input[type='range']:focus-visible {
+  outline: none;
+}
+input[type='range']:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 2px var(--color-background-main),
+    0 0 0 4px var(--color-border-focus-ring);
+}
+input[type='range']:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+@media (forced-colors: active) {
+  input[type='range']:focus-visible {
+    outline: 2px solid Highlight;
+  }
+}
+/* BoardUI checkbox and radio: accent gradient fill with a check (or dot) in the on-accent colour.
+   Zero specificity, so any surface that draws its own box keeps it. */
+:where(input[type='checkbox'], input[type='radio']) {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  place-content: center;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid var(--color-border-interactive);
+  border-radius: 4px;
+  background: var(--color-background-primary-default);
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-quick) ease,
+    border-color var(--motion-quick) ease;
+}
+:where(input[type='radio']) {
+  border-radius: 50%;
+}
+:where(input[type='checkbox'], input[type='radio'])::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  background: var(--color-text-onAccent);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  transform: scale(0);
+  transition: transform var(--motion-quick) var(--motion-ease-out);
+}
+:where(input[type='radio'])::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  clip-path: none;
+}
+:where(input[type='checkbox'], input[type='radio']):hover:not(:disabled) {
+  border-color: var(--color-text-secondary);
+}
+:where(input[type='checkbox'], input[type='radio']):is(:checked, :indeterminate) {
+  border-color: var(--color-accent-600);
+  background: linear-gradient(to bottom, var(--color-accent-500), var(--color-accent-600));
+  box-shadow: var(--shadow-checkbox-selected);
+}
+:where(input[type='checkbox']):indeterminate::before {
+  height: 2px;
+  clip-path: none;
+  transform: scale(1);
+}
+:where(input[type='checkbox'], input[type='radio']):checked::before {
+  transform: scale(1);
+}
+:where(input[type='checkbox'], input[type='radio']):disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+@media (forced-colors: active) {
+  :where(input[type='checkbox'], input[type='radio']) {
+    border-color: ButtonText;
+  }
+  :where(input[type='checkbox'], input[type='radio']):checked {
+    background: Highlight;
+  }
+  :where(input[type='checkbox'], input[type='radio'])::before {
+    background: HighlightText;
+  }
 }
 .cinema-meta {
   display: flex;
