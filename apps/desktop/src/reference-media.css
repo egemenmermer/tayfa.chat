@@ -594,7 +594,7 @@
 }
 .ref-media-modal .field-label input,
 .ref-media-modal select {
-  background: #1b1e23;
+  background-color: #1b1e23;
   border: 1px solid #667083;
   border-radius: var(--radius-8);
   width: 100%;
@@ -606,6 +606,9 @@
     var(--font-size-ui) Inter,
     sans-serif;
   box-shadow: none;
+}
+.ref-media-modal .field-label select {
+  padding-inline-end: 34px;
 }
 .ref-media-modal input:focus {
   outline: 2px solid var(--color-action-focus);
