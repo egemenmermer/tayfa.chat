@@ -29,7 +29,7 @@ it('rejects combinations that cannot or must not be registered', () => {
   expect(shortcutProblem('Ctrl+Alt+Shift+KeyK')).toBe('reserved');
   expect(shortcutProblem('Alt+F4')).toBe('reserved');
   expect(shortcutProblem('Ctrl+Alt+KeyM', ['Ctrl+Alt+KeyM'])).toBe('duplicate');
-  expect(shortcutProblem('Ctrl+Alt+KeyM', ['', 'Alt+Ctrl+KeyM'])).toBeNull();
+  expect(shortcutProblem('Ctrl+Alt+KeyM', ['', 'Alt+Ctrl+KeyM'])).toBe('duplicate');
   expect(shortcutProblem('Ctrl+Alt+KeyM')).toBeNull();
   expect(shortcutProblem('F9')).toBeNull();
   expect(toAccelerator('KeyM')).toBeNull();
