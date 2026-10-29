@@ -20,9 +20,35 @@ import {
   RoomEvent,
   Track,
   LocalAudioTrack,
+  VideoPreset,
+  VideoQuality,
   createLocalAudioTrack,
   type Participant,
+  type TrackPublication,
 } from 'livekit-client';
+import {
+  screenPublishPlan,
+  screenSubscriptionQuality,
+  type ScreenLayer,
+  type ScreenShareContent,
+  type ScreenShareQuality,
+  type ScreenViewQuality,
+} from './screen-quality';
+export {
+  screenProfiles,
+  screenPublishPlan,
+  screenQualityChoices,
+  screenQualitySelection,
+  screenSimulcastLayers,
+  screenSubscriptionQuality,
+  screenLayerLines,
+} from './screen-quality';
+export type {
+  ScreenLayer,
+  ScreenShareContent,
+  ScreenShareQuality,
+  ScreenViewQuality,
+} from './screen-quality';
 import type { ConnectionStatus } from '@rooms/contracts';
 import {
   PERSONAL_SOUND_ATTRIBUTES,
@@ -57,6 +83,8 @@ export interface MediaTrack {
   muted: boolean;
   /** False for a remote screen share that is only advertised until the listener watches it. */
   subscribed?: boolean;
+  /** Layers a remote screen share offers; one entry when its publisher sends a single quality. */
+  layers?: ScreenLayer[];
 }
 export interface MediaDiagnostics {
   bitrate: number | null;
@@ -78,6 +106,8 @@ export interface MediaSnapshot {
   deafened: boolean;
   camera: boolean;
   sharing: boolean;
+  /** This viewer's screen share quality for the app session; 'auto' until they pick one. */
+  screenQuality?: ScreenViewQuality;
   audioBlocked: boolean;
   inputDeviceFallback?: boolean;
   /** OS name of the microphone the room hears; null or absent while unknown. */
@@ -92,19 +122,11 @@ export interface MediaGrant {
   url: string;
   token: string;
 }
-export type ScreenShareQuality = '720p30' | '1080p30' | '1080p60' | '1440p60' | '4k30';
 export interface ScreenShareOptions {
   quality?: ScreenShareQuality;
   audio?: boolean;
-  content?: 'motion' | 'detail';
+  content?: ScreenShareContent;
 }
-export const screenProfiles = {
-  '720p30': { width: 1280, height: 720, frameRate: 30, bitrate: 3_000_000 },
-  '1080p30': { width: 1920, height: 1080, frameRate: 30, bitrate: 6_000_000 },
-  '1080p60': { width: 1920, height: 1080, frameRate: 60, bitrate: 10_000_000 },
-  '1440p60': { width: 2560, height: 1440, frameRate: 60, bitrate: 16_000_000 },
-  '4k30': { width: 3840, height: 2160, frameRate: 30, bitrate: 24_000_000 },
-} as const;
 export interface RealtimeMediaProvider {
   publishControl?(payload: string, destination: string, reliable: boolean): Promise<void>;
   onControl?(listener: (payload: string, senderId: string) => void): () => void;
@@ -142,11 +164,33 @@ export interface RealtimeMediaProvider {
   setParticipantVolume(participantId: string, volume: number): void;
   setScreenVolume?(participantId: string, volume: number): void;
   watchScreen?(participantId: string | null): void;
+  /** Caps the screen shares this viewer receives ('auto' or lines such as 720) for the session. */
+  setScreenQuality?(quality: ScreenViewQuality): void;
   startAudio(): Promise<void>;
   disconnect(): Promise<void>;
   reconnect(): Promise<void>;
 }
 const WATCH_TOPIC = 'rooms-watch-v1';
+const videoQualities = {
+  low: VideoQuality.LOW,
+  medium: VideoQuality.MEDIUM,
+  high: VideoQuality.HIGH,
+} as const;
+// Announced layers carry the protocol enum; LiveKit's client enum uses the same numbers.
+const qualityNames: Record<number, ScreenLayer['quality'] | undefined> = {
+  [VideoQuality.LOW]: 'low',
+  [VideoQuality.MEDIUM]: 'medium',
+  [VideoQuality.HIGH]: 'high',
+};
+/** Layers a published screen share announced; rc.34 publishers send q/h, no simulcast sends one. */
+function screenLayers(pub: TrackPublication): ScreenLayer[] {
+  return (pub.trackInfo?.layers ?? []).flatMap((layer) => {
+    const quality = qualityNames[Number(layer.quality)];
+    return quality && layer.width > 0 && layer.height > 0
+      ? [{ quality, width: layer.width, height: layer.height }]
+      : [];
+  });
+}
 const CURSOR_TOPIC = 'rooms-cursor-v1';
 const MOVE_TOPIC = 'rooms-move-v1';
 const isScreenSource = (source: Track.Source) =>
@@ -245,6 +289,8 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   private audio = new Map<string, HTMLMediaElement>();
   private volumes = new Map<string, number>();
   private watchedScreen: string | null = null;
+  /** The viewer's pick for this app session; null until they choose, so LiveKit stays untouched. */
+  private screenQuality: ScreenViewQuality | null = null;
   /** Announced screen choice of each remote participant, keyed by their LiveKit identity. */
   private watchers = new Map<string, string | null>();
   private screenAudio = new Set<string>();
@@ -296,6 +342,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     deafened: false,
     camera: false,
     sharing: false,
+    screenQuality: 'auto',
     audioBlocked: false,
     participants: [],
     tracks: [],
@@ -582,6 +629,9 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
             local: p === room.localParticipant,
             muted: pub.isMuted,
             subscribed: !!pub.track,
+            ...(p !== room.localParticipant && pub.source === Track.Source.ScreenShare
+              ? { layers: screenLayers(pub) }
+              : {}),
           })),
       ),
     });
@@ -736,6 +786,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
         publication.setSubscribed(false);
         return;
       }
+      if (publication.source === Track.Source.ScreenShare) this.applyScreenQuality();
       if (track.kind === Track.Kind.Audio && typeof document !== 'undefined') {
         const element = track.attach();
         element.hidden = true;
@@ -995,7 +1046,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   }
   async publishScreen(options: ScreenShareOptions = {}) {
     const room = this.requireRoom();
-    const profile = screenProfiles[options.quality ?? '1080p60'];
+    const plan = screenPublishPlan(options.quality ?? '1080p60', options.content);
     try {
       await room.localParticipant.setScreenShareEnabled(
         true,
@@ -1009,15 +1060,18 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
                 restrictOwnAudio: true,
               }
             : false,
-          resolution: {
-            width: profile.width,
-            height: profile.height,
-            frameRate: profile.frameRate,
-          },
+          resolution: plan.capture,
+          // Set before publishing so the encoder starts in the right mode.
+          contentHint: plan.contentHint,
         },
         {
           videoCodec: 'h264',
-          screenShareEncoding: { maxBitrate: profile.bitrate, maxFramerate: profile.frameRate },
+          screenShareEncoding: plan.encoding,
+          simulcast: true,
+          screenShareSimulcastLayers: plan.layers.map(
+            (layer) => new VideoPreset(layer.width, layer.height, layer.bitrate, layer.frameRate),
+          ),
+          degradationPreference: plan.degradationPreference,
           audioPreset: { maxBitrate: 128000 },
           forceStereo: true,
         },
@@ -1029,12 +1083,6 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
         await this.stopScreen();
         throw new Error('System audio capture is unavailable.');
       }
-      const screenTrack = room.localParticipant.getTrackPublication(
-        Track.Source.ScreenShare,
-      )?.track;
-      if (screenTrack)
-        screenTrack.mediaStreamTrack.contentHint =
-          options.content === 'detail' ? 'detail' : 'motion';
       const capture = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track;
       capture?.mediaStreamTrack.addEventListener(
         'ended',
@@ -1175,6 +1223,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     const changed = id !== this.watchedScreen;
     this.watchedScreen = id;
     this.applyScreenSubscriptions();
+    this.applyScreenQuality();
     this.refreshScreenPlayback();
     if (changed) {
       this.announceWatch();
@@ -1188,6 +1237,29 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
         if (!isScreenSource(pub.source)) continue;
         const wanted = person.identity === this.watchedScreen;
         if (pub.isDesired !== wanted) pub.setSubscribed(wanted);
+      }
+  }
+  setScreenQuality(quality: ScreenViewQuality) {
+    if (quality !== 'auto' && !(Number.isInteger(quality) && quality > 0))
+      throw Error('Screen quality must be auto or a positive line count.');
+    this.screenQuality = quality;
+    this.applyScreenQuality();
+    this.patch({ screenQuality: quality });
+  }
+  /**
+   * Requests the chosen layer of every screen share this listener receives. LiveKit ignores the
+   * request for a publication that is not subscribed, so watching and every new subscription (a
+   * restarted share is a new publication) apply it again. Under adaptive stream a fixed choice is
+   * a ceiling: a small tile can still receive a smaller layer.
+   */
+  private applyScreenQuality() {
+    const choice = this.screenQuality;
+    if (choice === null) return;
+    for (const person of this.room?.remoteParticipants.values() ?? [])
+      for (const pub of person.trackPublications.values()) {
+        if (pub.source !== Track.Source.ScreenShare || !pub.isDesired) continue;
+        const quality = screenSubscriptionQuality(screenLayers(pub), choice);
+        if (quality) pub.setVideoQuality(videoQualities[quality]);
       }
   }
   /** Tells the room (or one newcomer) which screen this listener watches. */
