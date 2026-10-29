@@ -33,6 +33,7 @@ import {
   useRealtime,
   joinVoice,
   leaveVoice,
+  prewarmVoice,
   toggleMic,
   toggleDeafen,
   toggleCamera,
@@ -472,11 +473,16 @@ export function MinimalSidebar({
                   data-channel-id={ch.id}
                   className={`minimal-nav ${(r.channelId === ch.id || c.activeChannelId === ch.id) && location.pathname === '/voice' ? 'selected' : ''}`}
                   onClick={() => enter(ch.id, ch.name)}
+                  onPointerEnter={() => prewarmVoice(ch.id)}
+                  onFocus={() => prewarmVoice(ch.id)}
                 >
                   <Volume2 size={15} aria-hidden="true" />
                   <span title={ch.name}>{ch.name}</span>
-                  {r.channelId === ch.id && r.status === 'connected' && (
-                    <i className="room-connected-dot" />
+                  {r.channelId === ch.id && r.busy ? (
+                    <small className="room-connecting">{t('Bağlanıyor…')}</small>
+                  ) : (
+                    r.channelId === ch.id &&
+                    r.status === 'connected' && <i className="room-connected-dot" />
                   )}
                 </button>
                 {occupants.map((p) => {
