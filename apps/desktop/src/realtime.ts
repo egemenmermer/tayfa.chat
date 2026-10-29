@@ -463,6 +463,12 @@ export function setScreenVolume(id: string, volume: number) {
   if (!provider.setScreenVolume) throw Error(t('Yayın sesi kontrolü kullanılamıyor.'));
   provider.setScreenVolume(id, volume);
 }
+/** Caps the screen shares this viewer receives for the app session ('auto' or lines, e.g. 720). */
+export function setScreenQuality(quality: import('@rooms/media').ScreenViewQuality) {
+  const provider = mediaProvider();
+  if (!provider.setScreenQuality) throw Error(t('Yayın kalitesi seçimi kullanılamıyor.'));
+  provider.setScreenQuality(quality);
+}
 export const startRoomAudio = () => run(() => mediaProvider().startAudio());
 /** This listener's own DJ bass/mid/treble; null where the media provider cannot equalize. */
 export const musicEqualizer = (): MusicEqualizer | null =>

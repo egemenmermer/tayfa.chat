@@ -6,6 +6,7 @@ import {
   DisconnectReason,
   Track,
   LocalAudioTrack,
+  VideoQuality,
   createLocalAudioTrack,
   type Room,
 } from 'livekit-client';
@@ -338,10 +339,40 @@ describe('explicit screen quality and system audio', () => {
       expect.objectContaining({
         audio: false,
         resolution: { width: 1920, height: 1080, frameRate: 60 },
+        contentHint: 'motion',
       }),
       expect.objectContaining({
         videoCodec: 'h264',
-        screenShareEncoding: { maxBitrate: 10000000, maxFramerate: 60 },
+        screenShareEncoding: { maxBitrate: 8000000, maxFramerate: 60 },
+        simulcast: true,
+        // LiveKit's screen share default is maintain-resolution, which drops frames on motion.
+        degradationPreference: 'maintain-framerate',
+        screenShareSimulcastLayers: [
+          expect.objectContaining({
+            width: 640,
+            height: 360,
+            encoding: expect.objectContaining({ maxBitrate: 600000, maxFramerate: 30 }),
+          }),
+          expect.objectContaining({
+            width: 1280,
+            height: 720,
+            encoding: expect.objectContaining({ maxBitrate: 3500000, maxFramerate: 60 }),
+          }),
+        ],
+      }),
+    );
+    await provider.disconnect();
+  });
+  it('keeps text sharp for detail content and adds no layer equal to a 720p profile', async () => {
+    const { provider, local } = fixture();
+    await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    await provider.publishScreen({ quality: '720p30', content: 'detail' });
+    expect(local.setScreenShareEnabled).toHaveBeenCalledWith(
+      true,
+      expect.objectContaining({ contentHint: 'detail' }),
+      expect.objectContaining({
+        degradationPreference: 'maintain-resolution',
+        screenShareSimulcastLayers: [expect.objectContaining({ width: 640, height: 360 })],
       }),
     );
     await provider.disconnect();
@@ -580,6 +611,78 @@ it('streams screen audio only to a listener who watches it and keeps it apart fr
   expect(publication.setSubscribed).toHaveBeenLastCalledWith(false);
   expect(element.muted).toBe(true);
   await provider.disconnect();
+});
+it('caps watched screen video at the viewer choice, for a restarted share too', async () => {
+  const { provider, room, emit } = fixture();
+  await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+  const announced = (...layers: [VideoQuality, number, number][]) => ({
+    layers: layers.map(([quality, width, height]) => ({ quality, width, height })),
+  });
+  const video = Object.assign(screenPublication('screen-video', Track.Source.ScreenShare), {
+    trackInfo: announced(
+      [VideoQuality.LOW, 640, 360],
+      [VideoQuality.MEDIUM, 1280, 720],
+      [VideoQuality.HIGH, 1920, 1080],
+    ),
+    setVideoQuality: vi.fn(),
+  });
+  // The audio publication has no setVideoQuality: calling it there would throw.
+  const audio = screenPublication('screen-audio', Track.Source.ScreenShareAudio);
+  const bob = {
+    identity: 'bob',
+    name: 'Bob',
+    setVolume: vi.fn(),
+    trackPublications: new Map<string, object>([
+      ['video', video],
+      ['audio', audio],
+    ]),
+  };
+  room.remoteParticipants.set('bob', bob);
+  provider.watchScreen('bob');
+  // Until the viewer picks, LiveKit's adaptive stream stays in charge.
+  expect(video.setVideoQuality).not.toHaveBeenCalled();
+  expect(provider.snapshot().screenQuality).toBe('auto');
+  expect(provider.snapshot().tracks).toContainEqual(
+    expect.objectContaining({
+      id: 'screen-video',
+      layers: [
+        { quality: 'low', width: 640, height: 360 },
+        { quality: 'medium', width: 1280, height: 720 },
+        { quality: 'high', width: 1920, height: 1080 },
+      ],
+    }),
+  );
+  provider.setScreenQuality(720);
+  expect(video.setVideoQuality).toHaveBeenLastCalledWith(VideoQuality.MEDIUM);
+  expect(provider.snapshot().screenQuality).toBe(720);
+  // An rc.34 share (q/h, no high layer) restarts as a new publication; the choice follows it.
+  const rc34 = Object.assign(screenPublication('screen-video-2', Track.Source.ScreenShare), {
+    trackInfo: announced([VideoQuality.LOW, 960, 540], [VideoQuality.MEDIUM, 1920, 1080]),
+    setVideoQuality: vi.fn(),
+  });
+  bob.trackPublications.set('video', rc34);
+  emit(RoomEvent.TrackSubscribed, { kind: 'video' }, rc34, bob);
+  expect(rc34.setVideoQuality).toHaveBeenLastCalledWith(VideoQuality.LOW);
+  provider.setScreenQuality('auto');
+  expect(rc34.setVideoQuality).toHaveBeenLastCalledWith(VideoQuality.MEDIUM);
+  // A single-layer publisher only has its one layer to give.
+  const single = Object.assign(screenPublication('screen-video-3', Track.Source.ScreenShare), {
+    trackInfo: announced([VideoQuality.HIGH, 1920, 1080]),
+    setVideoQuality: vi.fn(),
+  });
+  bob.trackPublications.set('video', single);
+  emit(RoomEvent.TrackSubscribed, { kind: 'video' }, single, bob);
+  provider.setScreenQuality(360);
+  expect(single.setVideoQuality).toHaveBeenLastCalledWith(VideoQuality.HIGH);
+  // Not watching: nothing is requested for a stream this listener does not receive.
+  provider.watchScreen(null);
+  single.setVideoQuality.mockClear();
+  provider.setScreenQuality(1080);
+  expect(single.setVideoQuality).not.toHaveBeenCalled();
+  expect(() => provider.setScreenQuality(0)).toThrow();
+  await provider.disconnect();
+  // The choice lasts for the app session, across leaving voice.
+  expect(provider.snapshot().screenQuality).toBe(1080);
 });
 it('advertises a remote screen share without downloading it until the listener watches', async () => {
   const { provider, room, emit } = fixture();
