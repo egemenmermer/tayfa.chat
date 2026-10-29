@@ -172,7 +172,14 @@ export interface RealtimeMediaProvider {
   /** Caps the screen shares this viewer receives ('auto' or lines such as 720) for the session. */
   setScreenQuality?(quality: ScreenViewQuality): void;
   startAudio(): Promise<void>;
-  disconnect(): Promise<void>;
+  /**
+   * Leaves the room. keepMicrophone (a switch to another room) keeps a live, unmuted, filtered
+   * microphone running so the next room's mute(false) publishes it instead of opening a new one;
+   * a plain disconnect, mute(true) or deafen(true) releases it.
+   */
+  disconnect(options?: { keepMicrophone?: boolean }): Promise<void>;
+  /** Warms DNS/TLS to the media server (e.g. on hovering a voice room); never joins anything. */
+  prepareConnection?(serverUrl: string): void;
   reconnect(): Promise<void>;
 }
 const WATCH_TOPIC = 'rooms-watch-v1';
@@ -246,16 +253,25 @@ function isMissingDevice(error: unknown) {
       (!failure.constraint || failure.constraint === 'deviceId'))
   );
 }
-/** False only when the system lists devices of this kind by id and the id is not among them. */
-async function deviceListed(kind: MediaDeviceKind, id: string) {
+/** The system's devices, or null when it cannot list them (then every id counts as listed). */
+async function listDevices(): Promise<readonly MediaDeviceInfo[] | null> {
   try {
-    const devices = (await navigator.mediaDevices?.enumerateDevices?.()) ?? [];
-    const ids = devices.filter((d) => d.kind === kind && d.deviceId).map((d) => d.deviceId);
-    return !ids.length || ids.includes(id);
+    return (await navigator.mediaDevices?.enumerateDevices?.()) ?? [];
   } catch {
-    return true;
+    return null;
   }
 }
+/** False only when the system lists devices of this kind by id and the id is not among them. */
+function deviceListed(
+  devices: readonly MediaDeviceInfo[] | null,
+  kind: MediaDeviceKind,
+  id: string,
+) {
+  const ids = (devices ?? []).filter((d) => d.kind === kind && d.deviceId).map((d) => d.deviceId);
+  return !ids.length || ids.includes(id);
+}
+/** How long a prewarmed media server counts as warm before another hover may warm it again. */
+const PREPARE_INTERVAL_MS = 20_000;
 const emptyDiagnostics = (): MediaDiagnostics => ({ bitrate: null, packetLoss: null, rtt: null });
 /** No auth credentials other than the in-memory, short-lived room token enter this adapter. */
 export class LiveKitMediaProvider implements RealtimeMediaProvider {
@@ -377,6 +393,18 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   private soundContext: AudioContext | null = null;
   private epoch = 0;
   private disconnecting: Promise<void> | null = null;
+  /**
+   * The microphone carried from the room just left to the next one (a room switch): still
+   * capturing through its noise filter, published nowhere. Reused only with the same input and
+   * filter settings; anything else stops it.
+   */
+  private parkedMic: {
+    track: LocalAudioTrack;
+    device: string | undefined;
+    noise: boolean;
+    mode: NoiseSuppressionMode;
+  } | null = null;
+  private prepared = new Map<string, number>();
   private microphoneWork: Promise<void> = Promise.resolve();
   private microphoneTask<T>(operation: () => Promise<T>): Promise<T> {
     const task = this.microphoneWork.then(operation);
@@ -670,7 +698,8 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     if (parsed.protocol === 'ws:' && !['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname))
       throw new Error('Remote media servers require TLS.');
     if (!roomId || !token) throw new Error('A room membership grant is required.');
-    await this.disconnect();
+    // A microphone carried over from the room just left survives; a live room is left in full.
+    await this.teardown(this.room ? 'release' : 'keep');
     const epoch = ++this.epoch;
     this.grant = { roomId, token, url: parsed.href };
     const room = this.createRoom();
@@ -979,7 +1008,10 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
             existing.stop();
           }
           if (this.room !== room || serial !== this.microphoneSerial) return;
-          created = await this.captureMicrophone(room, serial, deviceId);
+          // A room switch carried the microphone over: publish it as it is, already filtered.
+          const carried = deviceId === undefined ? this.claimParkedMic() : null;
+          if (!carried) this.releaseParkedMic();
+          created = carried ?? (await this.captureMicrophone(room, serial, deviceId));
           this.pendingMic = created;
           if (this.room !== room || this.state.deafened || serial !== this.microphoneSerial) {
             created.stop();
@@ -994,6 +1026,13 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
             await created.mute();
             throw new Error('Voice room changed while publishing the microphone.');
           }
+          if (carried)
+            this.patch({
+              noiseProcessing: {
+                status: this.noiseSuppression ? 'active' : 'off',
+                mode: this.noiseMode,
+              },
+            });
         }
         this.patch({ error: null });
         this.sync();
@@ -1018,6 +1057,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   async mute(value: boolean) {
     if (!value) return this.publishMic();
     ++this.microphoneSerial;
+    this.releaseParkedMic();
     this.pendingMic?.stop();
     void this.pendingMixer?.destroy();
     this.stopSoundboard();
@@ -1148,6 +1188,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     this.refreshScreenPlayback();
     if (value) {
       ++this.microphoneSerial;
+      this.releaseParkedMic();
       this.pendingMic?.stop();
       void this.pendingMixer?.destroy();
       this.stopSoundboard();
@@ -1391,8 +1432,13 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
    * join: the call uses the system default and the saved choice stays for when it returns.
    * Returns the id now in use, '' for the default.
    */
-  private async switchDevice(room: Room, kind: 'audioinput' | 'audiooutput', id: string) {
-    if (id && !(await deviceListed(kind, id))) id = '';
+  private async switchDevice(
+    room: Room,
+    kind: 'audioinput' | 'audiooutput',
+    id: string,
+    devices: readonly MediaDeviceInfo[] | null,
+  ) {
+    if (id && !deviceListed(devices, kind, id)) id = '';
     try {
       if (await room.switchActiveDevice(kind, id || 'default')) return id;
     } catch (error) {
@@ -1404,12 +1450,17 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   async deviceSelection(inputId: string, outputId: string) {
     try {
       const room = this.requireRoom();
-      await this.switchDevice(room, 'audioinput', inputId || '');
-      const output = await this.switchDevice(room, 'audiooutput', outputId || '');
-      for (const context of [this.soundContext, this.equalizerContext, this.boostContext])
-        await (
-          context as (AudioContext & { setSinkId?(id: string): Promise<void> }) | null
-        )?.setSinkId?.(output);
+      // One device list serves both checks (each enumeration costs a round trip to the OS).
+      const devices = await listDevices();
+      await this.switchDevice(room, 'audioinput', inputId || '', devices);
+      const output = await this.switchDevice(room, 'audiooutput', outputId || '', devices);
+      await Promise.all(
+        [this.soundContext, this.equalizerContext, this.boostContext].map((context) =>
+          (
+            context as (AudioContext & { setSinkId?(id: string): Promise<void> }) | null
+          )?.setSinkId?.(output),
+        ),
+      );
       this.outputDeviceId = output;
       // Keep the chosen headset: capture asks for it as a preference, so the default opens while it
       // is gone, and followInput moves back to it once it is listed again.
@@ -1542,24 +1593,101 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     this.boosted.clear();
     this.priorStats = null;
   }
-  disconnect(): Promise<void> {
+  disconnect(options?: { keepMicrophone?: boolean }): Promise<void> {
+    return this.teardown(options?.keepMicrophone ? 'park' : 'release');
+  }
+  /** The live, unmuted, filtered microphone of this room, if it can be carried to the next one. */
+  private carriableMic(room: Room) {
+    const track = room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track;
+    return track instanceof LocalAudioTrack &&
+      this.status === 'connected' &&
+      room.localParticipant.isMicrophoneEnabled &&
+      !track.isMuted &&
+      !this.state.deafened &&
+      track.mediaStreamTrack.readyState === 'live' &&
+      this.mixerTrack === track &&
+      this.mixer?.processedTrack?.readyState === 'live'
+      ? track
+      : null;
+  }
+  /** Takes the carried microphone if it still matches the selected input and filter. */
+  private claimParkedMic() {
+    const parked = this.parkedMic;
+    if (
+      parked &&
+      parked.track.mediaStreamTrack.readyState === 'live' &&
+      this.mixerTrack === parked.track &&
+      this.mixer?.processedTrack?.readyState === 'live' &&
+      parked.device === this.inputDeviceId &&
+      parked.noise === this.noiseSuppression &&
+      parked.mode === this.noiseMode
+    ) {
+      this.parkedMic = null;
+      return parked.track;
+    }
+    this.releaseParkedMic();
+    return null;
+  }
+  /** Stops a carried microphone and its filter (leave, mute, deafen, failed or changed switch). */
+  private releaseParkedMic() {
+    const parked = this.parkedMic;
+    if (!parked) return;
+    this.parkedMic = null;
+    parked.track.stop();
+    if (this.mixerTrack !== parked.track) return;
+    const mixer = this.mixer,
+      context = this.soundContext;
+    this.mixer = null;
+    this.mixerTrack = null;
+    this.soundContext = null;
+    void Promise.resolve()
+      .then(() => mixer?.destroy())
+      .catch(() => {});
+    if (context && context.state !== 'closed')
+      void Promise.resolve()
+        .then(() => context.close())
+        .catch(() => {});
+    this.patch({ noiseProcessing: { status: 'off', mode: this.noiseMode } });
+  }
+  /**
+   * park: leave and carry a live microphone over; keep: leave, keeping a microphone carried
+   * earlier; release: leave and stop every capture.
+   */
+  private teardown(mode: 'park' | 'keep' | 'release'): Promise<void> {
+    if (mode === 'release') this.releaseParkedMic();
     if (this.disconnecting) return this.disconnecting;
+    const room = this.room;
+    const carried = mode === 'park' && room ? this.carriableMic(room) : null;
     ++this.epoch;
     ++this.microphoneSerial;
-    const room = this.room;
     this.room = null;
     this.grant = null;
     this.pendingMic?.stop();
-    this.mixerTrack?.stop();
     void this.pendingMixer?.destroy();
-    void this.mixer?.destroy();
+    if (carried) {
+      this.releaseParkedMic();
+      this.parkedMic = {
+        track: carried,
+        device: this.inputDeviceId,
+        noise: this.noiseSuppression,
+        mode: this.noiseMode,
+      };
+    }
+    // Decided now: the async cleanup below must never close a filter that a carried mic still uses.
+    const keepMixer = !!this.parkedMic && this.mixerTrack === this.parkedMic.track;
+    if (!keepMixer) {
+      this.mixerTrack?.stop();
+      void this.mixer?.destroy();
+    }
     this.stopSoundboard();
     // Stop capture and playback synchronously; network/mixer cleanup must not hold them open.
     for (const publication of room?.localParticipant.trackPublications.values() ?? [])
-      publication.track?.stop();
+      if (publication.track !== carried) publication.track?.stop();
     this.cleanupPlayback();
     this.patch({
-      noiseProcessing: { status: 'off', mode: this.noiseMode },
+      noiseProcessing: keepMixer
+        ? (this.state.noiseProcessing ?? { status: 'off', mode: this.noiseMode })
+        : { status: 'off', mode: this.noiseMode },
       status: 'not-configured',
       roomId: null,
       error: null,
@@ -1575,14 +1703,17 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       tracks: [],
       diagnostics: emptyDiagnostics(),
     });
+    // A carried microphone is unpublished, not stopped (LiveKit stops every local track otherwise).
     const transport = room
-      ? room.disconnect(true).finally(() => room.removeAllListeners())
+      ? room.disconnect(!carried).finally(() => room.removeAllListeners())
       : Promise.resolve();
     // Local audio teardown is best effort: leaving (and signing out) must not fail because a
     // mixer or an already closed AudioContext refuses to close again.
     const cleanup = (async () => {
       await this.soundboardWork;
       await this.microphoneWork;
+      // The carried microphone keeps its filter and context; releaseParkedMic closes them.
+      if (keepMixer) return;
       const mixer = this.mixer,
         context = this.soundContext;
       this.mixer = null;
@@ -1605,6 +1736,29 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
         this.disconnecting = null;
       });
     return this.disconnecting;
+  }
+  prepareConnection(serverUrl: string) {
+    let url: URL;
+    try {
+      url = new URL(serverUrl);
+    } catch {
+      return;
+    }
+    if (!['wss:', 'ws:'].includes(url.protocol) || url.username || url.password) return;
+    const now = Date.now();
+    if (now - (this.prepared.get(url.href) ?? -Infinity) < PREPARE_INTERVAL_MS) return;
+    this.prepared.set(url.href, now);
+    url.protocol = url.protocol === 'wss:' ? 'https:' : 'http:';
+    url.search = '';
+    url.hash = '';
+    // Only resolves the name and opens TLS ahead of the join; the answer itself is ignored.
+    if (typeof fetch === 'function')
+      void fetch(url.href, {
+        method: 'HEAD',
+        mode: 'no-cors',
+        credentials: 'omit',
+        cache: 'no-store',
+      }).catch(() => {});
   }
   async reconnect() {
     throw new Error(

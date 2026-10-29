@@ -268,17 +268,60 @@ export const cancelVoiceRejoin = () => leaveVoice();
 export function dismissVoiceRejoin() {
   if (useVoiceRejoin.getState().rejoin?.phase === 'failed') cancelRejoin();
 }
-function disconnectActive() {
+/** Server-side leaves still on their way, by channel: a grant for that channel waits for it. */
+const leaving = new Map<string, Promise<void>>();
+/** Leaves started per channel; a grant asked before a newer leave of its room is asked again. */
+const leaveCounts = new Map<string, number>();
+/** The media server of the last grant in this session, warmed when a voice room is hovered. */
+let mediaServer: { scope: string; url: string } | null = null;
+function leavePresence(id: string) {
+  const request = bridge()
+    .leave(id)
+    .then(
+      () => {},
+      () => {},
+    );
+  leaving.set(id, request);
+  leaveCounts.set(id, (leaveCounts.get(id) ?? 0) + 1);
+  void request.then(() => {
+    if (leaving.get(id) === request) leaving.delete(id);
+  });
+  return request;
+}
+/**
+ * A late leave of the same room would remove the session the new grant opens, so only that
+ * leave is waited for; leaving another room never delays the grant.
+ */
+function requestGrant(channelId: string) {
+  const leaves = leaveCounts.get(channelId) ?? 0;
+  return (leaving.get(channelId) ?? Promise.resolve())
+    .then(() => bridge().grant(channelId))
+    .then((grant) => ({ grant, leaves }));
+}
+/** Leaves the room in use: media is the local teardown, presence the server-side leave. */
+function departActive(keepMicrophone = false) {
   const id = activeChannel;
   activeChannel = null;
-  const media = mediaProvider().disconnect();
-  const presence =
-    id && window.rooms
-      ? bridge()
-          .leave(id)
-          .catch(() => {})
-      : Promise.resolve();
+  const media = keepMicrophone
+    ? mediaProvider().disconnect({ keepMicrophone: true })
+    : mediaProvider().disconnect();
+  const presence = id && window.rooms ? leavePresence(id) : Promise.resolve();
+  return { media, presence };
+}
+function disconnectActive() {
+  const { media, presence } = departActive();
   return Promise.all([media, presence]).then(() => {});
+}
+/** Warms the connection to the media server before a join (hover or focus of a voice room). */
+export function prewarmVoice(channelId: string) {
+  const context = useVoiceContext.getState();
+  if (!mediaServer || mediaServer.scope !== sessionScope() || context.busy) return;
+  if (context.channelId === channelId && mediaProvider().snapshot().status === 'connected') return;
+  try {
+    mediaProvider().prepareConnection?.(mediaServer.url);
+  } catch {
+    /* Warming up is optional; the join itself connects as usual. */
+  }
 }
 export function joinVoice(channelId: string, roomName: string): Promise<void> {
   const dm = useDmCall.getState();
@@ -290,7 +333,8 @@ export function joinVoice(channelId: string, roomName: string): Promise<void> {
   if (context.busy && pendingTarget === channelId && pendingPromise) return pendingPromise;
   if (!context.busy && context.channelId === channelId && snapshot.status === 'connected')
     return Promise.resolve();
-  if (snapshot.status === 'connected' && !context.busy) {
+  const wasConnected = snapshot.status === 'connected' && !context.busy;
+  if (wasConnected) {
     activeChannel ??= context.channelId;
     desiredMuted = snapshot.muted;
   }
@@ -300,7 +344,8 @@ export function joinVoice(channelId: string, roomName: string): Promise<void> {
   pendingDeafened = keepDeafened;
   const epoch = ++transitionEpoch,
     scope = sessionScope();
-  if (microphoneScope !== scope) {
+  const scopeKept = microphoneScope === scope;
+  if (!scopeKept) {
     // A restart or update keeps the microphone as it was left; only a first join is muted.
     desiredMuted = !useRooms.getState().preferences.microphoneOn;
     microphoneScope = scope;
@@ -308,21 +353,57 @@ export function joinVoice(channelId: string, roomName: string): Promise<void> {
   pendingTarget = channelId;
   const current = () => epoch === transitionEpoch && scope === sessionScope();
   useVoiceContext.setState({ channelId, roomName, busy: true, error: null });
+  // A switch between rooms of the same session carries the open microphone over (no new
+  // capture or noise filter); the provider stops it if this join does not end unmuted.
+  const handoff = wasConnected && !desiredMuted && !keepDeafened && scopeKept;
   // Revoke old capture/playback now, even while a prior grant/connect is pending.
-  const departure = disconnectActive();
+  const { media: departure } = departActive(handoff);
   void departure.catch(() => {});
+  // The grant does not depend on the old room: ask for it while the old room is torn down.
+  const granting = requestGrant(channelId);
+  void granting.catch(() => {});
+  /**
+   * A join that never connects gives back a grant it holds; a superseded one keeps it when the
+   * newest request wants the same room again.
+   */
+  const giveBack = async (superseded: boolean) => {
+    const granted = await granting.then(
+      () => true,
+      () => false,
+    );
+    if (!granted || !window.rooms) return;
+    if (superseded && useVoiceContext.getState().channelId === channelId) return;
+    await leavePresence(channelId);
+  };
+  /**
+   * Stops a superseded join without waiting for its grant (the newer join must not wait for it).
+   * Same transition but another account: nothing newer will take a carried microphone.
+   */
+  const abandon = () => {
+    if (handoff && epoch === transitionEpoch)
+      void mediaProvider()
+        .disconnect()
+        .catch(() => {});
+    void giveBack(true);
+  };
   const next = serialize(async () => {
     try {
       await departure;
-      if (!current()) return;
-      const grant = await bridge().grant(channelId);
       if (!current()) {
-        if (window.rooms)
-          await bridge()
-            .leave(channelId)
-            .catch(() => {});
+        abandon();
         return;
       }
+      const asked = await granting;
+      // A leave of this room that started after the grant was asked may have revoked it.
+      const grant =
+        asked.leaves === (leaveCounts.get(channelId) ?? 0)
+          ? asked.grant
+          : (await requestGrant(channelId)).grant;
+      if (!current()) {
+        abandon();
+        return;
+      }
+      mediaServer = { scope, url: grant.serverUrl };
       const dm = useDmCall.getState();
       if (dm.busy || dm.call?.state === 'ringing' || dm.call?.state === 'accepted')
         throw new Error(t('Önce özel görüşmeyi bitir.'));
@@ -353,13 +434,18 @@ export function joinVoice(channelId: string, roomName: string): Promise<void> {
         return;
       }
       if (!desiredMuted) await mediaProvider().mute(false);
+      // Muted during the switch: the carried microphone must not stay open.
+      else if (handoff) await mediaProvider().mute(true);
       if (!current()) {
         await disconnectActive();
         return;
       }
     } catch (error) {
       if (current()) {
+        // A connected room is left by disconnectActive; a grant that never connected is given back.
+        const held = activeChannel === channelId;
         await disconnectActive().catch(() => {});
+        if (!held) void giveBack(false);
         useVoiceContext.setState({ error: errorText(error) });
         throw error;
       }
