@@ -129,7 +129,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "include": "infra/release/installer.nsh"
     },
     "protocols": [
       {
