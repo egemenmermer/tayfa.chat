@@ -26,6 +26,13 @@ import { studioExportFileName, validateStudioExport } from './studio-export';
 import { setupNotifications } from './notifications';
 import { setupWindowPolicy } from './window-policy';
 import { readWindowState, showRestored, showWindow, trackWindowState } from './window-state';
+import {
+  applyWindowTheme,
+  parseWindowTheme,
+  trackWindowChrome,
+  windowChromeState,
+  windowFrameOptions,
+} from './window-chrome';
 import { parseWatchPage } from './browser-video';
 import { setupUpdates } from './updates';
 import { setupProviders } from './providers';
@@ -148,11 +155,7 @@ function createWindow() {
     backgroundColor: '#141518',
     show: false,
     title: 'Tayfa',
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 15, y: 8 },
-    ...(process.platform === 'win32'
-      ? { titleBarOverlay: { color: '#141518', symbolColor: '#F2F3F7', height: 30 } }
-      : {}),
+    ...windowFrameOptions(process.platform),
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -183,6 +186,7 @@ function createWindow() {
   win.once('ready-to-show', () => win && showRestored(win, state));
   windowPolicy?.attach(win);
   trackWindowState(win, stateFile);
+  trackWindowChrome(win);
   win.on('closed', () => {
     win = null;
     selectedMedia.clear();
@@ -474,6 +478,16 @@ app.whenReady().then(async () => {
     else if (action === 'close') win?.close();
     else if (action === 'fullscreen') win?.setFullScreen(!win.isFullScreen());
     else throw new Error('Unknown window action');
+  });
+  ipcMain.handle('rooms:window-state', (event) => {
+    assertSender(event);
+    return win ? windowChromeState(win) : { maximized: false, fullscreen: false };
+  });
+  ipcMain.handle('rooms:window-theme', (event, theme) => {
+    assertSender(event);
+    const parsed = parseWindowTheme(theme);
+    if (!parsed) throw new Error('Invalid theme');
+    if (win) applyWindowTheme(win, process.platform, parsed);
   });
   ipcMain.handle('rooms:always-on-top', (event, value) => {
     assertSender(event);

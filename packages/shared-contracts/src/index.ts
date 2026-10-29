@@ -77,6 +77,11 @@ export interface DesktopBridge {
   onInvite(listener: (invite: { serverUrl: string; code: string }) => void): () => void;
   platform: 'darwin' | 'win32' | 'linux';
   windowAction(action: 'minimize' | 'maximize' | 'close' | 'fullscreen'): Promise<void>;
+  /** Maximized/fullscreen state, for the app-drawn title bar. */
+  windowState(): Promise<{ maximized: boolean; fullscreen: boolean }>;
+  onWindowState(listener: (state: { maximized: boolean; fullscreen: boolean }) => void): () => void;
+  /** Tells the main process which theme the window buttons should match (Windows overlay). */
+  setWindowTheme(theme: 'dark' | 'light'): Promise<void>;
   setAlwaysOnTop(value: boolean): Promise<void>;
   loginItemStatus(): Promise<boolean>;
   setLoginItem(value: boolean): Promise<boolean>;

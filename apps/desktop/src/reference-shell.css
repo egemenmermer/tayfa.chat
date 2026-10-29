@@ -1037,3 +1037,43 @@
   line-height: 1;
   flex: none !important;
 }
+
+/*
+ * Windows title bar. The window has no native title bar; the OS draws only its three buttons as an
+ * overlay over the right end of this bar (electron/window-chrome.ts). `data-window-overlay` is set
+ * on <html> from the preload platform flag and only on Windows, so macOS and the browser keep the
+ * rules above untouched.
+ *   - The bar is left aligned like Discord's, with the logo and name at the start.
+ *   - The right padding equals the width the overlay covers, so nothing sits under the buttons.
+ *     `env(titlebar-area-*)` gives the exact area; 138px is the fallback.
+ *   - The mac traffic-light spacer is not needed.
+ */
+html[data-window-overlay='true'] .window-chrome {
+  justify-content: flex-start;
+  padding-left: 12px;
+  padding-right: max(
+    0px,
+    calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, calc(100vw - 138px)))
+  );
+}
+html[data-window-overlay='true'] .traffic-space {
+  display: none;
+}
+html[data-window-overlay='true'] .window-wordmark {
+  gap: 8px;
+  font-size: var(--font-size-metadata, 12px);
+  letter-spacing: 0.2px;
+  font-weight: 600;
+  user-select: none;
+}
+html[data-window-overlay='true'] .window-wordmark img {
+  width: 14px;
+  height: 14px;
+}
+/* Full screen: Windows draws no buttons, so the bar goes too and the content fills the window. */
+html[data-window-overlay='true'][data-window-fullscreen='true'] .window-chrome {
+  display: none;
+}
+html[data-window-overlay='true'][data-window-fullscreen='true'] .app-layout {
+  height: 100vh;
+}
