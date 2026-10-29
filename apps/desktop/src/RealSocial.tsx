@@ -5,7 +5,7 @@ import { VoiceRoomViewActions } from './VoiceRoomViewActions';
 import { openActivity, retiredActivity } from './activity-route';
 import { FriendRequestButton } from './FriendRequestButton';
 import { MediaStage } from './MediaStage';
-import { watchScreen, setScreenVolume } from './realtime';
+import { watchScreen, setScreenVolume, setScreenQuality } from './realtime';
 export { MediaStage } from './MediaStage';
 import './reference-chat.css';
 import './reference-voice.css';
@@ -1923,6 +1923,8 @@ export function CommunityVoice({
               <ScreenShareGallery
                 onWatch={watchScreen}
                 onVolume={setScreenVolume}
+                quality={r.screenQuality ?? 'auto'}
+                onQuality={setScreenQuality}
                 onClose={() => {
                   watchScreen(null);
                   navigate('/voice');

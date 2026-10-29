@@ -1,6 +1,13 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Maximize, Minimize, Monitor, ExternalLink, X, Volume2 } from 'lucide-react';
-import type { MediaTrack, MediaParticipant } from '@rooms/media';
+import {
+  screenQualityChoices,
+  screenQualitySelection,
+  type MediaTrack,
+  type MediaParticipant,
+  type ScreenLayer,
+  type ScreenViewQuality,
+} from '@rooms/media';
 import { t, uiError } from './i18n';
 import './screen-share-gallery.css';
 import { RemoteControlActions, RemoteViewerInput } from './RemoteControl';
@@ -12,10 +19,15 @@ export function ScreenShareGallery({
   initialTrackId,
   onWatch,
   onVolume,
+  quality = 'auto',
+  onQuality,
   onClose,
 }: {
   onWatch?(participantId: string | null): void;
   onVolume?(participantId: string, volume: number): void;
+  /** This viewer's screen quality for the session; the picker shows it on remote streams. */
+  quality?: ScreenViewQuality;
+  onQuality?(quality: ScreenViewQuality): void;
   onClose?(): void;
   initialTrackId?: string;
   tracks: MediaTrack[];
@@ -112,6 +124,19 @@ export function ScreenShareGallery({
                 />
               </label>
             )}
+            {onQuality && active && !active.local && active.subscribed !== false && (
+              <ScreenQualityPicker
+                layers={active.layers ?? []}
+                quality={quality}
+                onChange={(value) => {
+                  try {
+                    onQuality(value);
+                  } catch (e) {
+                    notify(uiError(e));
+                  }
+                }}
+              />
+            )}
             <button
               aria-label={t('Paylaşımı ayrı pencerede izle')}
               disabled={!active || !document.pictureInPictureEnabled}
@@ -160,5 +185,49 @@ export function ScreenShareGallery({
         </div>
       )}
     </div>
+  );
+}
+/**
+ * Viewer quality for a remote screen share: Otomatik or one of the layers the publisher sends.
+ * A single-layer stream (simulcast off) shows that one quality and says why there is no choice.
+ */
+export function ScreenQualityPicker({
+  layers,
+  quality,
+  onChange,
+}: {
+  layers: readonly ScreenLayer[];
+  quality: ScreenViewQuality;
+  onChange(quality: ScreenViewQuality): void;
+}) {
+  const hint = useId();
+  const choices = screenQualityChoices(layers);
+  if (!choices.length) return null;
+  const single = choices.length === 1;
+  const explanation = t('Bu yayın tek kalitede geliyor; seçilecek başka kalite yok.');
+  return (
+    <label className="room-screen-quality" title={single ? explanation : undefined}>
+      <select
+        aria-label={t('Görüntü kalitesi')}
+        aria-describedby={single ? hint : undefined}
+        disabled={single}
+        value={single ? String(choices[0]) : String(screenQualitySelection(layers, quality))}
+        onChange={(event) =>
+          onChange(event.target.value === 'auto' ? 'auto' : Number(event.target.value))
+        }
+      >
+        {!single && <option value="auto">{t('Otomatik')}</option>}
+        {choices.map((lines) => (
+          <option key={lines} value={String(lines)}>
+            {`${lines}p`}
+          </option>
+        ))}
+      </select>
+      {single && (
+        <span id={hint} className="room-screen-quality-hint">
+          {explanation}
+        </span>
+      )}
+    </label>
   );
 }

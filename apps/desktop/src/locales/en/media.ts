@@ -173,6 +173,11 @@ export const media: Catalog = {
   'Paylaşımı ayrı pencerede izle': 'Watch the share in a separate window',
   'Paylaşımı tam ekrandan çıkar': 'Exit full screen',
   'Paylaşımı tam ekran izle': 'Watch the share full screen',
+  'Görüntü kalitesi': 'Video quality',
+  Otomatik: 'Auto',
+  'Bu yayın tek kalitede geliyor; seçilecek başka kalite yok.':
+    'This stream comes in a single quality; there is no other quality to choose.',
+  'Yayın kalitesi seçimi kullanılamıyor.': 'Stream quality selection is unavailable.',
   'İzlemeyi kapat': 'Close viewer',
   'Paylaşılan ekranlar': 'Shared screens',
   '{name} ekranını büyüt': "Enlarge {name}'s screen",
