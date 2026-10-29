@@ -172,6 +172,36 @@ it('remembers turning sound off and tells the sharer when sound could not be cap
     expect(notify).toHaveBeenCalledWith(expect.stringMatching(/Ses paylaşılamadı/)),
   );
 });
+it('falls back to the picture alone when the sound capture makes the share fail', async () => {
+  f.status.mockResolvedValue({
+    screen: 'granted',
+    systemAudio: true,
+    systemAudioOwnExcluded: true,
+  });
+  f.start.mockRejectedValueOnce(new Error('Could not start audio source'));
+  f.start.mockResolvedValueOnce({ audio: false });
+  const notify = vi.fn();
+  await pickAndShare(notify);
+  await waitFor(() => expect(soundSwitch().getAttribute('aria-checked')).toBe('true'));
+  fireEvent.click(screen.getByRole('button', { name: 'Seçili kaynağı paylaş' }));
+  await waitFor(() =>
+    expect(notify).toHaveBeenCalledWith(expect.stringMatching(/Ses paylaşılamadı/)),
+  );
+  expect(f.start).toHaveBeenCalledTimes(2);
+  expect(f.start).toHaveBeenNthCalledWith(
+    1,
+    'window:test',
+    expect.objectContaining({ audio: true }),
+  );
+  expect(f.start).toHaveBeenNthCalledWith(
+    2,
+    'window:test',
+    expect.objectContaining({ audio: false }),
+  );
+  // The source list is fetched again before the second try.
+  expect(f.capture).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole('alert')).toBeNull();
+});
 it('shows the sharer whether the share is sending sound', () => {
   Object.assign(f.snapshot, { sharing: true, sharingAudio: true });
   try {

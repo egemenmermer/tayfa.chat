@@ -2666,11 +2666,17 @@ export function RealVoiceDock({
               onClick={() => {
                 const epoch = generation.current;
                 setBusy(true);
-                void startScreen(selected, {
-                  quality: shareQuality,
-                  audio: shareAudio,
-                  content: 'motion',
-                })
+                const share = (audio: boolean) =>
+                  startScreen(selected, { quality: shareQuality, audio, content: 'motion' });
+                void share(shareAudio)
+                  .catch(async (error: unknown) => {
+                    // Chromium fails the whole capture when the loopback cannot start (no
+                    // output device): share the picture alone rather than nothing. The source
+                    // list is one-shot, so it is fetched again first.
+                    if (!shareAudio || generation.current !== epoch) throw error;
+                    await mediaBridge().captureSources();
+                    return share(false);
+                  })
                   .then((result) => {
                     if (shareAudio && !result.audio)
                       notify(

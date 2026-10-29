@@ -1092,6 +1092,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       );
       // A missing loopback track (no output device, OS refusal) keeps the picture shared; the
       // caller compares `sharingAudio` with what it asked for and tells the sharer.
+      this.patch({ error: null });
       const capture = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track;
       capture?.mediaStreamTrack.addEventListener(
         'ended',

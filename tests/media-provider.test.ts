@@ -410,9 +410,16 @@ describe('explicit screen quality and system audio', () => {
   it('keeps sharing the picture when requested system audio was not acquired', async () => {
     const { provider, local } = fixture();
     await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    // Chromium rejects the whole capture when the loopback cannot start…
+    local.setScreenShareEnabled.mockRejectedValueOnce(
+      Object.assign(new Error('Could not start audio source'), { name: 'NotReadableError' }),
+    );
+    await expect(provider.publishScreen({ audio: true })).rejects.toThrow();
+    expect(provider.snapshot().error).toBeTruthy();
+    // …while a capture without an audio track still shares the picture, without a stale error.
     await provider.publishScreen({ audio: true });
-    expect(local.setScreenShareEnabled).toHaveBeenCalledTimes(1);
-    expect(provider.snapshot()).toMatchObject({ sharing: true, sharingAudio: false });
+    expect(local.setScreenShareEnabled).toHaveBeenCalledTimes(2);
+    expect(provider.snapshot()).toMatchObject({ sharing: true, sharingAudio: false, error: null });
     await provider.stopScreen();
     expect(provider.snapshot()).toMatchObject({ sharing: false, sharingAudio: false });
     await provider.disconnect();
