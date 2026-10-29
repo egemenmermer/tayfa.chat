@@ -1484,4 +1484,27 @@ export const games: Catalog = {
   'Bu elin hamleleri · {count}': 'Moves this hand · {count}',
   'En az iki oyuncunun fişi olmalı': 'At least two players need chips',
   Kullanıcı: 'User',
+  'Yapışkan not: tahtaya tıkla ve yaz, sürükleyerek taşı (N)':
+    'Sticky note: click the board and type, drag to move (N)',
+  'Notu yalnızca yazarı veya bir topluluk yöneticisi değiştirebilir.':
+    'Only the note’s author or a community admin can change it.',
+  'Tahta temizlendi.': 'Board cleared.',
+  'Tahtayı yalnızca topluluk yöneticileri temizleyebilir.':
+    'Only community admins can clear the board.',
+  'Tahta zaten boş.': 'The board is already empty.',
+  'Yapışkan not: {text}': 'Sticky note: {text}',
+  'Not rengi {color}': 'Note colour {color}',
+  'Tahtayı temizle': 'Clear board',
+  'Tahtadaki tüm çizimleri ve notları herkes için sil':
+    'Delete every drawing and note on the board for everyone',
+  'Not metnini düzenle (Enter)': 'Edit note text (Enter)',
+  'Notu düzenle': 'Edit note',
+  'Yapışkan not metni': 'Sticky note text',
+  'Notunu yaz, Enter’a bas': 'Write your note, then press Enter',
+  'Tahta temizlensin mi?': 'Clear the board?',
+  'Odadaki herkesin çizimleri ve notları ({count} öğe) silinir. Bu işlem geri alınamaz.':
+    'Everyone’s drawings and notes ({count} items) will be deleted. This cannot be undone.',
+  'Tahtada en fazla 60 yapışkan not olabilir. Yenisi için bir notu sil.':
+    'The board holds at most 60 sticky notes. Delete one to add another.',
+  'Bu öğe türü değiştirilemez.': 'This kind of item cannot be changed.',
 };

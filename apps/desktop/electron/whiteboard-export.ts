@@ -1,7 +1,16 @@
 import { z } from 'zod';
+import {
+  NOTE_FONT,
+  NOTE_HEIGHT,
+  NOTE_INK,
+  NOTE_LINE,
+  NOTE_PADDING,
+  NOTE_WIDTH,
+  wrapNoteText,
+} from '../src/whiteboard-notes';
 
 const element = z.object({
-  kind: z.enum(['stroke', 'text', 'rectangle', 'ellipse']),
+  kind: z.enum(['stroke', 'text', 'rectangle', 'ellipse', 'note']),
   points: z
     .array(z.tuple([z.number().finite().min(0).max(4096), z.number().finite().min(0).max(4096)]))
     .min(1)
@@ -32,6 +41,16 @@ export function whiteboardSvg(input: unknown): string {
         return item.kind === 'rectangle'
           ? `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="8" ${stroke}/>`
           : `<ellipse cx="${x + width / 2}" cy="${y + height / 2}" rx="${width / 2}" ry="${height / 2}" ${stroke}/>`;
+      }
+      if (item.kind === 'note') {
+        const [x, y] = item.points[0];
+        const lines = wrapNoteText(item.text ?? '')
+          .map(
+            (line, index) =>
+              `<text x="${x + NOTE_PADDING}" y="${y + NOTE_PADDING + NOTE_FONT + index * NOTE_LINE}" fill="${NOTE_INK}" font-size="${NOTE_FONT}" font-family="system-ui,sans-serif" xml:space="preserve">${escape(line)}</text>`,
+          )
+          .join('');
+        return `<g><rect x="${x}" y="${y}" width="${NOTE_WIDTH}" height="${NOTE_HEIGHT}" rx="4" fill="${item.color}"/>${lines}</g>`;
       }
       return item.kind === 'text'
         ? `<text x="${item.points[0][0]}" y="${item.points[0][1]}" fill="${item.color}" font-size="20" font-family="system-ui,sans-serif" xml:space="preserve">${escape(item.text ?? '')}</text>`

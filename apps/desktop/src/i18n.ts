@@ -932,6 +932,9 @@ export const errorMessages: Record<string, string> = {
   EXACT_JOKER_REPLACEMENT_REQUIRED:
     'Okeyi almak için temsil ettiği renk ve sayıdaki tek taşı koymalısın.',
   WHITEBOARD_AUTHOR_REQUIRED: 'Yalnızca kendi çizimini veya notunu değiştirebilirsin.',
+  WHITEBOARD_CLEAR_DENIED: 'Tahtayı yalnızca topluluk yöneticileri temizleyebilir.',
+  WHITEBOARD_NOTES_FULL: 'Tahtada en fazla 60 yapışkan not olabilir. Yenisi için bir notu sil.',
+  WHITEBOARD_KIND_IMMUTABLE: 'Bu öğe türü değiştirilemez.',
   POLL_CLOSED: 'Bu anket kapandı. Artık oy değiştirilemez.',
   POLL_CONTROL_DENIED: 'Anketi kapatma iznin yok.',
   ROOM_FULL: 'Bu oda dolu. Bir katılımcı ayrıldıktan sonra yeniden dene.',
