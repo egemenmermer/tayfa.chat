@@ -846,4 +846,27 @@ export const settings: Catalog = {
     'Selected camera isn’t connected (the default is used)',
   'Seçtiğin kamera odalarda ve özel görüşmelerde kullanılır. Kamera denemesi odaya yayınlanmaz.':
     'The camera you choose is used in rooms and private calls. The camera test isn’t broadcast to the room.',
+  // Input sensitivity (IT-micgate)
+  'Giriş hassasiyeti': 'Input sensitivity',
+  'Eşiğin altındaki sesler (klavye, nefes) gönderilmez. Konuşma halkan tam olarak sesin gittiği anda yanar.':
+    'Sounds below the threshold (keyboard, breathing) aren’t sent. Your speaking ring lights exactly when sound goes out.',
+  'Otomatik giriş hassasiyeti': 'Automatic input sensitivity',
+  'Gönderilecek mikrofon seviyesi': 'Microphone level that would be sent',
+  'Ölçüm yok': 'No reading',
+  '{level} dB · gönderiliyor': '{level} dB · sending',
+  '{level} dB · gönderilmiyor': '{level} dB · not sending',
+  'Giriş hassasiyeti eşiği': 'Input sensitivity threshold',
+  'Seviyeyi görmek için mikrofonu dene ya da odada mikrofonunu aç.':
+    'To see the level, test the microphone or turn your mic on in a room.',
+  'Otomatik eşik: {value} dB · ortam gürültüsüne göre ayarlanır.':
+    'Automatic threshold: {value} dB · follows the background noise.',
+  'Bu seviye gönderilir.': 'This level is sent.',
+  'Bu seviye gönderilmez.': 'This level isn’t sent.',
+  'Bas konuş ve mikrofon kapatma önce gelir: tuş bırakılınca ya da mikrofon kapalıyken hiçbir şey gitmez; tuş basılıyken de yalnızca eşiği geçen ses gider.':
+    'Push to talk and mute come first: nothing is sent once the key is released or while the mic is off, and while the key is held only sound above the threshold is sent.',
+  'Ses seviyesini dengele': 'Even out loudness',
+  'Gürültü azaltmadan sonra kısık ve yüksek konuşmayı birbirine yaklaştırır.':
+    'After noise reduction, brings quiet and loud speech closer together.',
+  'Gürültü azaltma kapalıyken sistemin otomatik kazancı çalışır; dengeleme kullanılmaz.':
+    'With noise reduction off, the system’s automatic gain runs instead; leveling isn’t used.',
 };

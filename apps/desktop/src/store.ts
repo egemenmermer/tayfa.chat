@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DEFAULT_PUSH_TO_TALK_KEY, parsePushToTalkKey } from './push-to-talk-key';
 import { normalizeGlobalShortcut } from './global-shortcut';
+import {
+  MIC_GATE_DEFAULT_DB,
+  clampMicGateThreshold,
+} from '../../../packages/media-providers/src/mic-gate';
 
 export interface Preferences {
   roomEventSounds: boolean;
@@ -34,6 +38,12 @@ export interface Preferences {
   microphoneOn: boolean;
   /** Microphone level per device name, 0–200 % (100 sends it as captured). */
   inputLevels: Record<string, number>;
+  /** Input sensitivity follows the noise floor; off uses `inputSensitivity`. */
+  inputSensitivityAuto: boolean;
+  /** Manual input sensitivity in dBFS: quieter sound is not sent. */
+  inputSensitivity: number;
+  /** "Ses seviyesini dengele": the leveler after the noise filter. */
+  micLeveler: boolean;
 }
 const defaults: Preferences = {
   roomEventSounds: true,
@@ -59,6 +69,9 @@ const defaults: Preferences = {
   accent: 'pearl',
   microphoneOn: false,
   inputLevels: {},
+  inputSensitivityAuto: true,
+  inputSensitivity: MIC_GATE_DEFAULT_DB,
+  micLeveler: true,
 };
 interface RoomsState {
   preferences: Preferences;
@@ -128,6 +141,10 @@ function preferencesFrom(value: unknown): Preferences {
       result.inputLevels = normalizeInputLevels(previous[key]);
       continue;
     }
+    if (key === 'inputSensitivity') {
+      result.inputSensitivity = clampMicGateThreshold(previous[key]);
+      continue;
+    }
     if (
       typeof previous[key] === typeof defaults[key] &&
       (key !== 'accent' || previous[key] === 'pearl' || previous[key] === 'sage')
@@ -152,7 +169,9 @@ export const useRooms = create<RoomsState>()(
                   ? normalizeSoundEffectsLevel(value)
                   : key === 'inputLevels'
                     ? normalizeInputLevels(value)
-                    : value,
+                    : key === 'inputSensitivity'
+                      ? clampMicGateThreshold(value)
+                      : value,
           },
         })),
     }),

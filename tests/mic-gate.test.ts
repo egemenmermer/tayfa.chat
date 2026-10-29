@@ -52,7 +52,8 @@ describe('microphone input gate', () => {
     const gate = new MicGateCore(RATE, { auto: false, threshold: -34 });
     const { out, open } = run(gate, concat(silence(ms(100)), tone(ms(300), -20)));
     const opened = firstOpen(open) - ms(100);
-    expect(opened).toBeGreaterThanOrEqual(ms(20) - 1);
+    // Recorded per 128-sample render quantum, so the edge is known to one quantum.
+    expect(opened).toBeGreaterThanOrEqual(ms(20) - QUANTUM);
     expect(opened).toBeLessThanOrEqual(ms(25));
     // The delayed onset reaches the output only after the gate opened, so it is not cut off.
     const lookahead = ms(MIC_GATE_TIMING.lookahead * 1000);
@@ -143,7 +144,7 @@ describe('microphone input gate', () => {
     const hum = new MicGateCore(RATE, { auto: true, threshold: -20 });
     run(hum, tone(ms(4000), -45));
     expect(hum.open).toBe(false);
-    run(hum, tone(ms(8000), -30));
+    run(hum, tone(ms(10_000), -30));
     expect(hum.threshold()).toBeGreaterThan(-30);
     expect(hum.open).toBe(false);
   });

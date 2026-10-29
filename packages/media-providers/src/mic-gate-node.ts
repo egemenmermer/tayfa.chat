@@ -17,8 +17,6 @@ export async function createMicGateNode(
     onState?(report: MicGateReport): void;
     onLevel?(report: MicGateReport): void;
     onFailure?(): void;
-    /** Only measure (no audio output); used by the Settings microphone test. */
-    meterOnly?: boolean;
   } = {},
 ): Promise<MicGateNode | null> {
   if (typeof AudioWorkletNode !== 'function' || !context.audioWorklet) return null;
@@ -37,8 +35,8 @@ export async function createMicGateNode(
   }
   const node = new AudioWorkletNode(context, 'rooms-mic-gate', {
     numberOfInputs: 1,
-    numberOfOutputs: callbacks.meterOnly ? 0 : 1,
-    ...(callbacks.meterOnly ? {} : { outputChannelCount: [1] }),
+    numberOfOutputs: 1,
+    outputChannelCount: [1],
     channelCount: 1,
     channelCountMode: 'explicit',
     processorOptions: micGateSettings(settings),

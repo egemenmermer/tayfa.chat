@@ -20,6 +20,13 @@ import { SettingsConnection } from './SettingsConnection';
 import { AssistantManagement } from './AssistantManagement';
 import { VoiceAvatar } from './VoiceAvatar';
 import { PersonalSoundSettings } from './PersonalSoundSettings';
+import { InputSensitivity, type InputMeterSource } from './InputSensitivity';
+import {
+  createMicGateNode,
+  type MicGateNode,
+} from '../../../packages/media-providers/src/mic-gate-node';
+import { createMicLeveler } from '../../../packages/media-providers/src/mic-leveler';
+import type { MicGateReport } from '../../../packages/media-providers/src/mic-gate';
 import './reference-settings.css';
 import { AgentReferenceSettingsContent, AgentSettings } from './Agent';
 import { PersonalProviders } from './Providers';
@@ -731,6 +738,16 @@ export default function Settings({
     inputLevel = (inputName ? p.inputLevels[inputName] : undefined) ?? 100;
   const inputPercent = useRef(100);
   inputPercent.current = inputLevel;
+  useEffect(() => {
+    if (testLevel.current) testLevel.current.gain.value = inputLevel / 100;
+  }, [inputLevel]);
+  useEffect(() => {
+    testGate.current?.configure({ auto: p.inputSensitivityAuto, threshold: p.inputSensitivity });
+  }, [p.inputSensitivityAuto, p.inputSensitivity]);
+  const roomMeter = useCallback<InputMeterSource>(
+    (listener) => mediaProvider().subscribeInputMeter?.(listener) ?? (() => {}),
+    [],
+  );
   const cameraId = p.cameraId;
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const cameraRef = useRef<MediaStream | null>(null);
@@ -833,8 +850,21 @@ export default function Settings({
   const denoiserRef = useRef<Awaited<ReturnType<typeof createNoiseSuppressionNode>> | null>(null);
   const frame = useRef(0);
   const mounted = useRef(true);
+  // The microphone test runs the same input gate as a room, so its meter shows what would be sent.
+  const testGate = useRef<MicGateNode | null>(null);
+  const testLevel = useRef<GainNode | null>(null);
+  const testListeners = useRef(new Set<(report: MicGateReport) => void>());
+  const testMeter = useCallback<InputMeterSource>((listener) => {
+    testListeners.current.add(listener);
+    return () => {
+      testListeners.current.delete(listener);
+    };
+  }, []);
   const stopMic = useCallback(() => {
     micEpoch.current++;
+    testGate.current?.destroy();
+    testGate.current = null;
+    testLevel.current = null;
     denoiserRef.current?.disconnect();
     denoiserRef.current?.destroy();
     denoiserRef.current = null;
@@ -918,6 +948,31 @@ export default function Settings({
         source.connect(denoiser);
         denoiser.connect(analyser);
       } else source.connect(analyser);
+      const gate = await createMicGateNode(
+        context,
+        { auto: p.inputSensitivityAuto, threshold: p.inputSensitivity },
+        { onLevel: (report) => testListeners.current.forEach((listener) => listener(report)) },
+      );
+      if (!mounted.current || epoch !== micEpoch.current) {
+        gate?.destroy();
+        return;
+      }
+      if (gate) {
+        // Same order as the room: level, filter, leveler (filter on), gate. A silent sink keeps it running.
+        const levelNode = context.createGain(),
+          sink = context.createGain(),
+          leveler = p.noiseSuppression && p.micLeveler ? createMicLeveler(context) : null;
+        levelNode.gain.value = inputPercent.current / 100;
+        sink.gain.value = 0;
+        (denoiserRef.current ?? source).connect(levelNode);
+        if (leveler) {
+          levelNode.connect(leveler.input);
+          leveler.output.connect(gate);
+        } else levelNode.connect(gate);
+        gate.connect(sink).connect(context.destination);
+        testGate.current = gate;
+        testLevel.current = levelNode;
+      }
       await context.resume();
       if (!mounted.current || epoch !== micEpoch.current) return;
       const values = new Uint8Array(analyser.frequencyBinCount);
@@ -1386,6 +1441,19 @@ export default function Settings({
                         )}
                       </p>
                     )}
+                    <InputSensitivity
+                      auto={p.inputSensitivityAuto}
+                      threshold={p.inputSensitivity}
+                      onAuto={(value) => setPreference('inputSensitivityAuto', value)}
+                      onThreshold={(value) => setPreference('inputSensitivity', value)}
+                      source={
+                        testing
+                          ? testMeter
+                          : realtime.status === 'connected' && !realtime.muted
+                            ? roomMeter
+                            : null
+                      }
+                    />
                     <Row
                       title={t('Giriş seviyesi')}
                       description={t('Mikrofon denemesinde ölçülen yerel seviye.')}
@@ -1593,6 +1661,28 @@ export default function Settings({
                         <option value="strong">{t('Güçlü')}</option>
                         <option value="standard">{t('Standart')}</option>
                       </select>
+                    </Row>
+                    <Row
+                      title={t('Ses seviyesini dengele')}
+                      description={
+                        p.noiseSuppression
+                          ? t(
+                              'Gürültü azaltmadan sonra kısık ve yüksek konuşmayı birbirine yaklaştırır.',
+                            )
+                          : t(
+                              'Gürültü azaltma kapalıyken sistemin otomatik kazancı çalışır; dengeleme kullanılmaz.',
+                            )
+                      }
+                    >
+                      <Toggle
+                        label={t('Ses seviyesini dengele')}
+                        value={p.micLeveler}
+                        disabled={!p.noiseSuppression}
+                        onChange={(value) => {
+                          stopMic();
+                          setPreference('micLeveler', value);
+                        }}
+                      />
                     </Row>
                     <p className="ref-settings-note" role="status">
                       {realtime.noiseProcessing?.status === 'failed'

@@ -87,9 +87,10 @@ export class MicGateCore {
     this.attackStep = 1 / Math.max(1, sampleRate * t.attack);
     this.releaseStep = 1 / Math.max(1, sampleRate * t.release);
     this.delay = new Float32Array(Math.max(1, Math.round(sampleRate * t.lookahead)));
-    // The floor climbs slowly (3 dB/s), slower still while someone talks (0.5 dB/s).
+    // The floor climbs slowly (3 dB/s), slower while someone talks (1 dB/s): pauses between
+    // words pull it back down, a steady hum keeps lifting it until the gate shuts on it.
     this.floorRiseClosed = 3 * frameSeconds;
-    this.floorRiseOpen = 0.5 * frameSeconds;
+    this.floorRiseOpen = 1 * frameSeconds;
   }
   configure(settings: Partial<MicGateSettings>) {
     this.settings = micGateSettings({ ...this.settings, ...settings });
