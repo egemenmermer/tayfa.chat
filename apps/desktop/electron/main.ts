@@ -29,7 +29,12 @@ import { readWindowState, showRestored, showWindow, trackWindowState } from './w
 import { parseWatchPage } from './browser-video';
 import { setupUpdates } from './updates';
 import { setupProviders } from './providers';
-import { parseInviteLink, type InviteLink } from './native-links';
+import {
+  inviteFromArgv,
+  parseInviteLink,
+  registerInviteProtocol,
+  type InviteLink,
+} from './native-links';
 import { setupAgent } from './agent';
 import { whiteboardSvg } from './whiteboard-export';
 import { whiteboardPng } from './whiteboard-raster';
@@ -47,8 +52,7 @@ app.on('before-quit', () => {
   quitting = true;
 });
 let pendingInvite: InviteLink | null = null;
-function receiveLink(raw: string) {
-  const invite = parseInviteLink(raw);
+function receiveInvite(invite: InviteLink | null) {
   if (!invite) return;
   pendingInvite = invite;
   if (win) {
@@ -59,7 +63,7 @@ function receiveLink(raw: string) {
 }
 app.on('open-url', (event, url) => {
   event.preventDefault();
-  receiveLink(url);
+  receiveInvite(parseInviteLink(url));
 });
 let primaryInstance = true;
 if (app.isPackaged && !process.env.ROOMS_PROFILE) {
@@ -68,13 +72,13 @@ if (app.isPackaged && !process.env.ROOMS_PROFILE) {
     app.quit();
   } else
     app.on('second-instance', (_event, argv) => {
-      const link = argv.find((arg) => arg.startsWith('rooms://'));
-      if (link) receiveLink(link);
+      const invite = inviteFromArgv(argv);
+      if (invite) receiveInvite(invite);
       else if (win) showWindow(win);
     });
 }
-const startupLink = process.argv.find((arg) => arg.startsWith('rooms://'));
-if (startupLink) receiveLink(startupLink);
+if (primaryInstance) registerInviteProtocol(app, process.platform, process.env.ROOMS_PROFILE);
+receiveInvite(inviteFromArgv(process.argv));
 app.setName('ROOMS');
 let tray: Tray | null = null;
 const selectedMedia = new Map<string, string>();
