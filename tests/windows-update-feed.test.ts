@@ -57,19 +57,30 @@ describe('update platform selection', () => {
     expect(selectUpdatePlatform({ ...installed, windowsInstalled: false }).reason).toBe('portable');
   });
   it('keeps macOS on Sparkle and requires a verified Developer ID signature with a team', () => {
-    const mac = { ...installed, platform: 'darwin' as const, config: { feed, teamId: 'TESTTEAM01' } };
+    const mac = {
+      ...installed,
+      platform: 'darwin' as const,
+      config: { feed, teamId: 'TESTTEAM01' },
+    };
     expect(selectUpdatePlatform({ ...mac, macSigned: true }).engine).toBe('sparkle');
     expect(selectUpdatePlatform(mac)).toEqual({ engine: null, reason: 'mac-unsigned' });
-    expect(selectUpdatePlatform({ ...mac, macSigned: true, config: { feed, teamId: null } }).reason).toBe(
-      'mac-unsigned',
-    );
+    expect(
+      selectUpdatePlatform({ ...mac, macSigned: true, config: { feed, teamId: null } }).reason,
+    ).toBe('mac-unsigned');
     expect(selectUpdatePlatform({ ...mac, macSigned: true, isPackaged: false }).reason).toBe(
       'mac-unsigned',
     );
   });
   it('explains every unavailable platform instead of hiding updates', () => {
     expect(selectUpdatePlatform({ ...installed, platform: 'linux' }).reason).toBe('platform');
-    for (const reason of ['mac-unsigned', 'platform', 'unpackaged', 'no-feed', 'portable', 'failed'] as const)
+    for (const reason of [
+      'mac-unsigned',
+      'platform',
+      'unpackaged',
+      'no-feed',
+      'portable',
+      'failed',
+    ] as const)
       expect(updateReasonText(reason).length).toBeGreaterThan(20);
   });
 });
@@ -77,7 +88,10 @@ describe('update platform selection', () => {
 describe('update feed configuration', () => {
   it('accepts a credential-free HTTPS feed with or without an Apple team', () => {
     expect(parseUpdateConfig({ feed })).toEqual({ feed, teamId: null });
-    expect(parseUpdateConfig({ feed, teamId: 'TESTTEAM01' })).toEqual({ feed, teamId: 'TESTTEAM01' });
+    expect(parseUpdateConfig({ feed, teamId: 'TESTTEAM01' })).toEqual({
+      feed,
+      teamId: 'TESTTEAM01',
+    });
     expect(parseUpdateConfig({ feed, teamId: 'not a team' })).toEqual({ feed, teamId: null });
   });
   it('rejects plain HTTP, embedded credentials, queries and malformed values', () => {

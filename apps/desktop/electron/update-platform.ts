@@ -62,7 +62,9 @@ export function selectUpdatePlatform(
 export function updateReasonText(reason: UpdateReason): string {
   switch (reason) {
     case 'mac-unsigned':
-      return t('İmzalı güncellemeler, doğrulanmış imzalı bir sürüm ve HTTPS güncelleme adresi ister.');
+      return t(
+        'İmzalı güncellemeler, doğrulanmış imzalı bir sürüm ve HTTPS güncelleme adresi ister.',
+      );
     case 'platform':
       return t(
         'Uygulama içi güncellemeler macOS ve Windows sürümlerinde var; burada yeni sürümü elle kur.',

@@ -73,7 +73,9 @@ function verify(dir) {
     size: statSync(exe).size,
   });
   if (problems.length) throw new Error(`latest.yml is inconsistent: ${problems.join('; ')}`);
-  console.log(`Update metadata verified for ${installer} (upload: ${installer}, latest.yml, blockmap).`);
+  console.log(
+    `Update metadata verified for ${installer} (upload: ${installer}, latest.yml, blockmap).`,
+  );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

@@ -191,9 +191,11 @@ it('stays quiet when the Latest release has no latest.yml and reports real failu
       fixture.updater.emit('error', error);
       throw error;
     });
-  fail(Object.assign(new Error('Cannot find channel "latest.yml"'), {
-    code: 'ERR_UPDATER_CHANNEL_FILE_NOT_FOUND',
-  }));
+  fail(
+    Object.assign(new Error('Cannot find channel "latest.yml"'), {
+      code: 'ERR_UPDATER_CHANNEL_FILE_NOT_FOUND',
+    }),
+  );
   expect(await invoke('check')).toMatchObject({ state: 'idle', version: null, reason: null });
   fail(new Error('sha512 checksum mismatch'));
   const failed = await invoke('check');
