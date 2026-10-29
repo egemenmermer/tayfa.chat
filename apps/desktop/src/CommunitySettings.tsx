@@ -114,7 +114,10 @@ export interface CommunityEditorProps extends CommunityOperationBoundary {
   onSaved?(space: SocialSpace): void;
 }
 export function CommunityEditor(props: CommunityEditorProps) {
-  const { mode, space, description, inviteOnly, onSave, onClose, onSaved } = props;
+  const { mode, description, inviteOnly, onSave, onClose, onSaved } = props;
+  // Creating never edits the open community. Ignoring it also keeps the finished state when the
+  // app opens the new community, so the form cannot come back and create a second one.
+  const space = mode === 'edit' ? props.space : undefined;
   const referenceDraftName =
     import.meta.env.DEV && props.fixture === true && mode === 'create'
       ? props.referenceDraftName
