@@ -48,7 +48,9 @@ export function registerInviteProtocol(
 ): boolean {
   if (!app.isPackaged || profile || !['win32', 'darwin'].includes(platform)) return false;
   try {
-    return app.isDefaultProtocolClient(INVITE_SCHEME) || app.setAsDefaultProtocolClient(INVITE_SCHEME);
+    return (
+      app.isDefaultProtocolClient(INVITE_SCHEME) || app.setAsDefaultProtocolClient(INVITE_SCHEME)
+    );
   } catch {
     return false;
   }

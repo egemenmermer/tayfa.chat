@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { ConnectionPane } from '../apps/desktop/src/ConnectionPane';
 import { useCommunity } from '../apps/desktop/src/community';
 import { useRooms } from '../apps/desktop/src/store';
@@ -118,6 +118,26 @@ it('lets someone replace the invitation they arrived with', async () => {
   await screen.findByRole('heading', { name: 'Arkadaşlar' });
   fireEvent.click(screen.getByRole('button', { name: 'Başka bir davet bağlantısı kullan' }));
   expect(screen.getByLabelText('Davet bağlantısı')).toBeTruthy();
+});
+
+it('sends someone who already has an account to Giriş yap with the same invitation', async () => {
+  signedOut({ register: vi.fn() });
+  const search = `?server=https%3A%2F%2Ffriends.example&invite=${token}`;
+  function Where() {
+    const location = useLocation();
+    return <output data-testid="where">{location.pathname + location.search}</output>;
+  }
+  render(
+    <MemoryRouter initialEntries={[`/setup/register${search}`]}>
+      <ConnectionPane referenceMode="register" />
+      <Where />
+    </MemoryRouter>,
+  );
+  await screen.findByRole('heading', { name: 'Arkadaşlar' });
+  fireEvent.click(screen.getByRole('button', { name: /Zaten hesabın var mı\? Giriş yap/ }));
+  await waitFor(() =>
+    expect(screen.getByTestId('where').textContent).toBe(`/setup/signin${search}`),
+  );
 });
 
 it('signs in on the invitation server and then joins the community', async () => {

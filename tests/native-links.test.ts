@@ -53,7 +53,10 @@ describe('invitation links on the command line', () => {
     expect(inviteFromArgv(['C:\\ROOMS.exe'])).toBeNull();
     expect(inviteFromArgv(['C:\\ROOMS.exe', '--hidden'])).toBeNull();
     expect(
-      inviteFromArgv(['C:\\ROOMS.exe', 'rooms://invite?server=https%3A%2F%2Fevil@x.example&code=a']),
+      inviteFromArgv([
+        'C:\\ROOMS.exe',
+        'rooms://invite?server=https%3A%2F%2Fevil@x.example&code=a',
+      ]),
     ).toBeNull();
     expect(inviteFromArgv(['C:\\ROOMS.exe', `https://friends.example/davet/${token}`])).toBeNull();
     const second = `rooms://invite?server=https%3A%2F%2Fother.example&code=${token}`;
