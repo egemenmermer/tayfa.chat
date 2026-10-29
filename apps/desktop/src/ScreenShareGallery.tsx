@@ -11,6 +11,7 @@ import {
 import { t, uiError } from './i18n';
 import './screen-share-gallery.css';
 import { RemoteControlActions, RemoteViewerInput } from './RemoteControl';
+import { OWN_SHARE_ATTRIBUTE } from './ShareMenu';
 export function ScreenShareGallery({
   tracks,
   people,
@@ -94,7 +95,15 @@ export function ScreenShareGallery({
   };
   return (
     <div className="room-screen-gallery">
-      <div ref={stage} className="room-screen-focus" data-screen-focus>
+      <div
+        ref={stage}
+        className="room-screen-focus"
+        data-screen-focus
+        // Your own tile: right-click, or Shift+F10 / the menu key, opens the stream settings.
+        {...(active?.local
+          ? { [OWN_SHARE_ATTRIBUTE]: '', tabIndex: 0, 'aria-haspopup': 'menu' as const }
+          : {})}
+      >
         {active &&
           (active.subscribed === false ? (
             <p className="room-screen-waiting" role="status">

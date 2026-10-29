@@ -552,6 +552,7 @@ export async function startScreen(
     try {
       if (sourceId) await bridge().selectCaptureSource(sourceId, { audio: options.audio ?? false });
       await mediaProvider().publishScreen(options);
+      shareSourceId = sourceId ?? null;
     } catch (error) {
       await bridge().clearCaptureSource();
       await bridge()
@@ -562,7 +563,78 @@ export async function startScreen(
   });
   return { audio: !!mediaProvider().snapshot().sharingAudio };
 }
+/** The capture source of the running share, kept so the sound can be switched on again later. */
+let shareSourceId: string | null = null;
+/**
+ * Changes the shared screen or window on the live publication, so viewers stay subscribed. When the
+ * new source cannot be captured the previous one keeps sharing and the error says so.
+ */
+export async function changeScreenSource(sourceId: string) {
+  const channelId = useVoiceContext.getState().channelId;
+  const provider = mediaProvider();
+  if (!channelId || !provider.snapshot().sharing)
+    throw new Error(t('Paylaşım yok; önce bir kaynak paylaş.'));
+  if (!provider.changeScreenSource)
+    throw new Error(t('Kaynak değiştirme bu sürümde kullanılamıyor.'));
+  try {
+    // The sound follows the share, not the picture: the OS loopback does not depend on the source.
+    await bridge().selectCaptureSource(sourceId, { audio: false });
+    await provider.changeScreenSource();
+    shareSourceId = sourceId;
+  } catch (error) {
+    await bridge()
+      .clearCaptureSource()
+      .catch(() => {});
+    throw new Error(
+      t('Kaynak değiştirilemedi, önceki paylaşım sürüyor. ({reason})', { reason: uiError(error) }),
+    );
+  }
+}
+/** Moves the running share to another quality preset without stopping it. */
+export async function changeScreenQuality(quality: import('@rooms/media').ScreenShareQuality) {
+  const provider = mediaProvider();
+  if (!provider.snapshot().sharing) throw new Error(t('Paylaşım yok; önce bir kaynak paylaş.'));
+  if (!provider.changeScreenQuality)
+    throw new Error(t('Kalite değiştirme bu sürümde kullanılamıyor.'));
+  try {
+    await provider.changeScreenQuality(quality);
+  } catch (error) {
+    throw new Error(
+      t('Kalite değiştirilemedi, yayın önceki kaliteyle sürüyor. ({reason})', {
+        reason: uiError(error),
+      }),
+    );
+  }
+}
+/** Switches the share's system sound off or on without stopping the picture. */
+export async function setScreenSound(on: boolean): Promise<{ audio: boolean }> {
+  const provider = mediaProvider();
+  if (!provider.snapshot().sharing) throw new Error(t('Paylaşım yok; önce bir kaynak paylaş.'));
+  if (!provider.setScreenSound) throw new Error(t('Ses ayarı bu sürümde kullanılamıyor.'));
+  try {
+    if (on) {
+      // Chromium hands out the loopback with a capture: select the source being shared again.
+      const wanted = shareSourceId;
+      const sources = await bridge().captureSources();
+      if (!wanted || !sources.some((source) => source.id === wanted))
+        throw new Error(t('Paylaşılan kaynak artık bulunamıyor. Paylaşımı yeniden başlat.'));
+      await bridge().selectCaptureSource(wanted, { audio: true });
+    }
+    return await provider.setScreenSound(on);
+  } catch (error) {
+    if (on)
+      await bridge()
+        .clearCaptureSource()
+        .catch(() => {});
+    throw new Error(
+      t('Ses ayarı değiştirilemedi, yayın olduğu gibi sürüyor. ({reason})', {
+        reason: uiError(error),
+      }),
+    );
+  }
+}
 export async function stopScreen() {
+  shareSourceId = null;
   const channelId = useVoiceContext.getState().channelId;
   await run(async () => {
     await mediaProvider().stopScreen();

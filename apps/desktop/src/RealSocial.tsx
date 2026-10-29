@@ -1,6 +1,13 @@
 import { useMentionInput } from './MentionInput';
 import { ChatAttachment } from './ChatAttachment';
 import { ScreenShareGallery } from './ScreenShareGallery';
+import {
+  OWN_SHARE_ATTRIBUTE,
+  OwnShareMenu,
+  SHARE_QUALITIES,
+  readShareAudioChoice,
+  rememberShareAudioChoice,
+} from './ShareMenu';
 import { VoiceRoomViewActions } from './VoiceRoomViewActions';
 import { openActivity, retiredActivity } from './activity-route';
 import { FriendRequestButton } from './FriendRequestButton';
@@ -107,6 +114,7 @@ import {
   toggleCamera,
   startScreen,
   stopScreen,
+  changeScreenSource,
   setParticipantVolume,
   startRoomAudio,
 } from './realtime';
@@ -1800,11 +1808,7 @@ export function CommunityVoice({
             </div>
           )}
           {share && r.sharing && (
-            <button
-              className="button secondary"
-              disabled={!connected}
-              onClick={() => report(stopScreen().then(chooseSource), notify)}
-            >
+            <button className="button secondary" disabled={!connected} onClick={chooseSource}>
               <ReferenceIcon name="monitor" size={16} />
               {t('Kaynağı değiştir')}
             </button>
@@ -1945,6 +1949,8 @@ export function CommunityVoice({
                 {r.sharing && <ShareAudioBadge on={!!r.sharingAudio} />}
                 {r.sharing && (
                   <button
+                    {...{ [OWN_SHARE_ATTRIBUTE]: '' }}
+                    aria-haspopup="menu"
                     className="button danger small"
                     onClick={() => report(stopScreen(), notify)}
                   >
@@ -2278,23 +2284,6 @@ function ShareAudioBadge({ on }: { on: boolean }) {
     </span>
   );
 }
-const SHARE_AUDIO_KEY = 'rooms-share-audio-v1';
-/** The sharer's last "Sesi de paylaş" choice on this computer; null when never changed. */
-function readShareAudioChoice(): boolean | null {
-  try {
-    const value = localStorage.getItem(SHARE_AUDIO_KEY);
-    return value === '1' ? true : value === '0' ? false : null;
-  } catch {
-    return null;
-  }
-}
-function rememberShareAudioChoice(value: boolean) {
-  try {
-    localStorage.setItem(SHARE_AUDIO_KEY, value ? '1' : '0');
-  } catch {
-    /* The choice still applies to this share. */
-  }
-}
 /** Explains what "Sesi de paylaş" does here, or why this computer cannot do it. */
 function shareAudioNote(
   status: {
@@ -2337,6 +2326,10 @@ export function RealVoiceDock({
       useState<import('@rooms/media').ScreenShareQuality>('1080p60'),
     // null until the sharer flips the switch: sound is shared wherever the OS can capture it.
     [shareAudioChoice, setShareAudioChoice] = useState<boolean | null>(readShareAudioChoice);
+  // 'change' swaps the source of the running share; 'start' begins a new one.
+  const [pickerMode, setPickerMode] = useState<'start' | 'change'>('start');
+  const sharingNow = useRef(false);
+  sharingNow.current = r.sharing;
   const [picker, setPicker] = useState(false),
     [sources, setSources] = useState<{ id: string; name: string; thumbnail: string }[]>([]),
     [selected, setSelected] = useState(''),
@@ -2360,6 +2353,7 @@ export function RealVoiceDock({
   }, []);
   const choose = useCallback(async () => {
     const epoch = ++generation.current;
+    setPickerMode(sharingNow.current ? 'change' : 'start');
     setPicker(true);
     setBusy(true);
     setError('');
@@ -2477,7 +2471,13 @@ export function RealVoiceDock({
             {r.sharing ? (
               <>
                 <ShareAudioBadge on={!!r.sharingAudio} />
-                <button className="stop-sharing" onClick={() => report(stopScreen(), notify)}>
+                <button
+                  {...{ [OWN_SHARE_ATTRIBUTE]: '' }}
+                  aria-haspopup="menu"
+                  title={t('Yayın ayarları için sağ tıkla')}
+                  className="stop-sharing"
+                  onClick={() => report(stopScreen(), notify)}
+                >
                   <ReferenceIcon name="x" size={15} />
                   {t('Paylaşımı durdur')}
                 </button>
@@ -2528,6 +2528,7 @@ export function RealVoiceDock({
           )}
         </div>
       )}
+      <OwnShareMenu notify={notify} />
       {r.error && (
         <div className="voice-error-notice" role="alert">
           <span>{r.error}</span>
@@ -2536,11 +2537,19 @@ export function RealVoiceDock({
       )}
       {picker && (
         <Modal
-          title={t('Ne paylaşmak istersin?')}
+          title={
+            pickerMode === 'change' ? t('Hangi kaynağa geçelim?') : t('Ne paylaşmak istersin?')
+          }
           onClose={close}
           className="capture-modal reference-capture-modal"
         >
-          <p className="modal-description">{t('Paylaşacağın pencereyi veya ekranı seç.')}</p>
+          <p className="modal-description">
+            {pickerMode === 'change'
+              ? t(
+                  'Yayın kesilmeden seçtiğin pencereye veya ekrana geçer; izleyenler yerinde kalır.',
+                )
+              : t('Paylaşacağın pencereyi veya ekranı seç.')}
+          </p>
           <div className="segmented reference-source-tabs" aria-label={t('Kaynak türü')}>
             {(['window', 'screen'] as const).map((kind) => (
               <button
@@ -2618,41 +2627,45 @@ export function RealVoiceDock({
               {t('Yalnızca seçtiğin kaynak paylaşılır. Paylaşım, onay verdiğinde başlar.')}
             </span>
           </div>
-          <label className="field-label">
-            {t('Paylaşım kalitesi')}
-            <select
-              value={shareQuality}
-              onChange={(e) =>
-                setShareQuality(e.target.value as import('@rooms/media').ScreenShareQuality)
-              }
-            >
-              {(['720p30', '1080p30', '1080p60', '1440p60', '4k30'] as const).map((quality) => (
-                <option key={quality} value={quality}>
-                  {quality}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="reference-capture-audio">
-            <button
-              className={`toggle ${shareAudio ? 'on' : ''}`}
-              role="switch"
-              aria-label={t('Sesi de paylaş')}
-              aria-checked={shareAudio}
-              aria-describedby="capture-audio-note"
-              disabled={!captureStatus?.systemAudio}
-              onClick={() => {
-                setShareAudioChoice(!shareAudio);
-                rememberShareAudioChoice(!shareAudio);
-              }}
-            >
-              <span />
-            </button>
-            <div>
-              <strong>{t('Sesi de paylaş')}</strong>
-              <small id="capture-audio-note">{shareAudioNote(captureStatus, busy)}</small>
+          {pickerMode === 'start' && (
+            <label className="field-label">
+              {t('Paylaşım kalitesi')}
+              <select
+                value={shareQuality}
+                onChange={(e) =>
+                  setShareQuality(e.target.value as import('@rooms/media').ScreenShareQuality)
+                }
+              >
+                {SHARE_QUALITIES.map((quality) => (
+                  <option key={quality} value={quality}>
+                    {quality}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {pickerMode === 'start' && (
+            <div className="reference-capture-audio">
+              <button
+                className={`toggle ${shareAudio ? 'on' : ''}`}
+                role="switch"
+                aria-label={t('Sesi de paylaş')}
+                aria-checked={shareAudio}
+                aria-describedby="capture-audio-note"
+                disabled={!captureStatus?.systemAudio}
+                onClick={() => {
+                  setShareAudioChoice(!shareAudio);
+                  rememberShareAudioChoice(!shareAudio);
+                }}
+              >
+                <span />
+              </button>
+              <div>
+                <strong>{t('Sesi de paylaş')}</strong>
+                <small id="capture-audio-note">{shareAudioNote(captureStatus, busy)}</small>
+              </div>
             </div>
-          </div>
+          )}
           <div className="button-row">
             <button className="button secondary" disabled={busy} onClick={close}>
               {t('Vazgeç')}
@@ -2663,6 +2676,20 @@ export function RealVoiceDock({
               onClick={() => {
                 const epoch = generation.current;
                 setBusy(true);
+                if (pickerMode === 'change') {
+                  // The running publication keeps going; a failed switch leaves the old source.
+                  void changeScreenSource(selected)
+                    .then(() => {
+                      if (generation.current === epoch) close();
+                    })
+                    .catch((e) => {
+                      if (generation.current === epoch) setError(uiError(e));
+                    })
+                    .finally(() => {
+                      if (generation.current === epoch) setBusy(false);
+                    });
+                  return;
+                }
                 const share = (audio: boolean) =>
                   startScreen(selected, { quality: shareQuality, audio, content: 'motion' });
                 void share(shareAudio)
@@ -2695,7 +2722,13 @@ export function RealVoiceDock({
               }}
             >
               <ReferenceIcon name="monitor" size={16} />
-              {busy ? t('Başlatılıyor…') : t('Seçili kaynağı paylaş')}
+              {pickerMode === 'change'
+                ? busy
+                  ? t('Değiştiriliyor…')
+                  : t('Bu kaynağa geç')
+                : busy
+                  ? t('Başlatılıyor…')
+                  : t('Seçili kaynağı paylaş')}
             </button>
           </div>
         </Modal>
