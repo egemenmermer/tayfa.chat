@@ -239,6 +239,10 @@ export interface DesktopBridge {
       camera: string;
       screen: string;
       systemAudio: boolean;
+      /** Tayfa's own playback stays out of shared system audio (Windows 11, macOS 14.2+). */
+      systemAudioOwnExcluded?: boolean;
+      /** Why system audio is unavailable: an older macOS, or an OS without loopback capture. */
+      systemAudioReason?: 'macos-version' | 'os';
     }>;
   };
 }

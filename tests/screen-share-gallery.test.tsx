@@ -162,3 +162,27 @@ describe('viewer quality picker', () => {
     expect(screen.getByRole('option', { name: 'Auto' })).toBeTruthy();
   });
 });
+describe('viewer stream sound', () => {
+  const remote = [tracks[1]] as MediaTrack[];
+  const show = (bob: Partial<MediaParticipant>) =>
+    render(
+      <ScreenShareGallery
+        tracks={remote}
+        people={[people[0], { ...people[1], ...bob }]}
+        notify={() => {}}
+        onVolume={() => {}}
+        renderTrack={(id: string) => <video data-testid={id} />}
+      />,
+    );
+  it('gives a separate stream volume when the share carries sound', () => {
+    show({ screen: true, screenAudio: true, screenVolume: 0.4 });
+    const slider = screen.getByRole('slider', { name: 'DEMO Bob yayın sesi' });
+    expect((slider as HTMLInputElement).value).toBe('0.4');
+    expect(screen.queryByText('Bu yayında ses yok')).toBeNull();
+  });
+  it('says the share has no sound instead of offering a dead slider', () => {
+    show({ screen: true, screenAudio: false });
+    expect(screen.getByText('Bu yayında ses yok')).toBeTruthy();
+    expect(screen.queryByRole('slider')).toBeNull();
+  });
+});

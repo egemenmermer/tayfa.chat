@@ -558,10 +558,24 @@ export const social: Catalog = {
   'Yalnızca seçtiğin kaynak paylaşılır. Paylaşım, onay verdiğinde başlar.':
     'Only the source you pick is shared. Sharing starts once you confirm.',
   'Paylaşım kalitesi': 'Share quality',
-  'Sistem sesini paylaş': 'Share system audio',
-  'Bilgisayar sesi de odaya gönderilir.': 'Your computer’s sound is sent to the room too.',
-  'Sistem sesi için desteklenen işletim sistemi gerekli.':
-    'System audio needs a supported operating system.',
+  'Sesi de paylaş': 'Share sound too',
+  'Yayın sesi paylaşılıyor': 'Stream sound is being shared',
+  'Yayında ses yok': 'This stream has no sound',
+  Sesli: 'Sound on',
+  Sessiz: 'No sound',
+  'Ses paylaşımı denetleniyor…': 'Checking sound sharing…',
+  'Ses paylaşımı denetlenemedi; görüntü sessiz paylaşılır.':
+    'Couldn’t check sound sharing; the picture is shared without sound.',
+  'Bu Mac sesi paylaşamaz: macOS 14.2 veya üstü gerekir. Görüntü sessiz paylaşılır.':
+    'This Mac can’t share sound: it needs macOS 14.2 or later. The picture is shared without sound.',
+  'Bu işletim sistemi sesi paylaşamaz. Görüntü sessiz paylaşılır.':
+    'This operating system can’t share sound. The picture is shared without sound.',
+  'Oyun ya da video sesi izleyenlere gider. Tayfa’daki konuşmalar yayına karışmaz.':
+    'Game or video sound goes to viewers. Voices in Tayfa stay out of the stream.',
+  'Oyun ya da video sesi izleyenlere gider. Windows 10’da Tayfa’daki konuşmalar da yayına karışır; izleyenler kendi seslerini yankı olarak duyabilir.':
+    'Game or video sound goes to viewers. On Windows 10, voices in Tayfa get into the stream too; viewers may hear themselves echo.',
+  'Ses paylaşılamadı, yalnızca görüntü gidiyor. Bilgisayarda bir hoparlör ya da kulaklık seçili olmalı.':
+    'Sound couldn’t be shared, only the picture is going out. A speaker or headset must be selected on this computer.',
   'Başlatılıyor…': 'Starting…',
   'Seçili kaynağı paylaş': 'Share selected source',
   'Davet oluştur': 'Create invite',

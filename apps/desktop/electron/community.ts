@@ -31,6 +31,7 @@ import {
 } from '../../../packages/shared-contracts/src/music';
 import { release } from 'node:os';
 import { enumerateCaptureSources, CaptureSourcesError } from './capture-sources';
+import { displayMediaStreams, systemAudioSupport } from './system-audio';
 import { findBrowserWindow } from './browser-video';
 import { ConversationVault } from './conversation-vault';
 import { PasswordRecoveryBroker } from './password-recovery';
@@ -138,11 +139,8 @@ export async function setupCommunity(
       if (window === getWindow()) subscribePresence();
     }),
   );
-  const supportsSystemAudio = () =>
-    process.platform === 'win32' ||
-    (process.platform === 'darwin' &&
-      (Number(release().split('.')[0]) > 23 ||
-        (Number(release().split('.')[0]) === 23 && Number(release().split('.')[1]) >= 2)));
+  const audioSupport = () => systemAudioSupport(process.platform, release());
+  const supportsSystemAudio = () => audioSupport().supported;
   let selectedAudio = false;
   let selected: DesktopCapturerSource | null = null;
   let selectedAt = 0;
@@ -1978,6 +1976,8 @@ export async function setupCommunity(
     screen:
       process.platform === 'darwin' ? systemPreferences.getMediaAccessStatus('screen') : 'unknown',
     systemAudio: supportsSystemAudio(),
+    systemAudioOwnExcluded: audioSupport().ownAudioExcluded,
+    ...(audioSupport().reason ? { systemAudioReason: audioSupport().reason } : {}),
   }));
   handle('rooms:capture-sources', async () => {
     choices = [];
@@ -2080,10 +2080,7 @@ export async function setupCommunity(
         source.id.startsWith('screen:') && source.display_id
           ? { epoch: randomUUID(), displayId: source.display_id }
           : null;
-      callback({
-        video: source,
-        ...(audio && supportsSystemAudio() ? { audio: 'loopback' as const } : {}),
-      });
+      callback(displayMediaStreams(source, audio, audioSupport()));
     },
     { useSystemPicker: false },
   );

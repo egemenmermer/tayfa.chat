@@ -395,16 +395,33 @@ describe('explicit screen quality and system audio', () => {
         }),
         resolution: { width: 3840, height: 2160, frameRate: 30 },
       }),
-      expect.objectContaining({ forceStereo: true }),
+      // Game and video sound: no speech DTX gaps, no doubled stereo RED.
+      expect.objectContaining({ forceStereo: true, dtx: false, red: false }),
     );
+    // Tayfa's own playback is asked to stay out (Windows 11, macOS 14.2+ honour it).
+    expect(local.setScreenShareEnabled).toHaveBeenCalledWith(
+      true,
+      expect.objectContaining({ audio: expect.objectContaining({ restrictOwnAudio: true }) }),
+      expect.anything(),
+    );
+    expect(provider.snapshot()).toMatchObject({ sharing: true, sharingAudio: true });
     await provider.disconnect();
   });
-  it('stops sharing if requested system audio was not acquired', async () => {
+  it('keeps sharing the picture when requested system audio was not acquired', async () => {
     const { provider, local } = fixture();
     await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    // Chromium rejects the whole capture when the loopback cannot start…
+    local.setScreenShareEnabled.mockRejectedValueOnce(
+      Object.assign(new Error('Could not start audio source'), { name: 'NotReadableError' }),
+    );
     await expect(provider.publishScreen({ audio: true })).rejects.toThrow();
-    expect(local.setScreenShareEnabled).toHaveBeenLastCalledWith(false);
-    expect(provider.snapshot().sharing).toBe(false);
+    expect(provider.snapshot().error).toBeTruthy();
+    // …while a capture without an audio track still shares the picture, without a stale error.
+    await provider.publishScreen({ audio: true });
+    expect(local.setScreenShareEnabled).toHaveBeenCalledTimes(2);
+    expect(provider.snapshot()).toMatchObject({ sharing: true, sharingAudio: false, error: null });
+    await provider.stopScreen();
+    expect(provider.snapshot()).toMatchObject({ sharing: false, sharingAudio: false });
     await provider.disconnect();
   });
 });
@@ -610,6 +627,27 @@ it('streams screen audio only to a listener who watches it and keeps it apart fr
   provider.watchScreen(null);
   expect(publication.setSubscribed).toHaveBeenLastCalledWith(false);
   expect(element.muted).toBe(true);
+  await provider.disconnect();
+});
+it('tells viewers whether a screen share carries sound', async () => {
+  const { provider, room, emit } = fixture();
+  await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+  const audio = screenPublication('screen-audio', Track.Source.ScreenShareAudio);
+  const person = (identity: string, withSound: boolean) => ({
+    identity,
+    name: identity,
+    isScreenShareEnabled: true,
+    setVolume: vi.fn(),
+    trackPublications: new Map(),
+    getTrackPublication: (source: Track.Source) =>
+      withSound && source === Track.Source.ScreenShareAudio ? audio : undefined,
+  });
+  room.remoteParticipants.set('bob', person('bob', true));
+  room.remoteParticipants.set('cem', person('cem', false));
+  emit(RoomEvent.TrackPublished);
+  const participants = provider.snapshot().participants;
+  expect(participants.find((p) => p.id === 'bob')).toMatchObject({ screenAudio: true });
+  expect(participants.find((p) => p.id === 'cem')).toMatchObject({ screenAudio: false });
   await provider.disconnect();
 });
 it('caps watched screen video at the viewer choice, for a restarted share too', async () => {

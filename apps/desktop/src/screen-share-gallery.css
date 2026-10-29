@@ -186,6 +186,11 @@
   width: clamp(60px, 12vw, 150px);
   accent-color: #9c8bff;
 }
+.room-screen-volume.no-sound {
+  font-size: 12px;
+  opacity: 0.75;
+  white-space: nowrap;
+}
 /* A remote stream is only advertised until the listener chooses to watch it. */
 .room-share-preview .room-share-invite {
   inset: 0;
