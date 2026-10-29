@@ -172,6 +172,11 @@ export const shell: Catalog = {
   'Davet açılıyor…': 'Opening invite…',
   'Davet bağlantısı': 'Invite link',
   'Davet bağlantısı aç': 'Open an invite link',
+  'Davet bağlantısıyla katıl': 'Join with an invite link',
+  'Zaten hesabın var mı? Giriş yap; davet kendiliğinden kabul edilir.':
+    'Already have an account? Sign in; the invite is accepted automatically.',
+  'Arkadaşının gönderdiği davet bağlantısını yapıştır. Katılmadan önce topluluğu görürsün.':
+    'Paste the invite link your friend sent. You’ll see the community before you join.',
   'Davet bağlantısı kopyalandı.': 'Invite link copied.',
   'Davet kabul edildi. Topluluğuna hoş geldin.': 'Invite accepted. Welcome to your community.',
   'Davet kontrol ediliyor…': 'Checking the invite…',

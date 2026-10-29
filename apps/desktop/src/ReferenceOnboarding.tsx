@@ -30,14 +30,19 @@ export type ReferenceOnboardingMode =
 export const SESSION_EXPIRED_MESSAGE = t('Oturumunun süresi doldu. Çıkış yapıp yeniden giriş yap.');
 
 /**
- * Tab the start screen opens on: an invitation always means signing up; someone who has used a
- * server before (or whose session expired) most likely wants to sign in again.
+ * Tab the start screen opens on: someone who has used a server before (or whose session expired)
+ * most likely wants to sign in again. An invitation means signing up, unless this device already
+ * used the invitation's server: then the account exists and signing in joins the community.
  */
 export function defaultStartTab(params: URLSearchParams): 'register' | 'signin' {
-  if (params.get('invite')) return 'register';
+  const saved = useRooms.getState().preferences.serverUrl.trim();
+  if (params.get('invite')) {
+    const server = params.get('server');
+    return saved && server && sameInviteServer(saved, server) ? 'signin' : 'register';
+  }
   const c = useCommunity.getState();
   const expired = !c.user && c.status === 'error' && c.error === SESSION_EXPIRED_MESSAGE;
-  return expired || useRooms.getState().preferences.serverUrl.trim() ? 'signin' : 'register';
+  return expired || saved ? 'signin' : 'register';
 }
 export interface ReferenceOnboardingProps {
   mode: ReferenceOnboardingMode;

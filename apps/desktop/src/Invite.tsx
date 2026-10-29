@@ -1,9 +1,9 @@
 import { locale, t, uiError } from './i18n';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Globe, LoaderCircle, ShieldCheck, Users } from 'lucide-react';
+import { ArrowRight, Globe, Link, LoaderCircle, ShieldCheck, Users } from 'lucide-react';
 import { Modal } from '@rooms/design';
-import type { SocialInvite } from '@rooms/social';
+import { parseInviteLink, type InviteLink, type SocialInvite } from '@rooms/social';
 import { useCommunity } from './community';
 import { sameInviteServer } from './ConnectionPane';
 import './onboarding.css';
@@ -78,7 +78,12 @@ export function InviteLanding({
       await c.acceptInvite(invite.code);
       notify(t('Davet kabul edildi. Topluluğuna hoş geldin.'));
       onClose();
-      navigate('/spaces');
+      // Land in the community the invite named; the list is the fallback when it is not known yet.
+      const spaceId = preview.space?.id;
+      if (spaceId && useCommunity.getState().spaces.some((space) => space.id === spaceId)) {
+        navigate('/chat');
+        await c.openSpace(spaceId).catch(() => {});
+      } else navigate('/spaces');
     } catch (err) {
       setError(uiError(err));
     } finally {
@@ -169,6 +174,74 @@ export function InviteLanding({
           <ArrowRight size={15} />
         </button>
       )}
+    </Modal>
+  );
+}
+
+/**
+ * Signed-in entry for a link received outside the app (chat, mail, the web page): it only reads the
+ * link; InviteLanding previews it and joins through the same server-side checks as a clicked link.
+ */
+export function JoinWithInviteDialog({
+  onClose,
+  onInvite,
+}: {
+  onClose(): void;
+  onInvite(invite: InviteLink): void;
+}) {
+  const serverUrl = useCommunity((state) => state.serverUrl);
+  const [value, setValue] = useState('');
+  const [error, setError] = useState('');
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const link = parseInviteLink(value, { fallbackServer: serverUrl });
+    if (!link) {
+      setError(
+        t(
+          'Bu bir Tayfa davet bağlantısı değil. Seni davet eden kişinin gönderdiği bağlantıyı yapıştır.',
+        ),
+      );
+      return;
+    }
+    onClose();
+    onInvite(link);
+  };
+  return (
+    <Modal title={t('Davet bağlantısıyla katıl')} onClose={onClose} className="rooms-invitation">
+      <form onSubmit={submit}>
+        <p className="modal-description">
+          {t(
+            'Arkadaşının gönderdiği davet bağlantısını yapıştır. Katılmadan önce topluluğu görürsün.',
+          )}
+        </p>
+        <label className="field-label">
+          {t('Davet bağlantısı')}
+          <input
+            required
+            autoFocus
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="https://…/davet/…"
+            value={value}
+            maxLength={4096}
+            aria-invalid={error ? true : undefined}
+            onChange={(event) => {
+              setValue(event.target.value);
+              setError('');
+            }}
+          />
+        </label>
+        {error && (
+          <div className="error-pane onboarding-error" role="alert">
+            <p>{error}</p>
+          </div>
+        )}
+        <button type="submit" className="button primary full" disabled={!value.trim()}>
+          <Link size={16} />
+          {t('Daveti aç')}
+        </button>
+      </form>
     </Modal>
   );
 }

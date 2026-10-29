@@ -291,7 +291,8 @@ export default function App() {
       .catch(() => {});
     return window.rooms.onInvite((value) => setNativeInvite(value));
   }, []);
-  // Signed out, an invitation link is a signup: open Kayıt ol with the link already filled in.
+  // Signed out, an invitation link opens Kayıt ol (or Giriş yap on a device that used its server)
+  // with the link already filled in; signing in then joins the community.
   useEffect(() => {
     if (!startupReady || !nativeInvite || community.user) return;
     const params = new URLSearchParams({
@@ -299,7 +300,7 @@ export default function App() {
       invite: nativeInvite.code,
     });
     setNativeInvite(null);
-    navigate(`/setup/register?${params}`, { replace: true });
+    navigate(`/setup/${defaultStartTab(params)}?${params}`, { replace: true });
   }, [startupReady, nativeInvite, community.user, navigate]);
   const [toast, setToast] = useState('');
   const notify = useCallback((message: string) => setToast(message), []);
@@ -622,6 +623,7 @@ export default function App() {
           <MinimalSidebar
             notify={notify}
             invite={() => open('invite')}
+            joinInvite={setNativeInvite}
             createSpace={() => open('create-space')}
             editSpace={() => open('edit-space')}
             search={() => open('command')}
