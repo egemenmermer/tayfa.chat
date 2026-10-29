@@ -166,6 +166,15 @@ const bridge: DesktopBridge = {
     read: (id, clip) => ipcRenderer.invoke('rooms:soundboard-read', id, clip),
     remove: (id, clip) => ipcRenderer.invoke('rooms:soundboard-remove', id, clip),
   },
+  globalShortcuts: {
+    set: (shortcuts) => ipcRenderer.invoke('rooms:global-shortcuts-set', shortcuts),
+    onTrigger: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, action: 'mute' | 'deafen') =>
+        listener(action);
+      ipcRenderer.on('rooms:global-shortcut', handler);
+      return () => ipcRenderer.removeListener('rooms:global-shortcut', handler);
+    },
+  },
   personalSounds: {
     profile: () => ipcRenderer.invoke('rooms:personal-sounds-profile'),
     upload: (input) => ipcRenderer.invoke('rooms:personal-sounds-upload', input),

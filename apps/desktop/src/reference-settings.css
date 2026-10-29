@@ -924,3 +924,15 @@
 .reference-settings .ptt-key-field kbd {
   white-space: nowrap;
 }
+
+.reference-settings .shortcut-key-field {
+  max-width: 100%;
+}
+.reference-settings .shortcut-key-problem {
+  flex-basis: 100%;
+  margin: 0;
+  text-align: right;
+  font-size: var(--font-size-metadata);
+  color: var(--danger, #f08a8a);
+  overflow-wrap: anywhere;
+}

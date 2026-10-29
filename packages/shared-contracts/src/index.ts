@@ -59,6 +59,8 @@ export interface DesktopBridge {
   hostOps?: import('./hostops').HostOpsBridge;
   soundboard?: import('./soundboard').SoundboardBridge;
   personalSounds?: import('./personal-sounds').PersonalSoundsBridge;
+  /** System-wide mute and deafen shortcuts; absent in fixtures and old preloads. */
+  globalShortcuts?: import('./global-shortcuts').GlobalShortcutsBridge;
   /** Collaborative Studio projects (op log + long poll); absent in fixtures and old preloads. */
   studio?: import('./studio').StudioBridge;
   desktopWindow: {

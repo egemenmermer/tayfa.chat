@@ -44,6 +44,7 @@ import { badgeCount, useCommunity, initializeCommunity } from './community';
 import { useModerationRights } from './VoiceModeration';
 import { useRealtime, toggleMic } from './realtime';
 import { PushToTalk } from './PushToTalk';
+import { GlobalShortcuts } from './GlobalShortcuts';
 import { CommunitySpaces, CommunityInvite, RealVoiceDock } from './RealSocial';
 import { Home } from './Home';
 import { ConnectionPane } from './ConnectionPane';
@@ -580,6 +581,7 @@ export default function App() {
       className={`app minimal-room-ui ${hallView ? 'hall-mode' : ''} ${voiceView ? 'voice-mode' : ''} ${mediaView ? 'personal-media-mode' : ''} ${communityView ? 'community-mode' : ''} ${visiblePath === '/chat' || visiblePath === '/dm' ? 'chat-mode' : ''} ${realtime.channelId ? 'voice-active' : ''} ${channelNavOpen ? 'channel-nav-open' : ''} ${contextDrawerOpen ? 'context-drawer-open' : ''}`}
     >
       {<PushToTalk notify={notify} />}
+      <GlobalShortcuts notify={notify} />
       <div className="window-chrome">
         <div className="traffic-space">
           {import.meta.env.DEV && !window.rooms && !localFixture && (

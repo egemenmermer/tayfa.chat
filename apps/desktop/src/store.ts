@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DEFAULT_PUSH_TO_TALK_KEY, parsePushToTalkKey } from './push-to-talk-key';
+import { normalizeGlobalShortcut } from './global-shortcut';
 
 export interface Preferences {
   roomEventSounds: boolean;
@@ -13,6 +14,10 @@ export interface Preferences {
   noiseSuppressionMode: 'standard' | 'strong';
   pushToTalk: boolean;
   pushToTalkKey: string;
+  /** System-wide mute toggle in push-to-talk key format; empty is no shortcut. */
+  muteKey: string;
+  /** System-wide deafen toggle; empty is no shortcut. */
+  deafenKey: string;
   reduceMotion: boolean;
   reduceTransparency: boolean;
   compact: boolean;
@@ -39,6 +44,8 @@ const defaults: Preferences = {
   noiseSuppressionMode: 'strong',
   pushToTalk: false,
   pushToTalkKey: DEFAULT_PUSH_TO_TALK_KEY,
+  muteKey: '',
+  deafenKey: '',
   reduceMotion: false,
   reduceTransparency: false,
   compact: false,
@@ -103,6 +110,10 @@ function preferencesFrom(value: unknown): Preferences {
     }
     if (key === 'pushToTalkKey') {
       if (parsePushToTalkKey(previous[key])) result.pushToTalkKey = previous[key] as string;
+      continue;
+    }
+    if (key === 'muteKey' || key === 'deafenKey') {
+      result[key] = normalizeGlobalShortcut(previous[key]);
       continue;
     }
     if (key === 'chatFontSize') {
