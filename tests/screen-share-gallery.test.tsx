@@ -114,10 +114,16 @@ describe('viewer quality picker', () => {
     expect(picker.value).toBe('540');
   });
   it('explains a single-layer stream instead of offering a choice', () => {
-    show({ tracks: remote([layers[2]]), quality: 360, onQuality: () => {} });
+    const picks: unknown[] = [];
+    show({ tracks: remote([layers[2]]), quality: 360, onQuality: (value) => picks.push(value) });
     const picker = screen.getByRole('combobox', { name: 'Görüntü kalitesi' }) as HTMLSelectElement;
-    expect(picker.disabled).toBe(true);
+    // Unavailable but still focusable, so a keyboard user reaches the reason.
+    expect(picker.getAttribute('aria-disabled')).toBe('true');
+    expect(picker.tabIndex).toBe(0);
+    expect([...picker.options].map((option) => option.value)).toEqual(['1080']);
     expect(picker.value).toBe('1080');
+    fireEvent.change(picker, { target: { value: '1080' } });
+    expect(picks).toEqual([]);
     expect(description(picker)).toBe('Bu yayın tek kalitede geliyor; seçilecek başka kalite yok.');
   });
   it('has no picker on your own share, before layers are known, or while the stream opens', () => {

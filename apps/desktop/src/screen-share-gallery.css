@@ -229,7 +229,7 @@
   font-size: 13px;
   cursor: pointer;
 }
-.room-screen-quality select:disabled {
+.room-screen-quality select[aria-disabled='true'] {
   cursor: default;
   opacity: 0.8;
 }

@@ -210,11 +210,13 @@ export function ScreenQualityPicker({
       <select
         aria-label={t('Görüntü kalitesi')}
         aria-describedby={single ? hint : undefined}
-        disabled={single}
+        // aria-disabled, not disabled: the explanation must stay reachable with the keyboard.
+        aria-disabled={single || undefined}
         value={single ? String(choices[0]) : String(screenQualitySelection(layers, quality))}
-        onChange={(event) =>
-          onChange(event.target.value === 'auto' ? 'auto' : Number(event.target.value))
-        }
+        onChange={(event) => {
+          if (!single)
+            onChange(event.target.value === 'auto' ? 'auto' : Number(event.target.value));
+        }}
       >
         {!single && <option value="auto">{t('Otomatik')}</option>}
         {choices.map((lines) => (
