@@ -103,7 +103,11 @@ const pickAndShare = async (notify: (message: string) => void = () => {}) => {
 };
 const soundSwitch = () => screen.getByRole('switch', { name: 'Sesi de paylaş' });
 it('shares sound by default on Windows 11 and macOS 14.2+ and says voices stay out', async () => {
-  f.status.mockResolvedValue({ screen: 'granted', systemAudio: true, systemAudioOwnExcluded: true });
+  f.status.mockResolvedValue({
+    screen: 'granted',
+    systemAudio: true,
+    systemAudioOwnExcluded: true,
+  });
   f.start.mockResolvedValue({ audio: true });
   const notify = vi.fn();
   await pickAndShare(notify);
@@ -116,7 +120,11 @@ it('shares sound by default on Windows 11 and macOS 14.2+ and says voices stay o
   expect(notify).not.toHaveBeenCalled();
 });
 it('warns on Windows 10 that room voices reach the stream, and still defaults to sound', async () => {
-  f.status.mockResolvedValue({ screen: 'unknown', systemAudio: true, systemAudioOwnExcluded: false });
+  f.status.mockResolvedValue({
+    screen: 'unknown',
+    systemAudio: true,
+    systemAudioOwnExcluded: false,
+  });
   await pickAndShare();
   await waitFor(() => expect(soundSwitch().getAttribute('aria-checked')).toBe('true'));
   expect(screen.getByText(/Windows 10’da Tayfa’daki konuşmalar da yayına karışır/)).toBeTruthy();
@@ -137,7 +145,11 @@ it('explains on an older Mac why sound cannot be shared and shares the picture o
   );
 });
 it('remembers turning sound off and tells the sharer when sound could not be captured', async () => {
-  f.status.mockResolvedValue({ screen: 'granted', systemAudio: true, systemAudioOwnExcluded: true });
+  f.status.mockResolvedValue({
+    screen: 'granted',
+    systemAudio: true,
+    systemAudioOwnExcluded: true,
+  });
   await pickAndShare();
   await waitFor(() => expect(soundSwitch().getAttribute('aria-checked')).toBe('true'));
   fireEvent.click(soundSwitch());
@@ -156,7 +168,9 @@ it('remembers turning sound off and tells the sharer when sound could not be cap
   await pickAndShare(notify);
   await waitFor(() => expect(soundSwitch().getAttribute('aria-checked')).toBe('true'));
   fireEvent.click(screen.getByRole('button', { name: 'Seçili kaynağı paylaş' }));
-  await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.stringMatching(/Ses paylaşılamadı/)));
+  await waitFor(() =>
+    expect(notify).toHaveBeenCalledWith(expect.stringMatching(/Ses paylaşılamadı/)),
+  );
 });
 it('shows the sharer whether the share is sending sound', () => {
   Object.assign(f.snapshot, { sharing: true, sharingAudio: true });

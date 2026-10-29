@@ -399,9 +399,11 @@ describe('explicit screen quality and system audio', () => {
       expect.objectContaining({ forceStereo: true, dtx: false, red: false }),
     );
     // Tayfa's own playback is asked to stay out (Windows 11, macOS 14.2+ honour it).
-    expect(local.setScreenShareEnabled.mock.calls.at(-1)?.[1]).toMatchObject({
-      audio: { restrictOwnAudio: true },
-    });
+    expect(local.setScreenShareEnabled).toHaveBeenCalledWith(
+      true,
+      expect.objectContaining({ audio: expect.objectContaining({ restrictOwnAudio: true }) }),
+      expect.anything(),
+    );
     expect(provider.snapshot()).toMatchObject({ sharing: true, sharingAudio: true });
     await provider.disconnect();
   });

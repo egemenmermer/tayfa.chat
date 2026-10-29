@@ -2299,7 +2299,7 @@ function rememberShareAudioChoice(value: boolean) {
   }
 }
 /** Explains what "Sesi de paylaş" does here, or why this computer cannot do it. */
-export function shareAudioNote(
+function shareAudioNote(
   status: {
     systemAudio: boolean;
     systemAudioOwnExcluded?: boolean;
@@ -2653,9 +2653,7 @@ export function RealVoiceDock({
             </button>
             <div>
               <strong>{t('Sesi de paylaş')}</strong>
-              <small id="capture-audio-note">
-                {shareAudioNote(captureStatus, busy)}
-              </small>
+              <small id="capture-audio-note">{shareAudioNote(captureStatus, busy)}</small>
             </div>
           </div>
           <div className="button-row">
