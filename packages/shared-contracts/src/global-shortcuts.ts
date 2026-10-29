@@ -5,16 +5,9 @@
  */
 export type GlobalShortcutAction = 'mute' | 'deafen';
 export type GlobalShortcutProblem =
-  | 'invalid'
-  | 'unsupported'
-  | 'needs-modifier'
-  | 'reserved'
-  | 'duplicate'
-  | 'taken';
+  'invalid' | 'unsupported' | 'needs-modifier' | 'reserved' | 'duplicate' | 'taken';
 export type GlobalShortcutStatus =
-  | { state: 'none' }
-  | { state: 'active' }
-  | { state: 'failed'; problem: GlobalShortcutProblem };
+  { state: 'none' } | { state: 'active' } | { state: 'failed'; problem: GlobalShortcutProblem };
 
 export interface GlobalShortcutsBridge {
   /** Replaces the registered shortcuts and returns the outcome of each. */

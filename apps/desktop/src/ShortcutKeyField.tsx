@@ -17,9 +17,7 @@ export function shortcutProblemText(problem: ShortcutProblem): string {
     case 'duplicate':
       return t('Bu kısayol başka bir Tayfa kısayoluyla aynı.');
     case 'taken':
-      return t(
-        'Başka bir uygulama bu kısayolu kullanıyor, Tayfa kaydedemedi. Başka bir tuş seç.',
-      );
+      return t('Başka bir uygulama bu kısayolu kullanıyor, Tayfa kaydedemedi. Başka bir tuş seç.');
     default:
       return t('Bu tuş kısayol olarak kullanılamıyor. Başka bir tuş dene.');
   }

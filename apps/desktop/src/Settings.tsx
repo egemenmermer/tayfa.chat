@@ -1529,7 +1529,9 @@ export default function Settings({
                       description={
                         globalShortcutsAvailable
                           ? t('Başka bir uygulamadayken de çalışır.')
-                          : t('Sistem genelinde kısayollar yalnızca masaüstü uygulamasında çalışır.')
+                          : t(
+                              'Sistem genelinde kısayollar yalnızca masaüstü uygulamasında çalışır.',
+                            )
                       }
                     >
                       <ShortcutKeyField
@@ -1542,7 +1544,9 @@ export default function Settings({
                     </Row>
                     <Row
                       title={t('Sesi kapat')}
-                      description={t('Hoparlörü kapatır ve açar; başka bir uygulamadayken de çalışır.')}
+                      description={t(
+                        'Hoparlörü kapatır ve açar; başka bir uygulamadayken de çalışır.',
+                      )}
                     >
                       <ShortcutKeyField
                         label={t('Sesi kapat')}
