@@ -1082,3 +1082,115 @@ it('does not close an AudioContext that is already closed when leaving voice', a
   await expect(provider.disconnect()).resolves.toBeUndefined();
   expect(close).not.toHaveBeenCalled();
 });
+
+describe('personal volume up to 200%', () => {
+  function voice(identity = 'bob') {
+    const element = document.createElement('audio');
+    element.play = vi.fn(async () => {});
+    element.pause = vi.fn();
+    const track = {
+      kind: 'audio',
+      attach: () => element,
+      setAudioContext: vi.fn(),
+      setVolume: vi.fn(),
+    };
+    const publication = { trackSid: `TR_${identity}`, source: Track.Source.Microphone, track };
+    const person = {
+      identity,
+      setVolume: vi.fn(),
+      trackPublications: new Map([[publication.trackSid, publication]]),
+    };
+    return { element, track, publication, person };
+  }
+  it('maps 0, 100% and 200% to gains, boosting above 100% through Web Audio', async () => {
+    const { provider, room, emit } = fixture();
+    await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    const { element, track, publication, person } = voice();
+    room.remoteParticipants.set(person.identity, person);
+    emit(RoomEvent.TrackSubscribed, track, publication, person);
+    provider.setParticipantVolume('bob', 0);
+    expect(person.setVolume).toHaveBeenLastCalledWith(0, Track.Source.Microphone);
+    provider.setParticipantVolume('bob', 1);
+    expect(person.setVolume).toHaveBeenLastCalledWith(1, Track.Source.Microphone);
+    // Up to 100% the ordinary element volume is used.
+    expect(track.setAudioContext).not.toHaveBeenCalled();
+    expect(element.muted).toBe(false);
+    provider.setParticipantVolume('bob', 2);
+    expect(track.setAudioContext).toHaveBeenLastCalledWith(expect.any(Object));
+    expect(element.muted).toBe(true);
+    expect(person.setVolume).toHaveBeenLastCalledWith(2, Track.Source.Microphone);
+    provider.setParticipantVolume('bob', 1.5);
+    expect(person.setVolume).toHaveBeenLastCalledWith(1.5, Track.Source.Microphone);
+    expect(track.setAudioContext).toHaveBeenCalledTimes(1);
+    // Back to 100%: the element plays again and nothing above 1 reaches it.
+    provider.setParticipantVolume('bob', 1);
+    expect(track.setAudioContext).toHaveBeenLastCalledWith(undefined);
+    expect(element.muted).toBe(false);
+    expect(person.setVolume).toHaveBeenLastCalledWith(1, Track.Source.Microphone);
+    expect(() => provider.setParticipantVolume('bob', 2.01)).toThrow();
+    expect(() => provider.setParticipantVolume('bob', -0.1)).toThrow();
+    expect(() => provider.setParticipantVolume('bob', Number.NaN)).toThrow();
+    expect(provider.snapshot().participants.find((p) => p.id === 'bob')?.volume).toBe(1);
+    await provider.disconnect();
+  });
+  it('keeps the music bot curve and caps it at the element volume', async () => {
+    const { provider, room } = fixture();
+    await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    const { person } = voice('rooms-music-room');
+    room.remoteParticipants.set(person.identity, person);
+    provider.setParticipantVolume(person.identity, 0.5);
+    expect(person.setVolume).toHaveBeenLastCalledWith(0.25, Track.Source.Microphone);
+    provider.setParticipantVolume(person.identity, 2);
+    expect(person.setVolume).toHaveBeenLastCalledWith(1, Track.Source.Microphone);
+    await provider.disconnect();
+  });
+  it('silences a boosted person while deafened and restores the level afterwards', async () => {
+    const { provider, room, emit } = fixture();
+    await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    const { element, track, publication, person } = voice();
+    room.remoteParticipants.set(person.identity, person);
+    emit(RoomEvent.TrackSubscribed, track, publication, person);
+    provider.setParticipantVolume('bob', 1.8);
+    await provider.deafen(true);
+    expect(person.setVolume).toHaveBeenLastCalledWith(0, Track.Source.Microphone);
+    expect(element.muted).toBe(true);
+    // Lowering the level while deafened must not leak sound through the element.
+    provider.setParticipantVolume('bob', 0.7);
+    expect(element.muted).toBe(true);
+    provider.setParticipantVolume('bob', 1.2);
+    expect(person.setVolume).toHaveBeenLastCalledWith(0, Track.Source.Microphone);
+    await provider.deafen(false);
+    expect(person.setVolume).toHaveBeenLastCalledWith(1.2, Track.Source.Microphone);
+    provider.setParticipantVolume('bob', 0);
+    expect(person.setVolume).toHaveBeenLastCalledWith(0, Track.Source.Microphone);
+    await provider.disconnect();
+  });
+  it('boosts a replacement track right away and persists levels per account up to 200%', async () => {
+    localStorage.clear();
+    const first = fixture();
+    first.provider.setListenerScope('DEMO-server:alice');
+    await first.provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    first.provider.setParticipantVolume('bob', 1.75);
+    first.provider.setScreenVolume('bob', 0.5);
+    expect(() => first.provider.setScreenVolume('bob', 1.5)).toThrow();
+    await first.provider.disconnect();
+    // A stored screen level above 100% is never trusted, a person level up to 200% is.
+    localStorage.setItem(
+      'rooms-listener-levels-v1:DEMO-server:alice',
+      JSON.stringify({ bob: 1.75, 'screen:bob': 1.9, carl: 2.5 }),
+    );
+    const second = fixture();
+    second.provider.setListenerScope('DEMO-server:alice');
+    await second.provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    const { track, publication, person } = voice();
+    second.room.remoteParticipants.set(person.identity, person);
+    second.emit(RoomEvent.TrackSubscribed, track, publication, person);
+    expect(track.setAudioContext).toHaveBeenLastCalledWith(expect.any(Object));
+    expect(person.setVolume).toHaveBeenLastCalledWith(1.75, Track.Source.Microphone);
+    expect(JSON.parse(localStorage.getItem('rooms-listener-levels-v1:DEMO-server:alice')!)).toEqual(
+      expect.objectContaining({ bob: 1.75 }),
+    );
+    await second.provider.disconnect();
+    localStorage.clear();
+  });
+});

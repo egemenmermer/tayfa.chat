@@ -1356,8 +1356,11 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
         this.state.deafened ||
         (this.screenAudio.has(id) && !allowed.has(id));
     this.applyEqualizer();
-    for (const person of this.room?.remoteParticipants.values() ?? [])
-      this.applyPersonVolume(person);
+    // Deafen reaches a boosted person only through its gain, so refresh those.
+    if (this.boosted.size)
+      for (const person of this.room?.remoteParticipants.values() ?? [])
+        if ([...(person.trackPublications?.keys() ?? [])].some((sid) => this.boosted.has(sid)))
+          this.applyPersonVolume(person);
   }
   setScreenVolume(id: string, volume: number) {
     if (!Number.isFinite(volume) || volume < 0 || volume > 1)

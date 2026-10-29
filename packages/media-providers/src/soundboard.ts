@@ -6,6 +6,8 @@ import {
   type NoiseSuppressionMode,
   type NoiseProcessingStats,
 } from './noise-suppression';
+/** Linear make-up gain after the leveler's compressor (about +6 dB). */
+export const MIC_LEVELER_MAKEUP = 2;
 /** Mix a user-selected clip into the existing authorized microphone publication. */
 export class SoundboardMixer implements TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> {
   name = 'rooms-microphone-denoise-soundboard';
@@ -40,6 +42,8 @@ export class SoundboardMixer implements TrackProcessor<Track.Kind.Audio, AudioPr
   private level?: GainNode;
   private inputLevel = 1;
   private destination?: MediaStreamAudioDestinationNode;
+  /** Evens out loud and quiet talkers after denoising, where the browser's own AGC is off. */
+  private leveler?: { input: AudioNode; output: AudioNode };
   private clip?: AudioBufferSourceNode;
   private gain?: GainNode;
   private context?: AudioContext;
@@ -57,7 +61,7 @@ export class SoundboardMixer implements TrackProcessor<Track.Kind.Audio, AudioPr
       if (this.noiseSuppression) {
         this.denoiser = await this.createDenoiser();
         this.level.connect(this.denoiser);
-        this.denoiser.connect(this.destination);
+        this.denoiser.connect(this.levelerFor(this.destination));
       } else this.level.connect(this.destination);
       this.processedTrack = this.destination.stream.getAudioTracks()[0];
     } catch (error) {
@@ -87,12 +91,40 @@ export class SoundboardMixer implements TrackProcessor<Track.Kind.Audio, AudioPr
     }
     this.level.disconnect();
     this.denoiser?.destroy();
+    this.disposeLeveler();
     this.denoiser = node;
     if (node) {
       this.level.connect(node);
-      node.connect(this.destination);
+      node.connect(this.levelerFor(this.destination));
     } else this.level.connect(this.destination);
     this.noiseSuppression = value;
+  }
+  /**
+   * Strong noise removal turns the browser's AGC off (it would amplify noise before the filter),
+   * so mic loudness differs a lot per person. A gentle compressor plus make-up gain after the
+   * filter narrows that gap without touching what is below the noise floor. Contexts without a
+   * compressor (older engines, test doubles) get the plain path.
+   */
+  private levelerFor(destination: AudioNode): AudioNode {
+    const context = this.context;
+    if (!context?.createDynamicsCompressor) return destination;
+    const compressor = context.createDynamicsCompressor(),
+      makeup = context.createGain();
+    compressor.threshold.value = -24;
+    compressor.knee.value = 20;
+    compressor.ratio.value = 3;
+    compressor.attack.value = 0.01;
+    compressor.release.value = 0.25;
+    makeup.gain.value = MIC_LEVELER_MAKEUP;
+    compressor.connect(makeup);
+    makeup.connect(destination);
+    this.leveler = { input: compressor, output: makeup };
+    return compressor;
+  }
+  private disposeLeveler() {
+    this.leveler?.input.disconnect();
+    this.leveler?.output.disconnect();
+    this.leveler = undefined;
   }
   /** 1 sends the microphone as captured; 0–2 scales what the room hears. */
   setInputLevel(value: number) {
