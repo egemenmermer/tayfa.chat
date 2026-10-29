@@ -61,7 +61,13 @@ beforeEach(() => {
   vi.stubGlobal(
     'AudioContext',
     class {
-      decodeAudioData = async () => ({ duration: 1, numberOfChannels: 1 });
+      decodeAudioData = async () => ({
+        duration: 1,
+        length: 48000,
+        sampleRate: 48000,
+        numberOfChannels: 1,
+        getChannelData: () => new Float32Array(48000),
+      });
       close = async () => {};
     },
   );
