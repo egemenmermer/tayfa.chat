@@ -170,6 +170,9 @@ export const media: Catalog = {
   '{name} ekranı': "{name}'s screen",
   'Paylaşım sona erdi': 'Sharing ended',
   '{name} yayın sesi': '{name} stream volume',
+  'Bu yayında ses yok': 'No sound in this stream',
+  'Paylaşan sesi açmadı ya da sesi paylaşılamıyor.':
+    'The sharer didn’t turn sound on, or their sound can’t be shared.',
   'Paylaşımı ayrı pencerede izle': 'Watch the share in a separate window',
   'Paylaşımı tam ekrandan çıkar': 'Exit full screen',
   'Paylaşımı tam ekran izle': 'Watch the share full screen',

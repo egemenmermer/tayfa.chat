@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { Maximize, Minimize, Monitor, ExternalLink, X, Volume2 } from 'lucide-react';
+import { Maximize, Minimize, Monitor, ExternalLink, X, Volume2, VolumeX } from 'lucide-react';
 import {
   screenQualityChoices,
   screenQualitySelection,
@@ -110,7 +110,17 @@ export function ScreenShareGallery({
             {active ? name(active) : t('Paylaşım sona erdi')}
           </span>
           <div>
-            {onVolume && active && !active.local && (
+            {onVolume && active && !active.local && participant?.screenAudio === false && (
+              <span
+                className="room-screen-volume no-sound"
+                role="status"
+                title={t('Paylaşan sesi açmadı ya da sesi paylaşılamıyor.')}
+              >
+                <VolumeX size={16} />
+                {t('Bu yayında ses yok')}
+              </span>
+            )}
+            {onVolume && active && !active.local && participant?.screenAudio !== false && (
               <label className="room-screen-volume">
                 <Volume2 size={16} />
                 <input

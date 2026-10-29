@@ -66,6 +66,8 @@ export interface MediaParticipant {
   speaking: boolean;
   camera: boolean;
   screen: boolean;
+  /** This person's screen share carries sound (a screen_share_audio publication exists). */
+  screenAudio?: boolean;
   volume: number;
   screenVolume?: number;
   quality: string;
@@ -106,6 +108,8 @@ export interface MediaSnapshot {
   deafened: boolean;
   camera: boolean;
   sharing: boolean;
+  /** This client's screen share is sending system audio right now. */
+  sharingAudio?: boolean;
   /** This viewer's screen share quality for the app session; 'auto' until they pick one. */
   screenQuality?: ScreenViewQuality;
   audioBlocked: boolean;
@@ -342,6 +346,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     deafened: false,
     camera: false,
     sharing: false,
+    sharingAudio: false,
     screenQuality: 'auto',
     audioBlocked: false,
     participants: [],
@@ -588,6 +593,9 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       muted: !room.localParticipant.isMicrophoneEnabled,
       camera: room.localParticipant.isCameraEnabled,
       sharing: room.localParticipant.isScreenShareEnabled,
+      sharingAudio:
+        room.localParticipant.isScreenShareEnabled &&
+        !!room.localParticipant.getTrackPublication?.(Track.Source.ScreenShareAudio)?.track,
       participants: people
         .filter((p) => p.identity)
         .map((p) => ({
@@ -605,6 +613,8 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
             (this.speakingMeter.speaking(p.identity) ?? p.isSpeaking),
           camera: p.isCameraEnabled,
           screen: p.isScreenShareEnabled,
+          screenAudio:
+            p.isScreenShareEnabled && !!p.getTrackPublication?.(Track.Source.ScreenShareAudio),
           volume: this.volumes.get(p.identity) ?? 1,
           screenVolume: this.volumes.get(`screen:${p.identity}`) ?? 1,
           quality: p.connectionQuality,
@@ -769,6 +779,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
           status: 'error',
           muted: true,
           sharing: false,
+          sharingAudio: false,
           camera: false,
           tracks: [],
           participants: [],
@@ -1074,15 +1085,13 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
           degradationPreference: plan.degradationPreference,
           audioPreset: { maxBitrate: 128000 },
           forceStereo: true,
+          // Game and video sound is not speech: DTX would cut quiet passages, RED doubles stereo.
+          dtx: false,
+          red: false,
         },
       );
-      if (
-        options.audio &&
-        !room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio)?.track
-      ) {
-        await this.stopScreen();
-        throw new Error('System audio capture is unavailable.');
-      }
+      // A missing loopback track (no output device, OS refusal) keeps the picture shared; the
+      // caller compares `sharingAudio` with what it asked for and tells the sharer.
       const capture = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track;
       capture?.mediaStreamTrack.addEventListener(
         'ended',
@@ -1106,13 +1115,13 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     if (!room) return;
     room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track?.stop();
     room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio)?.track?.stop();
-    this.patch({ sharing: false });
+    this.patch({ sharing: false, sharingAudio: false });
     try {
       await room.localParticipant.setScreenShareEnabled(false);
       this.sync();
     } catch (error) {
       this.fail(error);
-      this.patch({ sharing: false });
+      this.patch({ sharing: false, sharingAudio: false });
       throw new Error(
         this.state.error ?? 'Screen publication could not be removed. Capture has stopped.',
       );
@@ -1494,6 +1503,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       deafened: false,
       camera: false,
       sharing: false,
+      sharingAudio: false,
       audioBlocked: false,
       inputDeviceFallback: false,
       inputDevice: null,

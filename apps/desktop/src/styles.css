@@ -3919,6 +3919,18 @@ body,
   font-size: 9px;
   white-space: nowrap;
 }
+.share-audio-state {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 4px;
+  font-size: 9px;
+  white-space: nowrap;
+  color: #a3a8b6;
+}
+.share-audio-state.on {
+  color: #9fd3a8;
+}
 .is-sharing {
   border-color: #db8c7039;
 }

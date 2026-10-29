@@ -1941,6 +1941,7 @@ export function CommunityVoice({
                     {t('İzlemeyi bırak')}
                   </button>
                 )}
+                {r.sharing && <ShareAudioBadge on={!!r.sharingAudio} />}
                 {r.sharing && (
                   <button
                     className="button danger small"
@@ -2265,6 +2266,62 @@ export function CommunityVoice({
     </div>
   );
 }
+/** Tells the sharer whether their screen share is sending sound right now. */
+function ShareAudioBadge({ on }: { on: boolean }) {
+  const label = on ? t('Yayın sesi paylaşılıyor') : t('Yayında ses yok');
+  return (
+    <span
+      className={`share-audio-state ${on ? 'on' : ''}`}
+      role="status"
+      aria-label={label}
+      title={label}
+    >
+      <ReferenceIcon name={on ? 'volume' : 'volume-off'} size={15} />
+      {on ? t('Sesli') : t('Sessiz')}
+    </span>
+  );
+}
+const SHARE_AUDIO_KEY = 'rooms-share-audio-v1';
+/** The sharer's last "Sesi de paylaş" choice on this computer; null when never changed. */
+function readShareAudioChoice(): boolean | null {
+  try {
+    const value = localStorage.getItem(SHARE_AUDIO_KEY);
+    return value === '1' ? true : value === '0' ? false : null;
+  } catch {
+    return null;
+  }
+}
+function rememberShareAudioChoice(value: boolean) {
+  try {
+    localStorage.setItem(SHARE_AUDIO_KEY, value ? '1' : '0');
+  } catch {
+    /* The choice still applies to this share. */
+  }
+}
+/** Explains what "Sesi de paylaş" does here, or why this computer cannot do it. */
+export function shareAudioNote(
+  status: {
+    systemAudio: boolean;
+    systemAudioOwnExcluded?: boolean;
+    systemAudioReason?: 'macos-version' | 'os';
+  } | null,
+  checking: boolean,
+) {
+  if (!status)
+    return checking
+      ? t('Ses paylaşımı denetleniyor…')
+      : t('Ses paylaşımı denetlenemedi; görüntü sessiz paylaşılır.');
+  if (!status.systemAudio)
+    return status.systemAudioReason === 'macos-version'
+      ? t('Bu Mac sesi paylaşamaz: macOS 14.2 veya üstü gerekir. Görüntü sessiz paylaşılır.')
+      : t('Bu işletim sistemi sesi paylaşamaz. Görüntü sessiz paylaşılır.');
+  return status.systemAudioOwnExcluded
+    ? t('Oyun ya da video sesi izleyenlere gider. Tayfa’daki konuşmalar yayına karışmaz.')
+    : t(
+        'Oyun ya da video sesi izleyenlere gider. Windows 10’da Tayfa’daki konuşmalar da yayına karışır; izleyenler kendi seslerini yankı olarak duyabilir.',
+      );
+}
+
 export function RealVoiceDock({
   openLauncher,
   notify,
@@ -2281,7 +2338,8 @@ export function RealVoiceDock({
   const familiarRoom = true;
   const [shareQuality, setShareQuality] =
       useState<import('@rooms/media').ScreenShareQuality>('1080p60'),
-    [shareAudio, setShareAudio] = useState(false);
+    // null until the sharer flips the switch: sound is shared wherever the OS can capture it.
+    [shareAudioChoice, setShareAudioChoice] = useState<boolean | null>(readShareAudioChoice);
   const [picker, setPicker] = useState(false),
     [sources, setSources] = useState<{ id: string; name: string; thumbnail: string }[]>([]),
     [selected, setSelected] = useState(''),
@@ -2291,7 +2349,10 @@ export function RealVoiceDock({
   const [captureStatus, setCaptureStatus] = useState<{
     screen: string;
     systemAudio: boolean;
+    systemAudioOwnExcluded?: boolean;
+    systemAudioReason?: 'macos-version' | 'os';
   } | null>(null);
+  const shareAudio = !!captureStatus?.systemAudio && (shareAudioChoice ?? true);
   const generation = useRef(0);
   const close = useCallback(() => {
     generation.current++;
@@ -2417,10 +2478,13 @@ export function RealVoiceDock({
           </div>
           <div className="room-dock-group room-activity-controls">
             {r.sharing ? (
-              <button className="stop-sharing" onClick={() => report(stopScreen(), notify)}>
-                <ReferenceIcon name="x" size={15} />
-                {t('Paylaşımı durdur')}
-              </button>
+              <>
+                <ShareAudioBadge on={!!r.sharingAudio} />
+                <button className="stop-sharing" onClick={() => report(stopScreen(), notify)}>
+                  <ReferenceIcon name="x" size={15} />
+                  {t('Paylaşımı durdur')}
+                </button>
+              </>
             ) : (
               <IconButton
                 label={t('Ekran paylaş')}
@@ -2576,19 +2640,21 @@ export function RealVoiceDock({
             <button
               className={`toggle ${shareAudio ? 'on' : ''}`}
               role="switch"
-              aria-label={t('Sistem sesini paylaş')}
+              aria-label={t('Sesi de paylaş')}
               aria-checked={shareAudio}
+              aria-describedby="capture-audio-note"
               disabled={!captureStatus?.systemAudio}
-              onClick={() => setShareAudio(!shareAudio)}
+              onClick={() => {
+                setShareAudioChoice(!shareAudio);
+                rememberShareAudioChoice(!shareAudio);
+              }}
             >
               <span />
             </button>
             <div>
-              <strong>{t('Sistem sesini paylaş')}</strong>
-              <small>
-                {captureStatus?.systemAudio
-                  ? t('Bilgisayar sesi de odaya gönderilir.')
-                  : t('Sistem sesi için desteklenen işletim sistemi gerekli.')}
+              <strong>{t('Sesi de paylaş')}</strong>
+              <small id="capture-audio-note">
+                {shareAudioNote(captureStatus, busy)}
               </small>
             </div>
           </div>
@@ -2607,7 +2673,13 @@ export function RealVoiceDock({
                   audio: shareAudio,
                   content: 'motion',
                 })
-                  .then(() => {
+                  .then((result) => {
+                    if (shareAudio && !result.audio)
+                      notify(
+                        t(
+                          'Ses paylaşılamadı, yalnızca görüntü gidiyor. Bilgisayarda bir hoparlör ya da kulaklık seçili olmalı.',
+                        ),
+                      );
                     // Keep the selected personal player visible while its window is shared.
                     if (generation.current !== epoch) return;
                     if (location.pathname !== '/media') navigate('/voice?view=share');

@@ -52,7 +52,14 @@ export function useRealtime(): MediaSnapshot & {
   return {
     ...snapshot,
     ...(context.busy
-      ? { participants: [], tracks: [], muted: true, camera: false, sharing: false }
+      ? {
+          participants: [],
+          tracks: [],
+          muted: true,
+          camera: false,
+          sharing: false,
+          sharingAudio: false,
+        }
       : {}),
     ...context,
     status: rejoining ? 'reconnecting' : context.busy ? 'connecting' : snapshot.status,
@@ -424,10 +431,15 @@ export async function toggleCamera() {
     ),
   );
 }
+/**
+ * Starts this client's screen share. Resolves with whether system audio is really being sent:
+ * a share that asked for sound but got none (no output device, OS refusal) still shares the
+ * picture, and the caller tells the sharer.
+ */
 export async function startScreen(
   sourceId?: string,
   options: import('@rooms/media').ScreenShareOptions = {},
-) {
+): Promise<{ audio: boolean }> {
   const channelId = useVoiceContext.getState().channelId;
   if (!channelId) throw new Error('Join a voice room before sharing.');
   await run(async () => {
@@ -443,6 +455,7 @@ export async function startScreen(
       throw error;
     }
   });
+  return { audio: !!mediaProvider().snapshot().sharingAudio };
 }
 export async function stopScreen() {
   const channelId = useVoiceContext.getState().channelId;
