@@ -213,9 +213,23 @@ export const media: Catalog = {
     'Choose a mono or stereo sound of up to 8 seconds.',
   'Ses dosyası çok büyük.': 'The sound file is too large.',
   'Topluluk sesleri için sunucuyla bağlantı kur.': 'Connect to the server to use community sounds.',
-  'En fazla 2 MB bir ses dosyası seç.': 'Choose a sound file of up to 2 MB.',
-  'En fazla 8 saniyelik mono veya stereo bir ses seç.':
-    'Choose a mono or stereo sound of up to 8 seconds.',
+  'En fazla 30 MB bir ses dosyası seç.': 'Choose a sound file of up to 30 MB.',
+  'En fazla 3 dakikalık mono veya stereo bir ses seç.':
+    'Choose a mono or stereo sound of up to 3 minutes.',
+  'Kesilen bölüm 0,05 ile 8 saniye arasında olmalı.':
+    'The trimmed part must be between 0.05 and 8 seconds long.',
+  'Kayıtlı ses okunamadı, yeniden kırpılamıyor. Sesi silip dosyadan yeniden ekleyebilirsin.':
+    "The stored sound couldn't be read, so it can't be trimmed again. You can delete it and add it again from the file.",
+  'Yeni ses yükleme iznin yok.': "You don't have permission to upload sounds.",
+  'Sesi kırp': 'Trim sound',
+  'Kesme başlangıcı': 'Trim start',
+  'Kesme bitişi': 'Trim end',
+  'Seçimi dinle': 'Play selection',
+  '{from} – {to} sn · {length} sn': '{from} – {to} s · {length} s',
+  'Dosya {total} sn. Soundboard sesi en fazla {max} sn olabilir; tutamaçlarla bir bölüm seç.':
+    'The file is {total} s long. A soundboard sound can be at most {max} s: pick a part with the handles.',
+  'Tutamaç seçiliyken ok tuşları 0,01 sn, Shift ile 0,1 sn, Page Up / Down ile 1 sn kaydırır.':
+    'With a handle focused, the arrow keys move it 0.01 s, Shift 0.1 s, Page Up / Down 1 s.',
   'Ses dosyası okunamadı.': "The sound file couldn't be read.",
   'Ses odasına katıl.': 'Join a voice room.',
   'Sağırlaştırmayı kapat.': 'Turn off deafen.',

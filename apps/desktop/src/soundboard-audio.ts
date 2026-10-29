@@ -1,17 +1,29 @@
 import { t } from './i18n';
+import { SOUNDBOARD_FADE_SECONDS } from './soundboard-trim';
 
 /** Canonical bounded PCM WAV; avoids uploading opaque codecs to the access service. */
-export function encodeSoundboard(buffer: AudioBuffer): string {
+export function encodeSoundboard(
+  buffer: AudioBuffer,
+  /** Sample range to keep; defaults to the whole buffer. */
+  range?: { from: number; to: number },
+): string {
+  const from = range ? range.from : 0,
+    to = range ? range.to : buffer.length,
+    frames = to - from;
   if (
     buffer.sampleRate !== 48000 ||
-    buffer.duration <= 0 ||
-    buffer.duration > 8 ||
+    !Number.isInteger(from) ||
+    !Number.isInteger(to) ||
+    from < 0 ||
+    to > buffer.length ||
+    frames <= 0 ||
+    frames / 48000 > 8 ||
     buffer.numberOfChannels < 1 ||
     buffer.numberOfChannels > 2
   )
     throw Error(t('En fazla 8 saniyelik mono veya stereo ses seç.'));
   const channels = buffer.numberOfChannels,
-    size = buffer.length * channels * 2,
+    size = frames * channels * 2,
     bytes = new Uint8Array(44 + size),
     view = new DataView(bytes.buffer);
   const label = (at: number, value: string) => {
@@ -31,15 +43,22 @@ export function encodeSoundboard(buffer: AudioBuffer): string {
   label(36, 'data');
   view.setUint32(40, size, true);
   const data = Array.from({ length: channels }, (_, i) => buffer.getChannelData(i));
-  for (let frame = 0; frame < buffer.length; frame++)
+  // A cut edge ramps over a few milliseconds; the file's own start and end stay untouched.
+  const ramp = Math.min(Math.round(SOUNDBOARD_FADE_SECONDS * 48000), Math.floor(frames / 2));
+  for (let frame = 0; frame < frames; frame++) {
+    let gain = 1;
+    if (from > 0 && frame < ramp) gain = frame / ramp;
+    if (to < buffer.length && frames - 1 - frame < ramp)
+      gain = Math.min(gain, (frames - 1 - frame) / ramp);
     for (let channel = 0; channel < channels; channel++) {
-      const value = Math.max(-1, Math.min(1, data[channel][frame]));
+      const value = Math.max(-1, Math.min(1, data[channel][from + frame] * gain));
       view.setInt16(
         44 + (frame * channels + channel) * 2,
         Math.round(value * (value < 0 ? 32768 : 32767)),
         true,
       );
     }
+  }
   let binary = '';
   for (let i = 0; i < bytes.length; i += 8192)
     binary += String.fromCharCode(...bytes.subarray(i, i + 8192));

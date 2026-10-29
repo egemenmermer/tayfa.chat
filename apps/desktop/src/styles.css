@@ -7178,3 +7178,88 @@ body,
   font-size: 12px;
   text-align: center;
 }
+/* Soundboard trimmer: waveform, two handles, preview. */
+.sb-trim {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.sb-trim-track {
+  position: relative;
+  height: 72px;
+  border-radius: 8px;
+  background: #0d0f14;
+  border: 1px solid #ffffff14;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  cursor: ew-resize;
+}
+.sb-trim-wave {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.sb-trim-wave path {
+  fill: var(--accent, #7c8cff);
+  opacity: 0.85;
+}
+.sb-trim-dim {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: #0d0f14bf;
+  pointer-events: none;
+}
+.sb-trim-window {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-top: 2px solid var(--accent, #7c8cff);
+  border-bottom: 2px solid var(--accent, #7c8cff);
+  pointer-events: none;
+}
+.sb-trim-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  margin-left: -7px;
+  cursor: ew-resize;
+  outline: none;
+}
+.sb-trim-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--accent, #7c8cff);
+}
+.sb-trim-handle:focus-visible::after,
+.sb-trim-handle:hover::after {
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--accent, #7c8cff);
+}
+.sb-trim-info {
+  justify-content: space-between;
+}
+.sb-trim-readout {
+  min-width: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.sb-trim-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.sb-trim-limit {
+  color: var(--text);
+}

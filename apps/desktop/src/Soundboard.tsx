@@ -9,18 +9,45 @@ import { encodeSoundboard, soundboardBytes } from './soundboard-audio';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
 import { Modal } from '@rooms/design';
-import { Pencil, PartyPopper, Plus, Play, Smile, Square, Trash2, Upload } from 'lucide-react';
+import {
+  Pencil,
+  PartyPopper,
+  Plus,
+  Play,
+  Scissors,
+  Smile,
+  Square,
+  Trash2,
+  Upload,
+} from 'lucide-react';
 import { useCommunity } from './community';
 import { useRealtime, playSoundboard, publishReaction, stopSoundboard } from './realtime';
 import { EmojiPicker } from './ComposerPickers';
+import { SoundboardTrimmer } from './SoundboardTrimmer';
+import {
+  initialSelection,
+  isTrimmed,
+  selectionSamples,
+  SOUNDBOARD_SOURCE_MAX_BYTES,
+  SOUNDBOARD_SOURCE_MAX_SECONDS,
+  trimIssue,
+  type TrimSelection,
+} from './soundboard-trim';
 import { floatEmoji, SoundboardFloaters } from './SoundboardFloaters';
 import { t, uiError } from './i18n';
 
 type Clip = { id: string; name: string; buffer: AudioBuffer };
 /** What the add / edit form holds; the emoji and the label are joined into one stored name on save. */
 type Draft =
-  | { kind: 'new'; name: string; emoji: string; buffer: AudioBuffer }
-  | { kind: 'edit'; id: string; name: string; emoji: string };
+  | ({ kind: 'new'; name: string; emoji: string; buffer: AudioBuffer } & TrimSelection)
+  // An edit only renames until "Sesi kırp" loads the stored audio into `buffer`.
+  | ({
+      kind: 'edit';
+      id: string;
+      name: string;
+      emoji: string;
+      buffer?: AudioBuffer;
+    } & TrimSelection);
 /** Everyone in the room sees the sound's emoji float up; clients without support ignore it. */
 export function announceSound(name: string) {
   const { emoji } = splitSoundName(name);
@@ -113,9 +140,12 @@ export function SoundboardButton({ showTrigger = true }: { showTrigger?: boolean
   }, [open, refresh]);
   const close = useCallback(() => setOpen(false), []);
   const shared = window.rooms?.soundboard;
-  const upload = async (name: string, buffer: AudioBuffer) => {
+  const upload = async (name: string, buffer: AudioBuffer, selection: TrimSelection) => {
     if (!shared || !channelId) throw Error(t('Topluluk sesleri için sunucuyla bağlantı kur.'));
-    await shared.upload(channelId, { name, audio: encodeSoundboard(buffer) });
+    if (trimIssue(selection, buffer.duration))
+      throw Error(t('Kesilen bölüm 0,05 ile 8 saniye arasında olmalı.'));
+    const range = selectionSamples(selection, buffer.sampleRate, buffer.length);
+    await shared.upload(channelId, { name, audio: encodeSoundboard(buffer, range) });
     await refresh();
   };
   const playShared = async (id: string, name: string) => {
@@ -151,12 +181,17 @@ export function SoundboardButton({ showTrigger = true }: { showTrigger?: boolean
     setError('');
     let context: AudioContext | null = null;
     try {
-      if (file.size > 2_000_000 || !file.size)
-        throw new Error(t('En fazla 2 MB bir ses dosyası seç.'));
+      // The source may be long: only the trimmed part is stored (8 s, 2 MB once encoded).
+      if (file.size > SOUNDBOARD_SOURCE_MAX_BYTES || !file.size)
+        throw new Error(t('En fazla 30 MB bir ses dosyası seç.'));
       context = new AudioContext({ sampleRate: 48000 });
       const buffer = await context.decodeAudioData(await file.arrayBuffer());
-      if (buffer.duration > 8 || buffer.duration <= 0 || buffer.numberOfChannels > 2)
-        throw new Error(t('En fazla 8 saniyelik mono veya stereo bir ses seç.'));
+      if (
+        buffer.duration > SOUNDBOARD_SOURCE_MAX_SECONDS ||
+        buffer.duration <= 0 ||
+        buffer.numberOfChannels > 2
+      )
+        throw new Error(t('En fazla 3 dakikalık mono veya stereo bir ses seç.'));
       if (generation !== sessionGeneration || !sessionKey() || current.current !== captured) return;
       // The form asks for the emoji (and a name) before anything is uploaded.
       setDraft({
@@ -164,6 +199,7 @@ export function SoundboardButton({ showTrigger = true }: { showTrigger?: boolean
         name: file.name.replace(/\.[^.]+$/, '').slice(0, SOUNDBOARD_NAME_MAX - 3),
         emoji: '',
         buffer,
+        ...initialSelection(buffer.duration),
       });
     } catch (e) {
       if (current.current === captured)
@@ -193,8 +229,13 @@ export function SoundboardButton({ showTrigger = true }: { showTrigger?: boolean
     setError('');
     const work =
       draft.kind === 'new'
-        ? upload(name, draft.buffer)
-        : shared!.rename(channelId, draft.id, name).then(() => refresh());
+        ? upload(name, draft.buffer, draft)
+        : draft.buffer && isTrimmed(draft, draft.buffer.duration)
+          ? // The server cannot cut a stored sound: the trimmed copy replaces it.
+            upload(name, draft.buffer, draft)
+              .then(() => shared!.remove(channelId, draft.id))
+              .then(() => refresh())
+          : shared!.rename(channelId, draft.id, name).then(() => refresh());
     void work
       .then(() => {
         if (current.current === captured) setDraft(null);
@@ -209,6 +250,36 @@ export function SoundboardButton({ showTrigger = true }: { showTrigger?: boolean
   const labelMax = draft
     ? SOUNDBOARD_NAME_MAX - (draft.emoji ? draft.emoji.length + 1 : 0)
     : SOUNDBOARD_NAME_MAX;
+  /** Loads the stored audio of the sound being edited so it can be trimmed again. */
+  const loadForTrim = async () => {
+    if (!shared || !channelId || draft?.kind !== 'edit') return;
+    const captured = scope,
+      id = draft.id;
+    setBusy(true);
+    setError('');
+    let context: AudioContext | null = null;
+    try {
+      const audio = await shared.read(channelId, id);
+      context = new AudioContext({ sampleRate: 48000 });
+      const buffer = await context.decodeAudioData(soundboardBytes(audio));
+      if (current.current === captured)
+        setDraft((value) =>
+          value?.kind === 'edit' && value.id === id
+            ? { ...value, buffer, ...initialSelection(buffer.duration) }
+            : value,
+        );
+    } catch {
+      if (current.current === captured)
+        setError(
+          t(
+            'Kayıtlı ses okunamadı, yeniden kırpılamıyor. Sesi silip dosyadan yeniden ekleyebilirsin.',
+          ),
+        );
+    } finally {
+      await context?.close();
+      if (current.current === captured) setBusy(false);
+    }
+  };
   return (
     <>
       <SoundboardFloaters />
@@ -300,6 +371,29 @@ export function SoundboardButton({ showTrigger = true }: { showTrigger?: boolean
                     />
                   </div>
                 )}
+                {draft.buffer ? (
+                  <SoundboardTrimmer
+                    buffer={draft.buffer}
+                    selection={{ start: draft.start, end: draft.end }}
+                    onChange={(selection) => setDraft({ ...draft, ...selection })}
+                    volume={volume}
+                  />
+                ) : (
+                  draft.kind === 'edit' && (
+                    <div className="sb-form-row">
+                      <button
+                        type="button"
+                        className="button secondary"
+                        disabled={busy || !catalog?.canUpload}
+                        title={catalog?.canUpload ? undefined : t('Yeni ses yükleme iznin yok.')}
+                        onClick={() => void loadForTrim()}
+                      >
+                        <Scissors size={14} />
+                        {t('Sesi kırp')}
+                      </button>
+                    </div>
+                  )
+                )}
                 <div className="sb-form-row">
                   {draft.emoji && (
                     <button
@@ -325,7 +419,11 @@ export function SoundboardButton({ showTrigger = true }: { showTrigger?: boolean
                   <button
                     type="button"
                     className="button"
-                    disabled={busy || !draft.name.trim()}
+                    disabled={
+                      busy ||
+                      !draft.name.trim() ||
+                      (!!draft.buffer && !!trimIssue(draft, draft.buffer.duration))
+                    }
                     onClick={saveDraft}
                   >
                     {busy ? t('Kaydediliyor…') : t('Kaydet')}
@@ -360,7 +458,14 @@ export function SoundboardButton({ showTrigger = true }: { showTrigger?: boolean
                           disabled={busy}
                           onClick={() => {
                             setPicking(false);
-                            setDraft({ kind: 'edit', id: clip.id, name: label, emoji });
+                            setDraft({
+                              kind: 'edit',
+                              id: clip.id,
+                              name: label,
+                              emoji,
+                              start: 0,
+                              end: 0,
+                            });
                           }}
                         >
                           <Pencil size={13} />
@@ -423,7 +528,13 @@ export function SoundboardButton({ showTrigger = true }: { showTrigger?: boolean
                         disabled={busy || !catalog?.canUpload}
                         onClick={() => {
                           setPicking(false);
-                          setDraft({ kind: 'new', name: label, emoji, buffer: clip.buffer });
+                          setDraft({
+                            kind: 'new',
+                            name: label,
+                            emoji,
+                            buffer: clip.buffer,
+                            ...initialSelection(clip.buffer.duration),
+                          });
                         }}
                       >
                         <Upload size={13} />
