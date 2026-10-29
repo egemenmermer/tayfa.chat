@@ -3,6 +3,24 @@ import type { Catalog } from '@rooms/i18n';
 /** English for the social group. Keys are the Turkish source text exactly as written in the code. */
 export const social: Catalog = {
   'Bu oda': 'This room',
+  // Polls posted into a text channel (ChatPoll.tsx, chat-poll.ts).
+  'Anket: {question} — Tayfa’nın yeni sürümünde oy ver.':
+    'Poll: {question} — vote in the latest Tayfa.',
+  ANKET: 'POLL',
+  'Anket yükleniyor…': 'Loading poll…',
+  'Anket şu an açılamıyor.': 'The poll can’t be opened right now.',
+  'Bu anket bulunamadı. Silinmiş ya da başka bir kanala ait olabilir.':
+    'This poll wasn’t found. It may have been removed or belong to another channel.',
+  'Bu kanalda anket açma iznin yok.': 'You don’t have permission to start polls in this channel.',
+  'Bu kanal anket sınırına ulaştı ({count}).': 'This channel has reached its poll limit ({count}).',
+  'Kanal değişti. Anketi açtığın kanala dönüp yeniden dene.':
+    'The channel changed. Go back to the channel where you started the poll and try again.',
+  'Kanala anket gönder': 'Send a poll to the channel',
+  'Anketi gönder': 'Send poll',
+  'Mesajı yeniden gönder': 'Send the message again',
+  '#{channel} kanalını görebilen herkes oy verebilir.': 'Everyone who can see #{channel} can vote.',
+  'Kişi başına tek seçim. Oyunu kapanana kadar değiştirebilirsin.':
+    'One choice per person. You can change your vote until the poll closes.',
   'Bildirim kanalı': 'Notification channel',
   'Kanal yok': 'No channels',
   'Özel mesaj': 'Direct message',

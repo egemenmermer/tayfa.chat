@@ -23,6 +23,8 @@ import { ChatAgentRequest } from './ChatAgent';
 import { EmojiPicker, GifPicker, isGifMessage } from './ComposerPickers';
 import { AppDirectory } from './AppDirectory';
 import { InviteLinkCard } from './InviteLinkCard';
+import { ChatPollCard, ChatPollComposer } from './ChatPoll';
+import { chatPollId } from './chat-poll';
 import {
   Fragment,
   useCallback,
@@ -40,6 +42,7 @@ import {
   ArrowDown,
   ArrowRight,
   AlertCircle,
+  BarChart3,
   Bell,
   Download,
   Film,
@@ -348,6 +351,8 @@ export function CommunityChat({
   const closeReminder = useCallback(() => setReminder(null), []);
   const [agentPrompt, setAgentPrompt] = useState<string | null>(null);
   const [picker, setPicker] = useState<'gif' | 'emoji' | 'apps' | null>(null);
+  const [pollComposer, setPollComposer] = useState(false);
+  const closePollComposer = useCallback(() => setPollComposer(false), []);
   const pickerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!picker) return;
@@ -790,6 +795,8 @@ export function CommunityChat({
               new Date(m.timestamp).toLocaleDateString(locale);
           const unread = previous?.id === unreadAnchor.current;
           const own = m.author.id === c.user?.id;
+          // Poll cards only exist in community channels; DMs have no activity room.
+          const pollId = channel?.spaceId ? chatPollId(m.content) : null;
           return (
             <Fragment key={m.id}>
               {newDay && (
@@ -827,7 +834,9 @@ export function CommunityChat({
                     <time dateTime={m.timestamp}>{clockText(m.timestamp)}</time>
                     {m.editedTimestamp && <span>{t('düzenlendi')}</span>}
                   </div>
-                  {isGifMessage(m.content) ? (
+                  {pollId ? (
+                    <ChatPollCard channelId={m.channelId} pollId={pollId} content={m.content} />
+                  ) : isGifMessage(m.content) ? (
                     <img className="chat-gif" src={m.content.trim()} alt="GIF" loading="lazy" />
                   ) : (
                     <p>{messageText(m.content)}</p>
@@ -1129,6 +1138,18 @@ export function CommunityChat({
             >
               <LayoutGrid size={20} />
             </IconButton>
+            {channel?.spaceId && (
+              <IconButton
+                label={t('Anket')}
+                disabled={!!editing}
+                onClick={() => {
+                  setPicker(null);
+                  setPollComposer(true);
+                }}
+              >
+                <BarChart3 size={20} />
+              </IconButton>
+            )}
             {assistant && (
               <IconButton
                 label={t('Asistanı etiketle')}
@@ -1169,6 +1190,15 @@ export function CommunityChat({
             )}
           </div>
         </div>
+      )}
+      {pollComposer && channel?.spaceId && (
+        <ChatPollComposer
+          key={channel.id}
+          channelId={channel.id}
+          channelName={channel.name}
+          onClose={closePollComposer}
+          notify={notify}
+        />
       )}
       {reminder && c.activeChannelId && (
         <MessageReminder
