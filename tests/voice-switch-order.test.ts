@@ -42,8 +42,7 @@ const grantFor = (channelId: string) => ({
   serverUrl: 'wss://media.test',
 });
 function deferred<T>() {
-  let resolve!: (value: T) => void,
-    reject!: (error: unknown) => void;
+  let resolve!: (value: T) => void, reject!: (error: unknown) => void;
   const promise = new Promise<T>((ok, fail) => ((resolve = ok), (reject = fail)));
   return { promise, resolve, reject };
 }
@@ -97,7 +96,9 @@ it('asks for the new grant while the old room is still being torn down', async (
   expect(f.connect).not.toHaveBeenCalled();
   teardown.resolve();
   // The server-side leave of the other room never holds the connect back.
-  await vi.waitFor(() => expect(f.connect).toHaveBeenCalledWith('room-two', expect.any(String), 'wss://media.test'));
+  await vi.waitFor(() =>
+    expect(f.connect).toHaveBeenCalledWith('room-two', expect.any(String), 'wss://media.test'),
+  );
   leaveOne.resolve();
   await next;
   expect(useVoiceContext.getState()).toMatchObject({ channelId: 'two', busy: false });

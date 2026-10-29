@@ -262,7 +262,11 @@ async function listDevices(): Promise<readonly MediaDeviceInfo[] | null> {
   }
 }
 /** False only when the system lists devices of this kind by id and the id is not among them. */
-function deviceListed(devices: readonly MediaDeviceInfo[] | null, kind: MediaDeviceKind, id: string) {
+function deviceListed(
+  devices: readonly MediaDeviceInfo[] | null,
+  kind: MediaDeviceKind,
+  id: string,
+) {
   const ids = (devices ?? []).filter((d) => d.kind === kind && d.deviceId).map((d) => d.deviceId);
   return !ids.length || ids.includes(id);
 }
@@ -1452,9 +1456,9 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       const output = await this.switchDevice(room, 'audiooutput', outputId || '', devices);
       await Promise.all(
         [this.soundContext, this.equalizerContext, this.boostContext].map((context) =>
-          (context as (AudioContext & { setSinkId?(id: string): Promise<void> }) | null)?.setSinkId?.(
-            output,
-          ),
+          (
+            context as (AudioContext & { setSinkId?(id: string): Promise<void> }) | null
+          )?.setSinkId?.(output),
         ),
       );
       this.outputDeviceId = output;
