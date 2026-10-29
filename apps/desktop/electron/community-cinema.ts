@@ -6,6 +6,10 @@ import { isIP } from 'node:net';
 import { t } from '@rooms/i18n';
 import { CINEMA_REF_PATTERN, RMDB_REVIEW_MAX } from '../../../packages/community-cinema/src/types';
 import { STREMIO_ID, streamFacts } from '../../../packages/community-cinema/src/stremio';
+import {
+  mapYouTubeSearch,
+  youtubeSearchFailure,
+} from '../../../packages/community-cinema/src/youtube-search';
 
 /** The account the cinema request was made with; a request finishing in another account fails. */
 export type CinemaAccount = { client: StoatClient; token: string; origin: string };
@@ -269,6 +273,36 @@ export function setupCommunityCinema(options: {
     const params = new URLSearchParams({ q: z.string().max(200).parse(text) });
     if (kinds !== undefined) params.set('kinds', z.array(kind).max(3).parse(kinds).join(','));
     return api('GET', `${hall(hallId)}/search?${params}`);
+  });
+  // YouTube text search goes through the community's access service (it holds the yt-dlp
+  // search the DJ uses); the Stoat token never leaves this process.
+  options.handle('rooms:cinema-youtube-search', async (hallId, text) => {
+    const id = socialId.parse(hallId);
+    const account = options.account();
+    const query = z.string().trim().min(2).max(200).parse(text);
+    let response: Response;
+    try {
+      response = await request(
+        `${account.origin}/rooms-access/v1/halls/${encodeURIComponent(id)}/youtube-search`,
+        {
+          method: 'POST',
+          headers: { Authorization: account.token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+          redirect: 'error',
+          signal: AbortSignal.timeout(55_000),
+        },
+      );
+    } catch {
+      throw new CinemaRequestError('CINEMA_YOUTUBE_SEARCH_UNAVAILABLE');
+    }
+    const value = await response.json().catch(() => null);
+    if (!options.isCurrent(account)) throw new CinemaRequestError(t('Oturum değişti.'));
+    if (!response.ok) throw new CinemaRequestError(youtubeSearchFailure(response.status, value));
+    try {
+      return mapYouTubeSearch(value);
+    } catch {
+      throw new CinemaRequestError('CINEMA_YOUTUBE_SEARCH_UNAVAILABLE');
+    }
   });
   options.handle('rooms:cinema-guide', (hallId, refs, from, to) =>
     api('POST', `${hall(hallId)}/guide`, {

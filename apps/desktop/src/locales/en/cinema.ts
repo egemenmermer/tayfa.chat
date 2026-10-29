@@ -176,8 +176,15 @@ export const cinema: Catalog = {
   'Salonda oynuyor': 'Playing in the hall',
   Sırada: 'Up next',
   İzlenenler: 'Watched',
-  'Bir YouTube bağlantısı yapıştır; video salondaki herkes için aynı anda oynar.':
-    'Paste a YouTube link; the video plays at the same moment for everyone in the hall.',
+  'Bir YouTube bağlantısı yapıştır ya da bir şey ara; video salondaki herkes için aynı anda oynar.':
+    'Paste a YouTube link or search for something; the video plays at the same moment for everyone in the hall.',
+  'YouTube bağlantısı yapıştır ya da ara': 'Paste a YouTube link or search',
+  'YouTube bağlantısı ya da arama': 'YouTube link or search',
+  'Aramak için en az 2 harf yaz.': 'Type at least 2 characters to search.',
+  'YouTube’da aranıyor…': 'Searching YouTube…',
+  '“{query}” için sonuç bulunamadı.': 'No results for “{query}”.',
+  'YouTube araması şu an kullanılamıyor. Bağlantıyı yapıştırarak açabilirsin.':
+    'YouTube search is unavailable right now. You can still open a video by pasting its link.',
   '{shortcut} ile de açabilirsin.': 'You can also open it with {shortcut}.',
   Kanallar: 'Channels',
   Filmler: 'Movies',

@@ -19,6 +19,12 @@ export { maskUrl, maskServer, maskText } from './mask';
 export { compareNames, sortByName } from './collation';
 export { cleanVodTitle, cleanEpisodeTitle } from './titles';
 export type * from './types';
+export {
+  mapYouTubeSearch,
+  youtubeSearchFailure,
+  YOUTUBE_SEARCH_MAX_RESULTS,
+  type YouTubeSearchResult,
+} from './youtube-search';
 export { CINEMA_REF_PATTERN, RMDB_REVIEW_MAX } from './types';
 export {
   CINEMA_SCHEME,

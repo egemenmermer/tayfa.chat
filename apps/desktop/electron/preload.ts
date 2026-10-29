@@ -282,6 +282,8 @@ const bridge: DesktopBridge = {
     categories: (hallId, kind) => ipcRenderer.invoke('rooms:cinema-categories', hallId, kind),
     items: (hallId, query) => ipcRenderer.invoke('rooms:cinema-items', hallId, query),
     search: (hallId, text, kinds) => ipcRenderer.invoke('rooms:cinema-search', hallId, text, kinds),
+    youtubeSearch: (hallId, text) =>
+      ipcRenderer.invoke('rooms:cinema-youtube-search', hallId, text),
     guide: (hallId, refs, from, to) =>
       ipcRenderer.invoke('rooms:cinema-guide', hallId, refs, from, to),
     details: (hallId, ref) => ipcRenderer.invoke('rooms:cinema-details', hallId, ref),
