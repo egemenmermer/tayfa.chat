@@ -122,7 +122,7 @@ it('does not start native Mac updates on a non-Mac platform', () => {
   Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
   setupUpdates(vi.fn());
   expect(invoke('status')).toMatchObject({ configured: false, state: 'unavailable' });
-  expect(invoke('status').reason).toContain('macOS ve Windows');
+  expect((invoke('status') as { reason: string }).reason).toContain('macOS ve Windows');
   expect(fixture.native.start).not.toHaveBeenCalled();
   expect(() => invoke('check')).toThrow('macOS ve Windows');
 });

@@ -93,7 +93,8 @@ beforeEach(() => {
   fixture.appUpdateYml = true;
   fixture.uninstaller = true;
   fixture.codesignStatus = 0;
-  vi.clearAllMocks();
+  // Reset, not clear: a failed test must not leave queued updater responses behind.
+  vi.resetAllMocks();
 });
 afterEach(() => {
   vi.clearAllTimers();
@@ -144,6 +145,8 @@ it('moves checking → downloading → ready and installs silently with a relaun
   expect(() => invoke('install')).toThrow('doğrulanması');
   fixture.updater.emit('checking-for-update');
   expect(invoke('status').state).toBe('checking');
+  fixture.updater.emit('update-not-available', { version: '0.1.18-rc.35' });
+  expect(invoke('status')).toMatchObject({ state: 'idle', version: null });
   offer();
   expect(await invoke('check')).toMatchObject({
     state: 'downloading',
