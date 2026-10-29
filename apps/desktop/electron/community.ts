@@ -76,6 +76,7 @@ import {
   SOCIAL_REACTION_PATTERN,
   SOCIAL_ROLE_PERMISSION_KEYS,
   type SocialUser,
+  type SocialMember,
   type GatewayEvent,
 } from '@rooms/social';
 import type { SocialSession } from '@rooms/contracts';
@@ -893,9 +894,22 @@ export async function setupCommunity(
       throw new SocialInputError('The account changed. Open community management again.');
     return result;
   });
-  handle('rooms:social-members', (spaceId) =>
-    requireClient().listCommunityMembers(id.parse(spaceId)),
-  );
+  // The panel, the mention picker and the DM picker may ask at the same moment: they share one
+  // in-flight request (never a finished one, so membership changes are not served stale).
+  const memberRequests = new Map<string, Promise<SocialMember[]>>();
+  handle('rooms:social-members', (spaceId) => {
+    const current = requireClient(),
+      space = id.parse(spaceId),
+      key = `${current.instanceUrl}:${user!.id}:${space}`;
+    let pending = memberRequests.get(key);
+    if (!pending) {
+      pending = current.listCommunityMembers(space).finally(() => {
+        if (memberRequests.get(key) === pending) memberRequests.delete(key);
+      });
+      memberRequests.set(key, pending);
+    }
+    return pending;
+  });
   handle('rooms:social-friends', () => requireClient().listFriends());
   handle('rooms:social-add-friend', (username) =>
     requireClient().addFriend(z.string().min(7).max(37).parse(username)),

@@ -17,6 +17,7 @@ import {
   UserProfileDialog,
 } from './SocialSurfaces';
 import { RoomMembers } from './RoomMembers';
+import { prefetchRoomMembers } from './room-members';
 import { FriendsPage } from './FriendsPage';
 import { FriendRequiredDialog } from './FriendRequiredDialog';
 import DmCallRuntime from './DmCallRuntime';
@@ -342,6 +343,10 @@ export default function App() {
   const dmView =
     ['/chat', '/dm'].includes(visiblePath) &&
     community.dms.some((dm) => dm.id === community.activeChannelId);
+  const warmMembers = () => {
+    if (!dmView)
+      prefetchRoomMembers(community.serverUrl, community.user?.id, community.activeSpaceId);
+  };
   const communityView =
     !dmView &&
     !!community.user &&
@@ -669,6 +674,8 @@ export default function App() {
                 label={dmView ? t('Kişi bilgisi') : t('Üyeler')}
                 className="toolbar-icon"
                 disabled={!community.user}
+                onPointerEnter={warmMembers}
+                onFocus={warmMembers}
                 onClick={() => (dmView ? open('profile') : toggleContext())}
               >
                 <Users size={19} />
