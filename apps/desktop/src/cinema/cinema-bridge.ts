@@ -78,7 +78,10 @@ const copy: Record<CinemaErrorCode, string> = {
   CINEMA_STREMIO_NOT_CACHED: t(
     'Bu kaynak debrid önbelleğinde değil; indirme başladı. Biraz sonra yeniden dene ya da “Hazır” bir kaynak seç.',
   ),
-};
+
+  CINEMA_YOUTUBE_SEARCH_UNAVAILABLE: t(
+    'YouTube araması şu an kullanılamıyor. Bağlantıyı yapıştırarak açabilirsin.',
+  ),};
 
 /** The bridge code inside an error, if any (IPC wraps messages). */
 export function cinemaErrorCode(error: unknown): CinemaErrorCode | null {

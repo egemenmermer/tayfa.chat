@@ -1102,6 +1102,18 @@ export function createCommunityCinemaFixtureBridge(
         80,
       );
     },
+    // Development stand-in: labeled examples, nothing reaches YouTube.
+    youtubeSearch: async (hallId, text) => {
+      hall(hallId);
+      if (text.trim().length < 2) return [];
+      return delay(
+        [
+          { videoId: 'dQw4w9WgXcQ', title: `${text.trim()} (geliştirme örneği)`, durationSec: 213 },
+          { videoId: 'jNQXAC9IVRw', title: `${text.trim()} (geliştirme örneği 2)`, durationSec: 19 },
+        ],
+        120,
+      );
+    },
     guide: async (hallId, refs, fromMs, toMs) => {
       hall(hallId);
       return delay(
