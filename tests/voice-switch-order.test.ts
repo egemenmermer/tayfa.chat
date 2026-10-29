@@ -175,6 +175,22 @@ it('rapid A→B→C connects only C, gives B its grant back and keeps no carried
   expect(useVoiceContext.getState()).toMatchObject({ channelId: 'three', busy: false });
 });
 
+it('a slow grant of a superseded room never holds the newest join back', async () => {
+  await inRoomOne();
+  const grantTwo = deferred<ReturnType<typeof grantFor>>();
+  f.grant.mockImplementation(async (id: string) =>
+    id === 'two' ? grantTwo.promise : grantFor(id),
+  );
+  void joinVoice('two', 'Two');
+  await joinVoice('three', 'Three');
+  expect(f.connect).toHaveBeenCalledWith('room-three', expect.any(String), 'wss://media.test');
+  expect(useVoiceContext.getState()).toMatchObject({ channelId: 'three', busy: false });
+  // B's grant arrives late and is given back.
+  grantTwo.resolve(grantFor('two'));
+  await vi.waitFor(() => expect(f.leave).toHaveBeenCalledWith('two'));
+  expect(f.connect).toHaveBeenCalledTimes(1);
+});
+
 it('A→B→A waits for the leave of A before asking for A again', async () => {
   await inRoomOne();
   const leaveOne = deferred<void>();

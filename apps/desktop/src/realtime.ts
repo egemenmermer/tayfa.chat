@@ -375,11 +375,22 @@ export function joinVoice(channelId: string, roomName: string): Promise<void> {
     if (superseded && useVoiceContext.getState().channelId === channelId) return;
     await leavePresence(channelId);
   };
+  /**
+   * Stops a superseded join without waiting for its grant (the newer join must not wait for it).
+   * Same transition but another account: nothing newer will take a carried microphone.
+   */
+  const abandon = () => {
+    if (handoff && epoch === transitionEpoch)
+      void mediaProvider()
+        .disconnect()
+        .catch(() => {});
+    void giveBack(true);
+  };
   const next = serialize(async () => {
     try {
       await departure;
       if (!current()) {
-        await giveBack(true);
+        abandon();
         return;
       }
       const asked = await granting;
@@ -389,7 +400,7 @@ export function joinVoice(channelId: string, roomName: string): Promise<void> {
           ? asked.grant
           : (await requestGrant(channelId)).grant;
       if (!current()) {
-        await giveBack(true);
+        abandon();
         return;
       }
       mediaServer = { scope, url: grant.serverUrl };
@@ -434,7 +445,7 @@ export function joinVoice(channelId: string, roomName: string): Promise<void> {
         // A connected room is left by disconnectActive; a grant that never connected is given back.
         const held = activeChannel === channelId;
         await disconnectActive().catch(() => {});
-        if (!held) await giveBack(false);
+        if (!held) void giveBack(false);
         useVoiceContext.setState({ error: errorText(error) });
         throw error;
       }
