@@ -107,8 +107,27 @@ mediaProvider().subscribeState(() => {
   heardInput = name;
   applyInputLevel();
 });
+/** Input sensitivity and the leveler follow the saved preferences, for rooms and DM calls. */
+function applyInputGate() {
+  const p = useRooms.getState().preferences;
+  try {
+    mediaProvider().setInputGate?.({ auto: p.inputSensitivityAuto, threshold: p.inputSensitivity });
+    mediaProvider().setMicLeveler?.(p.micLeveler);
+  } catch {
+    /* The microphone keeps its previous processing. */
+  }
+}
+applyInputGate();
 useRooms.subscribe((state, previous) => {
   if (state.preferences.inputLevels !== previous.preferences.inputLevels) applyInputLevel();
+  const now = state.preferences,
+    before = previous.preferences;
+  if (
+    now.inputSensitivityAuto !== before.inputSensitivityAuto ||
+    now.inputSensitivity !== before.inputSensitivity ||
+    now.micLeveler !== before.micLeveler
+  )
+    applyInputGate();
 });
 mediaProvider().onMove?.((channelId) => {
   if (useVoiceContext.getState().channelId === channelId) return;

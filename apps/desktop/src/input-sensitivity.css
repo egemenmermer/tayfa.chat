@@ -1,0 +1,51 @@
+.input-sensitivity-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.input-sensitivity-meter {
+  position: relative;
+  height: 10px;
+  margin: 10px 0 8px;
+  border-radius: 5px;
+  background: #454c5b;
+  overflow: hidden;
+}
+.input-sensitivity-meter .fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #c9a85a;
+  transition: width 60ms linear;
+}
+.input-sensitivity-meter.sending .fill {
+  background: #75d7ac;
+}
+.input-sensitivity-meter .threshold {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  margin-left: -1px;
+  background: #ffffff;
+}
+.input-sensitivity-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.input-sensitivity-slider input {
+  flex: 1;
+  min-width: 0;
+}
+.input-sensitivity-slider span {
+  flex: none;
+  min-width: 52px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .input-sensitivity-meter .fill {
+    transition: none;
+  }
+}

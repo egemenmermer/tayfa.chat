@@ -1058,7 +1058,11 @@ it('attaches the selected local filter before any microphone publication', async
     (local as unknown as { publishTrack: ReturnType<typeof vi.fn> }).publishTrack.mock
       .invocationCallOrder[0],
   );
-  expect(SoundboardMixer).toHaveBeenCalledWith(true, 'strong', expect.any(Object));
+  // The mixer also gets the input gate and leveler defaults (automatic sensitivity, leveler on).
+  expect(SoundboardMixer).toHaveBeenCalledWith(true, 'strong', expect.any(Object), {
+    gate: { auto: true, threshold: -34 },
+    leveler: true,
+  });
   await provider.disconnect();
 });
 it('never publishes raw microphone audio after a filter initialization failure', async () => {
