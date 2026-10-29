@@ -854,4 +854,12 @@ export const shell: Catalog = {
     'Couldn’t change the microphone. Check your voice settings and try again.',
   'Bu mesajın kanalı açılamadı. Kanal listesinden yeniden dene.':
     'Couldn’t open this message’s channel. Try again from the channel list.',
+
+  // Windows in-app updates
+  'Otomatik güncellemeler': 'Automatic updates',
+  'Otomatik güncellemeleri etkinleştir': 'Enable automatic updates',
+  'Yeni sürüm arka planda iner, doğrulanır ve yeniden başlatınca kurulur.':
+    'New versions download in the background, get verified and install when you restart.',
+  'Windows kurulum dosyası henüz yayıncı imzası taşımıyor; indirilen dosya GitHub sürümündeki SHA-512 özetiyle doğrulanır.':
+    'The Windows installer isn’t publisher-signed yet; the download is checked against the SHA-512 published with the GitHub release.',
 };

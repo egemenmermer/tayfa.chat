@@ -284,12 +284,18 @@ function setupWindowsUpdates(file: string, feed: string, bind: Bind) {
   });
   const check = async () => {
     if (['checking', 'downloading', 'ready'].includes(status.state)) return;
+    // A token cancelled earlier must not hide this check's errors.
+    updateResult = null;
     try {
       updateResult = await autoUpdater.checkForUpdates();
       // Download failures arrive as the error event; the promise must not go unhandled.
       void updateResult?.downloadPromise?.catch(() => undefined);
     } catch {
-      /* The error event already set the state. */
+      // The error event normally set the state already; never stay "checking".
+      if (status.state === 'checking') {
+        status.state = 'error';
+        failure = 'failed';
+      }
     }
   };
   const automatic = () => {

@@ -83,6 +83,8 @@ jobs:
       ROOMS_VLC: '1'
       # Hosted Windows has no speaker endpoint; physical audio acceptance remains open.
       ROOMS_VLC_QA_AUDIO: unavailable
+      # In-app updates read latest.yml from the release marked Latest, like the macOS appcast.
+      ROOMS_UPDATE_FEED: https://github.com/${{ github.repository }}/releases/latest/download/
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -112,8 +114,13 @@ jobs:
         run: node scripts/verify-vlc-native.mjs
       - name: Verify actual personal-player UI and native IPC
         run: node scripts/verify-vlc-ui.mjs
-      - name: Build unsigned NSIS installer with public resource guard
-        run: pnpm exec electron-builder --win nsis --x64 --publish never
+      - name: Write the Windows update feed
+        run: node scripts/windows-update-feed.mjs config
+      # The channel is pinned: a prerelease version would otherwise write rc.yml instead of latest.yml.
+      - name: Build unsigned NSIS installer and update metadata with public resource guard
+        run: pnpm exec electron-builder --win nsis --x64 --publish never --config.publish.provider=generic --config.publish.url=${{ env.ROOMS_UPDATE_FEED }} --config.publish.channel=latest
+      - name: Verify update metadata against the installer
+        run: node scripts/windows-update-feed.mjs verify release
       - name: Install and verify actual packaged application
         env:
           ROOMS_WINDOWS_INSTALL_DIR: ${{ runner.temp }}\ROOMS-Çığ\rooms-candidate-installed
@@ -132,6 +139,8 @@ jobs:
           if-no-files-found: error
           path: |
             release/*setup.exe
+            release/*setup.exe.blockmap
+            release/latest.yml
             release/windows-package-*.json
             release/windows-package-*.png
             .local/vlc-native-check/result.json
