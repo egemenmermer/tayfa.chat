@@ -37,6 +37,20 @@ Ortak kuyruk medyası resmî YouTube video kimliği veya bağımsız kaynağa ai
 
 Oda başına bir ana Sinema, YouTube veya Ekran etkinliği bulunabilir. Güncel masaüstü istemci `cinema` ve `youtube` oda etkinliklerini açmaz: eski istemcinin veya iPhone'un başlattığı oturumu açıklar ve yalnızca hostun bitirmesine izin verir. Servis bu türleri eski istemciler için kabul etmeye devam eder. Anketler ve beyaz tahta birlikte kullanılabilir. Ev sahibi ayrılırsa veya 30 saniyelik etkinlik kirası biterse bağlı uygun katılımcıların en eskisi ev sahibi olur. Ekran kaynağının sahipliği devrolmaz; yeni ev sahibi `awaiting-source` görür. Uygun katılımcı kalmazsa ana etkinlik biter. İzleme, ses odasında bulunmak anlamına gelmez.
 
+## Metin kanalında anket
+
+Bir metin kanalına gönderilen anket, o kanalın kendi etkinlik odasında yaşar (`roomId` = mesajın `channelId`). Sunucu değişikliği yoktur: `authorize` o kanal için VIEW_CHANNEL denetler, `poll.create` için SendMessage gerekir. Mesaj yalnızca okunur bir cümle ve sonda kısa bir kimlik taşır:
+
+```text
+📊 Anket: <soru> — Tayfa’nın yeni sürümünde oy ver. #Ab3dEf6hIj9k
+```
+
+- Cümle gönderenin dilindedir (İngilizcesi `📊 Poll: <question> — vote in the latest Tayfa.`). Kimlik 12 harf/rakamdır; hem mesaj işareti hem `pollId` olarak kullanılır.
+- Tanıma, kırpılmış içeriğin tamamına uygulanır: `^📊 [\s\S]+ #([A-Za-z0-9]{12})$`. Alıntı, ek metinli düzenleme veya özel mesaj kart olmaz.
+- Soru, seçenekler ve oylar yalnızca odanın anlık görüntüsünden okunur, mesaj metninden asla. Odada o kimlikte anket yoksa kart "bulunamadı" der ve cümleyi gösterir.
+- Önce `poll.create`, sonra mesaj gönderilir; gönderim tekrarı aynı kimliği kullanır. Eski istemciler cümleyi düz metin olarak görür.
+- Oda başına 50 anket sınırı (`POLL_LIMIT`) kapanmış anketleri de sayar.
+
 ## Kalıcılık ve dağıtım
 
 `ActivityRepository`, load/save/list sağlar. `MemoryActivityRepository` yalnızca test içindir. `FileActivityRepository` yerel geliştirme sunucusunu 0600 izinli dosyalar ve atomik değiştirmeyle kalıcı tutar. Tek yazıcı süreç destekler; veritabanı düzeyinde çökme dayanıklılığı veya dağıtık kilit iddiası yoktur. Birden çok kopya dağıtmadan önce PostgreSQL işlem uygulaması ve çok süreçli sürüm kilidiyle değiştirilmelidir. Mevcut arayüz protokol değişmeden bunu mümkün kılar.
