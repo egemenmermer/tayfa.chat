@@ -236,7 +236,8 @@ export const media: Catalog = {
   'Yeni ses': 'New sound',
   'Sesi düzenle': 'Edit sound',
   'Emoji seç': 'Pick an emoji',
-  'Ses çalınca odadakilere bu emoji süzülür.': 'When the sound plays, this emoji floats up for everyone in the room.',
+  'Ses çalınca odadakilere bu emoji süzülür.':
+    'When the sound plays, this emoji floats up for everyone in the room.',
   'Ses adı': 'Sound name',
   'Emojiyi kaldır': 'Remove emoji',
   '{name} sesini düzenle': 'Edit sound {name}',

@@ -68,7 +68,9 @@ export function soundboardReactionPayload(emoji: string) {
 export function parseSoundboardReaction(payload: string) {
   try {
     const value = JSON.parse(payload) as { k?: unknown; e?: unknown } | null;
-    return value && typeof value === 'object' && value.k === 'sound' ? cleanSoundEmoji(value.e) : '';
+    return value && typeof value === 'object' && value.k === 'sound'
+      ? cleanSoundEmoji(value.e)
+      : '';
   } catch {
     return '';
   }

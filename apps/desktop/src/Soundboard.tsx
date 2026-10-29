@@ -412,7 +412,9 @@ export function SoundboardButton({ showTrigger = true }: { showTrigger?: boolean
                         {emoji || <Play size={18} />}
                       </span>
                       <strong>{label || clip.name}</strong>
-                      <small>{t('{seconds} sn', { seconds: clip.buffer.duration.toFixed(1) })}</small>
+                      <small>
+                        {t('{seconds} sn', { seconds: clip.buffer.duration.toFixed(1) })}
+                      </small>
                     </button>
                     <span className="sb-actions">
                       <button

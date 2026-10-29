@@ -820,7 +820,8 @@ it('relays soundboard reactions on their own topic, with a flood limit and no ef
   expect(reactions).toEqual([[body, 'carol']]);
   expect(controls).toEqual([]);
   expect(cursors).toEqual([]);
-  for (let i = 0; i < 60; i++) emit(RoomEvent.DataReceived, packet(body), carol, 0, 'rooms-reaction-v1');
+  for (let i = 0; i < 60; i++)
+    emit(RoomEvent.DataReceived, packet(body), carol, 0, 'rooms-reaction-v1');
   expect(reactions.length).toBeLessThanOrEqual(20);
   await provider.disconnect();
 });

@@ -1,7 +1,10 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { create } from 'zustand';
-import { cleanSoundEmoji, parseSoundboardReaction } from '../../../packages/shared-contracts/src/soundboard';
+import {
+  cleanSoundEmoji,
+  parseSoundboardReaction,
+} from '../../../packages/shared-contracts/src/soundboard';
 import { onReaction } from './realtime';
 
 /** One emoji drifting up from the bottom of the window. Geometry is fixed at creation. */
@@ -16,7 +19,7 @@ export interface FloatingEmoji {
   duration: number;
 }
 const MAX_FLOATING = 24;
-/** Longest rise, ms; each item is dropped after its own duration. */
+/** Each item is dropped once its own animation is over. */
 const timers = new Map<number, ReturnType<typeof setTimeout>>();
 let serial = 0;
 export const useFloatingEmoji = create<{ items: FloatingEmoji[] }>(() => ({ items: [] }));

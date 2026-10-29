@@ -116,12 +116,19 @@ it('renames a sound for its owner or a manager only and keeps the stored emoji w
     const path = `/${sent.id}`;
     const renamed = await call('alice', 'PATCH', path, { name: '🎉 Air horn' });
     expect(renamed.status).toBe(200);
-    expect(await renamed.json()).toMatchObject({ id: sent.id, name: '🎉 Air horn', ownerId: 'alice' });
+    expect(await renamed.json()).toMatchObject({
+      id: sent.id,
+      name: '🎉 Air horn',
+      ownerId: 'alice',
+    });
     expect((await call('bob', 'PATCH', path, { name: 'x' })).status).toBe(403);
     expect((await call('admin', 'PATCH', path, { name: '🔥 Air horn' })).status).toBe(200);
     expect((await call('alice', 'PATCH', path, { name: ' ' })).status).toBe(400);
     expect((await call('alice', 'PATCH', path, { name: 'x', ownerId: 'bob' })).status).toBe(400);
-    expect((await call('alice', 'PATCH', `/${'0'.repeat(8)}-0000-4000-8000-000000000000`, { name: 'x' })).status).toBe(404);
+    expect(
+      (await call('alice', 'PATCH', `/${'0'.repeat(8)}-0000-4000-8000-000000000000`, { name: 'x' }))
+        .status,
+    ).toBe(404);
     const catalog = await (await call('alice', 'GET')).json();
     expect(catalog.clips).toEqual([expect.objectContaining({ id: sent.id, name: '🔥 Air horn' })]);
   } finally {

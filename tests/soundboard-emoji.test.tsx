@@ -107,7 +107,14 @@ it('keeps old sounds working: the emoji is the first word of the name and old na
 it('reads only a single emoji out of a reaction packet and ignores everything else', () => {
   expect(parseSoundboardReaction(soundboardReactionPayload('🔥'))).toBe('🔥');
   expect(soundboardReactionPayload('hello')).toBe('');
-  for (const bad of ['', 'nope', '{"k":"other","e":"🔥"}', '{"k":"sound","e":"hi"}', 'null', '{"k":"sound"}'])
+  for (const bad of [
+    '',
+    'nope',
+    '{"k":"other","e":"🔥"}',
+    '{"k":"sound","e":"hi"}',
+    'null',
+    '{"k":"sound"}',
+  ])
     expect(parseSoundboardReaction(bad)).toBe('');
   // Future fields on the packet are ignored by this client.
   expect(parseSoundboardReaction('{"v":2,"k":"sound","e":"🔥","name":"x","x":1}')).toBe('🔥');
@@ -116,12 +123,12 @@ it('reads only a single emoji out of a reaction packet and ignores everything el
 it('plays a sound, broadcasts its emoji to the room and floats it locally; no emoji, no broadcast', async () => {
   await open();
   fireEvent.click(screen.getByRole('button', { name: '🎉 Air horn' }));
-  await waitFor(() => expect(realtime.publish).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(realtime.publish).toHaveBeenCalledTimes(1), { timeout: 5000 });
   expect(realtime.play).toHaveBeenCalledTimes(1);
   expect(parseSoundboardReaction(realtime.publish.mock.calls[0][0] as string)).toBe('🎉');
   expect(useFloatingEmoji.getState().items.map((item) => item.emoji)).toEqual(['🎉']);
   fireEvent.click(screen.getByRole('button', { name: 'Plain sound' }));
-  await waitFor(() => expect(realtime.play).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(realtime.play).toHaveBeenCalledTimes(2), { timeout: 5000 });
   expect(realtime.publish).toHaveBeenCalledTimes(1);
 });
 

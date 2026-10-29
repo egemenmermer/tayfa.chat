@@ -1355,15 +1355,15 @@ export async function setupCommunity(
               .strict()
               .parse(input)
           : z
-            .object({
-              name: z.string().trim().min(1).max(40),
-              audio: z
-                .string()
-                .max(2_666_672)
-                .regex(/^[A-Za-z0-9+/]*={0,2}$/),
-            })
-            .strict()
-            .parse(input);
+              .object({
+                name: z.string().trim().min(1).max(40),
+                audio: z
+                  .string()
+                  .max(2_666_672)
+                  .regex(/^[A-Za-z0-9+/]*={0,2}$/),
+              })
+              .strict()
+              .parse(input);
     const response = await fetch(
       `${new URL(current.instanceUrl).origin}/rooms-access/v1/soundboard/${encodeURIComponent(channel)}${clip}`,
       {
@@ -1387,7 +1387,11 @@ export async function setupCommunity(
         SOUNDBOARD_INVALID_AUDIO: t('En fazla 8 saniyelik mono veya stereo ses seç.'),
       };
       // A server that predates renaming answers the unknown route with a plain 404/405.
-      if (method === 'PATCH' && (response.status === 404 || response.status === 405) && !messages[error])
+      if (
+        method === 'PATCH' &&
+        (response.status === 404 || response.status === 405) &&
+        !messages[error]
+      )
         throw new SocialInputError(
           t('Sunucu henüz güncel değil; sesi düzenlemek için sunucunun güncellenmesi gerekir.'),
         );
