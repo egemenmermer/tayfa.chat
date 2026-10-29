@@ -144,6 +144,7 @@ export class SoundboardMixer implements TrackProcessor<Track.Kind.Audio, AudioPr
     this.denoiser?.disconnect();
     this.denoiser?.destroy();
     this.denoiser = undefined;
+    this.disposeLeveler();
     this.processedTrack?.stop();
     this.destination?.stream.getTracks().forEach((track) => track.stop());
     this.input = undefined;
