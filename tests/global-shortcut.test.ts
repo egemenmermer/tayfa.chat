@@ -1,6 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import {
   checkShortcutRequest,
+  type GlobalShortcutResult,
   normalizeGlobalShortcut,
   shortcutProblem,
   toAccelerator,
@@ -66,10 +67,10 @@ function harness(accepts: (accelerator: string) => boolean = () => true) {
     ipc: { handle: (channel: string, fn: never) => void handlers.set(channel, fn) },
     shortcuts,
     assertSender: assertSender as never,
-    window: () => window,
+    window: () => window as never,
   });
   const set = (value: unknown, trusted = true) =>
-    handlers.get('rooms:global-shortcuts-set')!({ trusted }, value);
+    handlers.get('rooms:global-shortcuts-set')!({ trusted }, value) as GlobalShortcutResult;
   return { api, set, registered, shortcuts, send, assertSender, window };
 }
 
@@ -131,7 +132,7 @@ it('tells the window which action fired and unregisters on dispose', () => {
   expect(h.send).toHaveBeenCalledTimes(2);
 });
 
-it('treats a register() exception as an invalid accelerator', () => {
+it('reports a register() exception as a combination that could not be taken', () => {
   const h = harness();
   h.shortcuts.register.mockImplementationOnce(() => {
     throw new Error('bad accelerator');
