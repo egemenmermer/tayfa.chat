@@ -6,6 +6,7 @@ import { openActivity, retiredActivity } from './activity-route';
 import { FriendRequestButton } from './FriendRequestButton';
 import { MediaStage } from './MediaStage';
 import { watchScreen, setScreenVolume, setScreenQuality } from './realtime';
+import { PersonVolumeSlider } from './PersonVolumeSlider';
 export { MediaStage } from './MediaStage';
 import './reference-chat.css';
 import './reference-voice.css';
@@ -2130,14 +2131,10 @@ export function CommunityVoice({
             <>
               <label className="field-label">
                 {t('Kişisel ses · {percent}%', { percent: Math.round(person.volume * 100) })}
-                <input
-                  type="range"
-                  aria-label={t('Katılımcı sesi')}
-                  min={0}
-                  max={1}
-                  step={0.01}
+                <PersonVolumeSlider
+                  label={t('Katılımcı sesi')}
                   value={person.volume}
-                  onChange={(e) => setParticipantVolume(person.id, Number(e.target.value))}
+                  onChange={(value) => setParticipantVolume(person.id, value)}
                 />
               </label>
               {!person.id.startsWith('rooms-music-') && (

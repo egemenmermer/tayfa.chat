@@ -24,6 +24,7 @@ import {
   VideoQuality,
   createLocalAudioTrack,
   type Participant,
+  type RemoteParticipant,
   type TrackPublication,
 } from 'livekit-client';
 import {
@@ -216,6 +217,17 @@ export function parseWatch(payload: Uint8Array): string | null | undefined {
 function listenerGain(id: string, level: number) {
   return id.startsWith('rooms-music-') ? level * level : level;
 }
+/** The loudest a listener can set one person: 200%, i.e. a Web Audio gain of 2. */
+export const MAX_PARTICIPANT_VOLUME = 2;
+/** A stored or requested personal level is a finite number from 0 to 200%. */
+function isParticipantLevel(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= MAX_PARTICIPANT_VOLUME
+  );
+}
 /** Only well-formed ids survive, so a stray attribute can never become a fetch path. */
 function personalSounds(attributes: Readonly<Record<string, string>> | undefined) {
   let sounds: MediaParticipant['sounds'];
@@ -319,17 +331,16 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
         for (const [id, level] of Object.entries(value).slice(0, 512))
           if (
             id.length <= 256 &&
-            typeof level === 'number' &&
-            Number.isFinite(level) &&
-            level >= 0 &&
-            level <= 1
+            isParticipantLevel(level) &&
+            // Shared-screen sound keeps the plain element volume, which stops at 100%.
+            (level <= 1 || !id.startsWith('screen:'))
           )
             this.volumes.set(id, level);
     } catch {
       /* Missing or damaged settings do not prevent joining. */
     }
     for (const [id, person] of this.room?.remoteParticipants ?? []) {
-      person.setVolume(listenerGain(id, this.volumes.get(id) ?? 1), Track.Source.Microphone);
+      this.applyPersonVolume(person);
       if (person.getTrackPublication?.(Track.Source.ScreenShareAudio))
         person.setVolume(this.volumes.get(`screen:${id}`) ?? 1, Track.Source.ScreenShareAudio);
     }
@@ -807,12 +818,12 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
         if (screen) this.screenAudio.add(publication.trackSid);
         element.muted =
           this.state.deafened || (screen && this.watchedScreen !== participant.identity);
-        participant.setVolume(
-          screen
-            ? (this.volumes.get(`screen:${participant.identity}`) ?? 1)
-            : listenerGain(participant.identity, this.volumes.get(participant.identity) ?? 1),
-          screen ? Track.Source.ScreenShareAudio : Track.Source.Microphone,
-        );
+        if (screen)
+          participant.setVolume(
+            this.volumes.get(`screen:${participant.identity}`) ?? 1,
+            Track.Source.ScreenShareAudio,
+          );
+        else this.applyPersonVolume(participant);
         void element.play().catch(() => this.patch({ audioBlocked: true }));
         if (participant.identity.startsWith('rooms-music-')) this.applyEqualizer();
       }
@@ -828,6 +839,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       this.audio.delete(publication.trackSid);
       this.screenAudio.delete(publication.trackSid);
       this.equalized.delete(publication.trackSid);
+      this.boosted.delete(publication.trackSid);
       sync();
     });
     room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
@@ -1210,9 +1222,54 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       }
     }
   }
+  /**
+   * Plays one person at this listener's level. The element volume of a normal track tops out at 1,
+   * so a person set above 100% is routed through a Web Audio gain instead (the same way the DJ
+   * equalizer takes over a track), which can amplify to 200%. Deafen silences that path through
+   * its gain, because muting the element no longer reaches it.
+   */
+  private applyPersonVolume(person: RemoteParticipant) {
+    const id = person.identity,
+      level = this.volumes.get(id) ?? 1;
+    const music = id.startsWith('rooms-music-');
+    const boost = !music && level > 1 && typeof AudioContext !== 'undefined';
+    let boosted = false;
+    for (const pub of person.trackPublications?.values() ?? []) {
+      if (pub.source !== Track.Source.Microphone) continue;
+      const track = pub.track as
+        (Track & { setAudioContext?(context: AudioContext | undefined): void }) | undefined;
+      const element = this.audio.get(pub.trackSid);
+      if (!track?.setAudioContext || !element) continue;
+      if (boost) {
+        if (!this.boostContext) {
+          this.boostContext = new AudioContext();
+          void (this.boostContext as AudioContext & { setSinkId?(id: string): Promise<void> })
+            .setSinkId?.(this.outputDeviceId)
+            ?.catch(() => {});
+        }
+        if (!this.boosted.has(pub.trackSid)) {
+          element.muted = true;
+          track.setAudioContext(this.boostContext);
+          this.boosted.add(pub.trackSid);
+        }
+        if (this.boostContext.state !== 'running') void this.boostContext.resume().catch(() => {});
+        boosted = true;
+      } else if (this.boosted.delete(pub.trackSid)) {
+        track.setAudioContext(undefined);
+        element.muted = this.state.deafened;
+      }
+    }
+    const gain = listenerGain(id, level);
+    person.setVolume(
+      boosted ? (this.state.deafened ? 0 : gain) : Math.min(1, gain),
+      Track.Source.Microphone,
+    );
+  }
+  private boostContext: AudioContext | null = null;
+  /** Microphone tracks currently played through the 200% Web Audio path. */
+  private boosted = new Set<string>();
   setParticipantVolume(id: string, volume: number) {
-    if (!Number.isFinite(volume) || volume < 0 || volume > 1)
-      throw new Error('Volume must be between 0 and 1.');
+    if (!isParticipantLevel(volume)) throw new Error('Volume must be between 0 and 2.');
     this.volumes.set(id, volume);
     if (this.listenerScope)
       try {
@@ -1223,9 +1280,8 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       } catch {
         /* Playback remains usable when local storage is unavailable. */
       }
-    this.room?.remoteParticipants
-      .get(id)
-      ?.setVolume(listenerGain(id, volume), Track.Source.Microphone);
+    const person = this.room?.remoteParticipants.get(id);
+    if (person) this.applyPersonVolume(person);
     if (id.startsWith('rooms-music-')) this.applyEqualizer();
     this.sync();
   }
@@ -1294,9 +1350,15 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     for (const [id, element] of this.audio)
       element.muted =
         this.equalized.has(id) ||
+        this.boosted.has(id) ||
         this.state.deafened ||
         (this.screenAudio.has(id) && !allowed.has(id));
     this.applyEqualizer();
+    // Deafen reaches a boosted person only through its gain, so refresh those.
+    if (this.boosted.size)
+      for (const person of this.room?.remoteParticipants.values() ?? [])
+        if ([...(person.trackPublications?.keys() ?? [])].some((sid) => this.boosted.has(sid)))
+          this.applyPersonVolume(person);
   }
   setScreenVolume(id: string, volume: number) {
     if (!Number.isFinite(volume) || volume < 0 || volume > 1)
@@ -1344,7 +1406,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       const room = this.requireRoom();
       await this.switchDevice(room, 'audioinput', inputId || '');
       const output = await this.switchDevice(room, 'audiooutput', outputId || '');
-      for (const context of [this.soundContext, this.equalizerContext])
+      for (const context of [this.soundContext, this.equalizerContext, this.boostContext])
         await (
           context as (AudioContext & { setSinkId?(id: string): Promise<void> }) | null
         )?.setSinkId?.(output);
@@ -1477,6 +1539,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     });
     this.audio.clear();
     this.equalized.clear();
+    this.boosted.clear();
     this.priorStats = null;
   }
   disconnect(): Promise<void> {

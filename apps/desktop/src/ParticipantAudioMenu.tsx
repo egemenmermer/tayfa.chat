@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { MediaParticipant } from '@rooms/media';
 import { useRealtime, setParticipantVolume } from './realtime';
 import { t } from './i18n';
+import { PersonVolumeSlider } from './PersonVolumeSlider';
 import { setPersonalSoundMuted, usePersonalSoundMutes } from './personal-sound-mutes';
 import './participant-audio-menu.css';
 /** The level each person had before this listener muted them, whichever menu muted them. */
@@ -41,14 +42,10 @@ export function ParticipantAudioControls({
       )}
       <label>
         {t('Ses düzeyi')} <span>{Math.round(person.volume * 100)}%</span>
-        <input
-          aria-label={t('{name} ses düzeyi', { name: person.name })}
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
+        <PersonVolumeSlider
+          label={t('{name} ses düzeyi', { name: person.name })}
           value={person.volume}
-          onChange={(e) => volume(Number(e.target.value))}
+          onChange={volume}
         />
       </label>
     </>

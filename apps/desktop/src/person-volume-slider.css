@@ -1,0 +1,45 @@
+/* 0–200% slider with a tick at 100% (the middle of the track) and a reset button. */
+/* float: menus style "label span" as a right-aligned value; these spans are layout, not values. */
+.person-volume {
+  display: block;
+  width: 100%;
+  float: none !important;
+}
+.person-volume-track {
+  position: relative;
+  display: block;
+  float: none !important;
+}
+.person-volume-track input {
+  display: block;
+  width: 100%;
+  margin: 10px 0 0;
+  accent-color: var(--accent, #9384ff);
+}
+.person-volume-mark {
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  width: 2px;
+  height: 6px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--text-secondary, #9aa0ad);
+  pointer-events: none;
+}
+.person-volume .person-volume-reset {
+  display: inline-flex;
+  width: auto;
+  gap: 4px;
+  margin: 4px 0 0;
+  padding: 2px 8px;
+  border: 1px solid var(--border, #363a45);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #9aa0ad);
+  font-size: 11px;
+  cursor: pointer;
+}
+.person-volume .person-volume-reset:hover:not(:disabled) {
+  color: var(--text, #f2f3f7);
+}
