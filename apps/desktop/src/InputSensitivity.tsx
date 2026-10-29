@@ -52,7 +52,10 @@ export function InputSensitivity({
   // Automatic mode shows the threshold the gate found; manual shows the slider (also before saving).
   const line = auto ? (report?.threshold ?? null) : threshold;
   const level = report ? Math.round(report.level) : null;
-  const sending = !!report && (auto ? report.open : report.level >= threshold);
+  // The gate's own answer whenever it runs these settings (automatic, the mic test, a saved threshold);
+  // the level only for an unsaved draft threshold while the room's gate still runs the saved one.
+  const sending =
+    !!report && (auto || report.threshold === threshold ? report.open : report.level >= threshold);
   return (
     <div className="input-sensitivity">
       <div className="settings-row">

@@ -98,6 +98,14 @@ describe('input sensitivity control', () => {
     send({ open: true, level: -22, threshold: -30 });
     expect(meter.getAttribute('aria-valuetext')).toBe('-22 dB · gönderiliyor');
     expect(meter.className).toContain('sending');
+    // A gate running this threshold answers itself: open through its hold even between syllables.
+    send({ open: true, level: -42, threshold: -30 });
+    expect(meter.getAttribute('aria-valuetext')).toBe('-42 dB · gönderiliyor');
+    send({ open: false, level: -28, threshold: -30 });
+    expect(meter.getAttribute('aria-valuetext')).toBe('-28 dB · gönderilmiyor');
+    // An unsaved draft while the room's gate still runs the saved -34: judged by the level.
+    send({ open: false, level: -25, threshold: -34 });
+    expect(meter.getAttribute('aria-valuetext')).toBe('-25 dB · gönderiliyor');
   });
   it('automatic mode hides the slider and shows the threshold the gate found', () => {
     const onAuto = vi.fn();

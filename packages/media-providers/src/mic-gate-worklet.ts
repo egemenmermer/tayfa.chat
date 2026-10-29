@@ -10,6 +10,8 @@ class RoomsMicGateProcessor extends AudioWorkletProcessor {
   private gate: MicGateCore;
   private destroyed = false;
   private sinceReport = 0;
+  /** Loudest frame since the last level report, so the meter does not flicker between syllables. */
+  private peak = -120;
   private readonly reportEvery = Math.round(sampleRate * 0.05);
   constructor(options: { processorOptions?: Partial<MicGateSettings> }) {
     super();
@@ -31,10 +33,12 @@ class RoomsMicGateProcessor extends AudioWorkletProcessor {
     const target = output ?? new Float32Array(input.length);
     if (this.gate.process(input, target))
       this.port.postMessage({ type: 'state', ...this.gate.report() });
+    this.peak = Math.max(this.peak, this.gate.level);
     this.sinceReport += input.length;
     if (this.sinceReport >= this.reportEvery) {
+      this.port.postMessage({ type: 'level', ...this.gate.report(), level: this.peak });
       this.sinceReport = 0;
-      this.port.postMessage({ type: 'level', ...this.gate.report() });
+      this.peak = -120;
     }
     return true;
   }

@@ -916,7 +916,8 @@ export default function Settings({
           deviceId: p.inputId ? { exact: p.inputId } : undefined,
           echoCancellation: true,
           noiseSuppression: false,
-          autoGainControl: false,
+          // As in a room: the browser AGC runs unless strong noise removal replaces it.
+          autoGainControl: !p.noiseSuppression || p.noiseSuppressionMode !== 'strong',
           channelCount: 1,
           sampleRate: 48000,
         },
