@@ -5,6 +5,12 @@ export { selectedInputLabel } from './input-device';
 import type { NoiseSuppressionMode, NoiseProcessingState } from './noise-suppression';
 import { SoundboardMixer } from './soundboard';
 import {
+  DEFAULT_MIC_GATE,
+  micGateSettings,
+  type MicGateReport,
+  type MicGateSettings,
+} from './mic-gate';
+import {
   FLAT_EQUALIZER,
   equalizerNodes,
   isFlat,
@@ -149,6 +155,12 @@ export interface RealtimeMediaProvider {
   setNoiseSuppression(value: boolean, mode?: NoiseSuppressionMode): Promise<void>;
   /** Scales what the room hears from this microphone: 1 as captured, 0–2. */
   setInputLevel?(value: number): void;
+  /** Input sensitivity: below it nothing is sent and the speaking ring stays off. */
+  setInputGate?(settings: MicGateSettings): void;
+  /** The leveler after the noise filter ("Ses seviyesini dengele"). */
+  setMicLeveler?(value: boolean): void;
+  /** Live level of the sent microphone and the gate threshold, while the microphone runs. */
+  subscribeInputMeter?(listener: (report: MicGateReport) => void): () => void;
   playSoundboard(buffer: AudioBuffer, volume: number): Promise<void>;
   stopSoundboard(): void;
   publishCamera(enabled: boolean, deviceId?: string): Promise<void>;
@@ -434,6 +446,34 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     );
     return task;
   }
+  private gateSettings: MicGateSettings = DEFAULT_MIC_GATE;
+  private leveler = true;
+  /** The input gate of the current mixer; null when it has none (the meter decides then). */
+  private gateState: { mixer: SoundboardMixer; open: boolean } | null = null;
+  private meterListeners = new Set<(report: MicGateReport) => void>();
+  setInputGate(settings: MicGateSettings) {
+    this.gateSettings = micGateSettings(settings);
+    this.mixer?.setGate(this.gateSettings);
+    this.pendingMixer?.setGate(this.gateSettings);
+  }
+  setMicLeveler(value: boolean) {
+    this.leveler = value;
+    this.mixer?.setLeveler(value);
+    this.pendingMixer?.setLeveler(value);
+  }
+  subscribeInputMeter(listener: (report: MicGateReport) => void) {
+    this.meterListeners.add(listener);
+    return () => {
+      this.meterListeners.delete(listener);
+    };
+  }
+  /** Own speaking state from the gate: lit exactly while voice (or a soundboard clip) is sent. */
+  private localGateSpeaking(): boolean | undefined {
+    const gate = this.gateState,
+      mixer = this.mixer;
+    if (!gate || !mixer || gate.mixer !== mixer) return undefined;
+    return gate.open || !!mixer.playing;
+  }
   private inputLevel = 1;
   setInputLevel(value: number) {
     if (!Number.isFinite(value) || value < 0 || value > 2)
@@ -495,27 +535,45 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     this.patch({
       noiseProcessing: { status: this.noiseSuppression ? 'starting' : 'off', mode: this.noiseMode },
     });
-    const mixer = new SoundboardMixer(this.noiseSuppression, this.noiseMode, {
-      error: () => {
-        if (this.mixer !== mixer) return;
-        this.stopSoundboard();
-        this.patch({
-          muted: true,
-          error: t(
-            'Gürültü filtresi durdu. Mikrofon kapatıldı. Filtre modunu değiştirip mikrofonu yeniden aç.',
-          ),
-          noiseProcessing: { status: 'failed', mode: this.noiseMode },
-        });
-        void track
-          .mute()
-          .catch(() => {})
-          .finally(() => track.stop());
+    const mixer = new SoundboardMixer(
+      this.noiseSuppression,
+      this.noiseMode,
+      {
+        gate: (report) => {
+          if (this.mixer !== mixer && this.pendingMixer !== mixer) return;
+          const open = !!report?.open;
+          if (report && this.gateState?.mixer === mixer && this.gateState.open === open) return;
+          this.gateState = report ? { mixer, open } : null;
+          this.sync();
+        },
+        level: (report) => {
+          if (this.mixer === mixer) this.meterListeners.forEach((listener) => listener(report));
+        },
+        playing: () => {
+          if (this.mixer === mixer) this.sync();
+        },
+        error: () => {
+          if (this.mixer !== mixer) return;
+          this.stopSoundboard();
+          this.patch({
+            muted: true,
+            error: t(
+              'Gürültü filtresi durdu. Mikrofon kapatıldı. Filtre modunu değiştirip mikrofonu yeniden aç.',
+            ),
+            noiseProcessing: { status: 'failed', mode: this.noiseMode },
+          });
+          void track
+            .mute()
+            .catch(() => {})
+            .finally(() => track.stop());
+        },
+        stats: (stats) => {
+          if (this.mixer === mixer && this.state.noiseProcessing?.status === 'active')
+            this.patch({ noiseProcessing: { status: 'active', mode: this.noiseMode, stats } });
+        },
       },
-      stats: (stats) => {
-        if (this.mixer === mixer && this.state.noiseProcessing?.status === 'active')
-          this.patch({ noiseProcessing: { status: 'active', mode: this.noiseMode, stats } });
-      },
-    });
+      { gate: this.gateSettings, leveler: this.leveler },
+    );
     mixer.setInputLevel(this.inputLevel);
     this.pendingMixer = mixer;
     try {
@@ -666,10 +724,13 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
             p === room.localParticipant
               ? this.state.deafened
               : p.attributes?.['rooms.deafened'] === '1',
+          // Mute and push-to-talk win: a disabled microphone is never shown as speaking.
           speaking:
             this.status === 'connected' &&
             p.isMicrophoneEnabled &&
-            (this.speakingMeter.speaking(p.identity) ?? p.isSpeaking),
+            ((p === room.localParticipant ? this.localGateSpeaking() : undefined) ??
+              this.speakingMeter.speaking(p.identity) ??
+              p.isSpeaking),
           camera: p.isCameraEnabled,
           screen: p.isScreenShareEnabled,
           screenAudio:
@@ -1810,4 +1871,14 @@ export const mediaTransportStatus: ConnectionStatus = 'not-configured';
 export { createRnnoiseNode } from './rnnoise';
 
 export { createNoiseSuppressionNode } from './noise-suppression';
+export { createMicGateNode, type MicGateNode } from './mic-gate-node';
+export {
+  DEFAULT_MIC_GATE,
+  MIC_GATE_DEFAULT_DB,
+  MIC_GATE_MAX_DB,
+  MIC_GATE_MIN_DB,
+  clampMicGateThreshold,
+  micGateSettings,
+} from './mic-gate';
+export type { MicGateReport, MicGateSettings } from './mic-gate';
 export type { NoiseSuppressionMode, NoiseProcessingState } from './noise-suppression';

@@ -6,6 +6,8 @@ import {
   type NoiseSuppressionMode,
   type NoiseProcessingStats,
 } from './noise-suppression';
+import { createMicGateNode, type MicGateNode } from './mic-gate-node';
+import { DEFAULT_MIC_GATE, type MicGateReport, type MicGateSettings } from './mic-gate';
 /** Linear make-up gain after the leveler's compressor (about +6 dB). */
 export const MIC_LEVELER_MAKEUP = 2;
 /** Mix a user-selected clip into the existing authorized microphone publication. */
@@ -14,8 +16,21 @@ export class SoundboardMixer implements TrackProcessor<Track.Kind.Audio, AudioPr
   constructor(
     private noiseSuppression = false,
     private mode: NoiseSuppressionMode = 'strong',
-    private callbacks: { error?(): void; stats?(value: NoiseProcessingStats): void } = {},
-  ) {}
+    private callbacks: {
+      error?(): void;
+      stats?(value: NoiseProcessingStats): void;
+      /** The input gate opened or closed; null when it is unavailable (sent ungated). */
+      gate?(report: MicGateReport | null): void;
+      /** Live input level for the Settings meter, about 20 times a second. */
+      level?(report: MicGateReport): void;
+      /** A soundboard clip started or ended; it is sent past the gate. */
+      playing?(value: boolean): void;
+    } = {},
+    audio: { gate?: MicGateSettings; leveler?: boolean } = {},
+  ) {
+    this.gateSettings = audio.gate ?? DEFAULT_MIC_GATE;
+    this.leveling = audio.leveler ?? true;
+  }
   private destroyed = false;
   private denoiser?: NoiseSuppressionNode;
   private processingAbort?: AbortController;
@@ -44,9 +59,17 @@ export class SoundboardMixer implements TrackProcessor<Track.Kind.Audio, AudioPr
   private destination?: MediaStreamAudioDestinationNode;
   /** Evens out loud and quiet talkers after denoising, where the browser's own AGC is off. */
   private leveler?: { input: AudioNode; output: AudioNode };
+  /** Input gate between the voice chain and the room; soundboard clips bypass it. */
+  private gate?: MicGateNode;
+  private gateSettings: MicGateSettings;
+  private leveling: boolean;
   private clip?: AudioBufferSourceNode;
   private gain?: GainNode;
   private context?: AudioContext;
+  /** A soundboard clip is being sent now. */
+  get playing() {
+    return !!this.clip;
+  }
   async init(options: AudioProcessorOptions) {
     if (this.destroyed) throw new DOMException('Cancelled', 'AbortError');
     this.processingAbort = new AbortController();
@@ -58,11 +81,9 @@ export class SoundboardMixer implements TrackProcessor<Track.Kind.Audio, AudioPr
     this.input.connect(this.level);
     this.destination = this.context.createMediaStreamDestination();
     try {
-      if (this.noiseSuppression) {
-        this.denoiser = await this.createDenoiser();
-        this.level.connect(this.denoiser);
-        this.denoiser.connect(this.levelerFor(this.destination));
-      } else this.level.connect(this.destination);
+      await this.createGate();
+      if (this.noiseSuppression) this.denoiser = await this.createDenoiser();
+      this.wire();
       this.processedTrack = this.destination.stream.getAudioTracks()[0];
     } catch (error) {
       await this.destroy();
@@ -89,15 +110,68 @@ export class SoundboardMixer implements TrackProcessor<Track.Kind.Audio, AudioPr
       this.mode = previousMode;
       throw error;
     }
-    this.level.disconnect();
     this.denoiser?.destroy();
-    this.disposeLeveler();
     this.denoiser = node;
-    if (node) {
-      this.level.connect(node);
-      node.connect(this.levelerFor(this.destination));
-    } else this.level.connect(this.destination);
+    this.wire();
     this.noiseSuppression = value;
+  }
+  /** Input level → noise filter → leveler (filter on, leveler on) → gate → room. */
+  private wire() {
+    if (!this.level || !this.destination) return;
+    this.level.disconnect();
+    this.denoiser?.disconnect();
+    this.disposeLeveler();
+    this.gate?.disconnect();
+    const tail: AudioNode = this.gate ?? this.destination;
+    if (this.gate) this.gate.connect(this.destination);
+    if (this.denoiser) {
+      this.level.connect(this.denoiser);
+      this.denoiser.connect(this.leveling ? this.levelerFor(tail) : tail);
+    } else this.level.connect(tail);
+  }
+  private async createGate() {
+    const context = this.context;
+    if (!context) return;
+    let node: MicGateNode | null = null;
+    try {
+      node = await createMicGateNode(context, this.gateSettings, {
+        onState: (report) => {
+          if (this.gate === node) this.callbacks.gate?.(report);
+        },
+        onLevel: (report) => {
+          if (this.gate === node) this.callbacks.level?.(report);
+        },
+        onFailure: () => {
+          // A stopped gate would silence the microphone: send ungated instead.
+          if (this.gate !== node) return;
+          this.gate = undefined;
+          node?.destroy();
+          this.wire();
+          this.callbacks.gate?.(null);
+        },
+      });
+    } catch {
+      node = null;
+    }
+    if (this.destroyed) {
+      node?.destroy();
+      return;
+    }
+    this.gate = node ?? undefined;
+    this.callbacks.gate?.(
+      node ? { open: false, level: -120, threshold: this.gateSettings.threshold } : null,
+    );
+  }
+  /** Input sensitivity: automatic or a manual threshold in dBFS. */
+  setGate(settings: MicGateSettings) {
+    this.gateSettings = settings;
+    this.gate?.configure(settings);
+  }
+  /** The leveler after the noise filter ("Ses seviyesini dengele"); no effect while the filter is off. */
+  setLeveler(value: boolean) {
+    if (value === this.leveling) return;
+    this.leveling = value;
+    this.wire();
   }
   /**
    * Strong noise removal turns the browser's AGC off (it would amplify noise before the filter),
@@ -141,6 +215,7 @@ export class SoundboardMixer implements TrackProcessor<Track.Kind.Audio, AudioPr
         clip.stop();
       } catch {}
       clip.disconnect();
+      this.callbacks.playing?.(false);
     }
     this.gain?.disconnect();
     this.gain = undefined;
@@ -164,6 +239,7 @@ export class SoundboardMixer implements TrackProcessor<Track.Kind.Audio, AudioPr
       if (this.clip === clip) this.stop();
     };
     clip.start();
+    this.callbacks.playing?.(true);
   }
   async destroy() {
     this.destroyed = true;
@@ -177,6 +253,8 @@ export class SoundboardMixer implements TrackProcessor<Track.Kind.Audio, AudioPr
     this.denoiser?.destroy();
     this.denoiser = undefined;
     this.disposeLeveler();
+    this.gate?.destroy();
+    this.gate = undefined;
     this.processedTrack?.stop();
     this.destination?.stream.getTracks().forEach((track) => track.stop());
     this.input = undefined;
