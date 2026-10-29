@@ -137,6 +137,10 @@ it('steps handles with the keyboard', () => {
   expect(keyboardStep({ key: 'a', shiftKey: false })).toBeNull();
 });
 
+/** jsdom has no PointerEvent, so a MouseEvent of the pointer type carries the coordinates. */
+const pointer = (target: Element, type: string, clientX: number) =>
+  fireEvent(target, new MouseEvent(type, { bubbles: true, clientX }));
+
 function Harness({
   buffer,
   initial,
@@ -181,14 +185,14 @@ it('moves handles by keyboard and by dragging, and never beyond the limits', () 
   const track = document.querySelector('.sb-trim-track') as HTMLElement;
   track.getBoundingClientRect = () =>
     ({ left: 0, width: 200, right: 200, top: 0, bottom: 72, height: 72, x: 0, y: 0 }) as DOMRect;
-  fireEvent.pointerDown(start, { clientX: 40, pointerId: 1 });
+  pointer(start, 'pointerdown', 40);
   expect(start.getAttribute('aria-valuenow')).toBe('4');
   expect(end.getAttribute('aria-valuenow')).toBe('12');
-  fireEvent.pointerMove(track, { clientX: 200, pointerId: 1 });
-  expect(start.getAttribute('aria-valuenow')).toBe('11.95');
-  fireEvent.pointerUp(track, { pointerId: 1 });
-  fireEvent.pointerMove(track, { clientX: 0, pointerId: 1 });
-  expect(start.getAttribute('aria-valuenow')).toBe('11.95');
+  pointer(track, 'pointermove', 200);
+  expect(start.getAttribute('aria-valuenow')).toBe('19.95');
+  pointer(track, 'pointerup', 0);
+  pointer(track, 'pointermove', 0);
+  expect(start.getAttribute('aria-valuenow')).toBe('19.95');
 });
 
 it('previews only the selected part', () => {
