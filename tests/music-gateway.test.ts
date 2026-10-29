@@ -355,3 +355,60 @@ it('keeps the DJ lease through a passing Stoat failure and ends it on a real ref
     await server.close();
   }
 });
+
+it('lets a hall viewer without DJ control search YouTube, and refuses a lost seat or a bad query', async () => {
+  const server = Fastify();
+  let users: string[] = [];
+  const fetcher = vi
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation(
+      async () =>
+        new Response(JSON.stringify([{ id: 'w2BTr6qsLFc', title: 'Song', durationSec: 200 }])),
+    );
+  registerMusicGateway(server, {
+    url: 'http://worker',
+    secret,
+    apiKey: 'key',
+    apiSecret: 'secret',
+    livekitUrl: 'ws://livekit',
+    roomService: {
+      getParticipant: async () => {
+        throw new Error('hall viewers are not in the DJ room');
+      },
+      listParticipants: async () => [],
+      removeParticipant: async () => {},
+      updateParticipant: async () => {},
+    } as any,
+    authorize: async () => ({ userId: users.shift() ?? 'self', canControl: false }),
+  });
+  const request = (payload: unknown = { query: 'Diyar Pala' }, authorization = 'user-session') =>
+    server.inject({
+      method: 'POST',
+      url: '/v1/halls/hall/youtube-search',
+      headers: { authorization },
+      payload: payload as object,
+    });
+  try {
+    const ok = await request();
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toEqual([{ id: 'w2BTr6qsLFc', title: 'Song', durationSec: 200 }]);
+    expect(String(fetcher.mock.calls[0]![0])).toBe('http://worker/v1/search');
+    expect(
+      (
+        await server.inject({
+          method: 'POST',
+          url: '/v1/halls/hall/youtube-search',
+          payload: { query: 'abc' },
+        })
+      ).statusCode,
+    ).toBe(401);
+    expect((await request({ query: '\n' })).statusCode).toBe(503);
+    expect((await request({ query: 'abc', extra: 1 })).statusCode).toBe(503);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    users = ['self', 'someone-else'];
+    expect((await request()).statusCode).toBe(403);
+  } finally {
+    await server.close();
+    fetcher.mockRestore();
+  }
+});

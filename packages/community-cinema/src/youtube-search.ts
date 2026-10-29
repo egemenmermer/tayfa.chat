@@ -24,7 +24,6 @@ export function mapYouTubeSearch(value: unknown): YouTubeSearchResult[] {
     if (!entry || typeof entry !== 'object') continue;
     const { id, title, durationSec } = entry as Record<string, unknown>;
     if (typeof id !== 'string' || !VIDEO_ID.test(id) || seen.has(id)) continue;
-    // eslint-disable-next-line no-control-regex
     const clean = typeof title === 'string' ? title.replace(/[\x00-\x1f\x7f]/g, '').trim() : '';
     if (!clean) continue;
     seen.add(id);

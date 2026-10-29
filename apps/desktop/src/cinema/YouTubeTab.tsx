@@ -213,15 +213,7 @@ export function YouTubeTab() {
             }}
           />
           <button className="button primary" disabled={!text.trim() || busy || searching}>
-            {videoId ? (
-              steer ? (
-                <Play size={16} />
-              ) : (
-                <ListPlus size={16} />
-              )
-            ) : (
-              <Search size={16} />
-            )}
+            {videoId ? steer ? <Play size={16} /> : <ListPlus size={16} /> : <Search size={16} />}
             {videoId ? (steer ? t('Salonda aç') : t('Sıraya öner')) : t('Ara')}
           </button>
         </form>
@@ -319,7 +311,9 @@ export function YouTubeTab() {
         <div className="hall-youtube-empty">
           <MonitorPlay size={26} />
           <p>
-            {t('Bir YouTube bağlantısı yapıştır ya da bir şey ara; video salondaki herkes için aynı anda oynar.')}{' '}
+            {t(
+              'Bir YouTube bağlantısı yapıştır ya da bir şey ara; video salondaki herkes için aynı anda oynar.',
+            )}{' '}
             {t('{shortcut} ile de açabilirsin.', { shortcut: paletteShortcut })}
           </p>
         </div>

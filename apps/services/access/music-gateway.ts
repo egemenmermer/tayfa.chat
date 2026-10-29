@@ -405,7 +405,9 @@ export function registerMusicGateway(
         const result = await response.json().catch(() => null);
         if (!response.ok)
           throw new Error(
-            result?.error === 'MUSIC_SEARCH_BUSY' ? 'MUSIC_SEARCH_BUSY' : 'MUSIC_SEARCH_UNAVAILABLE',
+            result?.error === 'MUSIC_SEARCH_BUSY'
+              ? 'MUSIC_SEARCH_BUSY'
+              : 'MUSIC_SEARCH_UNAVAILABLE',
           );
         // The member may have lost access while yt-dlp ran.
         const fresh = await options.authorize(credential, id);

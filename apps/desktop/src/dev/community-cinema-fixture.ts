@@ -1109,7 +1109,11 @@ export function createCommunityCinemaFixtureBridge(
       return delay(
         [
           { videoId: 'dQw4w9WgXcQ', title: `${text.trim()} (geliştirme örneği)`, durationSec: 213 },
-          { videoId: 'jNQXAC9IVRw', title: `${text.trim()} (geliştirme örneği 2)`, durationSec: 19 },
+          {
+            videoId: 'jNQXAC9IVRw',
+            title: `${text.trim()} (geliştirme örneği 2)`,
+            durationSec: 19,
+          },
         ],
         120,
       );
