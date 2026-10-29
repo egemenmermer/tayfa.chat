@@ -121,7 +121,33 @@ export const settings: Catalog = {
   'Test sesi yalnızca bu cihazda çalar.': 'The test sound plays only on this device.',
   'Konuşma davranışı': 'Speaking behavior',
   'Bas konuş': 'Push to talk',
-  'Uygulama odaktayken tuşları basılı tut.': 'Hold the keys down while the app is focused.',
+  'Tuşu basılı tut, bırakınca mikrofon kapanır. Yalnızca Tayfa odaktayken çalışır.':
+    'Hold the key to talk, release to mute. Works only while Tayfa is focused.',
+  'Bas konuş, başka bir uygulamadayken çalışmaz: sistem tuşun bırakıldığını bildirmiyor. Başka uygulamadayken konuşmak için aşağıdaki mikrofon kısayolunu kullan.':
+    'Push to talk does not work while another app is focused, because the system does not report when a key is released. To use your microphone from another app, set the microphone shortcut below.',
+  'Başka bir uygulamadayken de çalışır.': 'Also works while another app is focused.',
+  'Sistem genelinde kısayollar yalnızca masaüstü uygulamasında çalışır.':
+    'System-wide shortcuts work only in the desktop app.',
+  'Hoparlörü kapatır ve açar; başka bir uygulamadayken de çalışır.':
+    'Turns your speakers off and on. Also works while another app is focused.',
+  'Mikrofonu aç / kapat (sistem genelinde)': 'Mute / unmute (system-wide)',
+  'Sesi kapat (sistem genelinde)': 'Turn sound off (system-wide)',
+  Atanmadı: 'Not set',
+  Ata: 'Set',
+  Temizle: 'Clear',
+  'Kısayola Ctrl, Alt veya ⌘ / Win ekle; tek başına harf yazmayı engeller.':
+    'Add Ctrl, Alt or ⌘ / Win to the shortcut; a bare letter would block typing.',
+  'Bu kısayol Tayfa veya sistem tarafından kullanılıyor. Başka bir tuş dene.':
+    'Tayfa or your system already uses this shortcut. Try another key.',
+  'Bu kısayol başka bir Tayfa kısayoluyla aynı.': 'This is the same as another Tayfa shortcut.',
+  'Başka bir uygulama bu kısayolu kullanıyor, Tayfa kaydedemedi. Başka bir tuş seç.':
+    'Another app is using this shortcut, so Tayfa could not register it. Choose another key.',
+  'Bu tuş kısayol olarak kullanılamıyor. Başka bir tuş dene.':
+    'This key cannot be used as a shortcut. Try another key.',
+  'Kısayollar kaydedilemedi. Ayarlardan yeniden dene.':
+    'Shortcuts could not be registered. Try again from Settings.',
+  'Ses değiştirilemedi. Ses ayarlarını kontrol edip yeniden dene.':
+    'Could not change the sound. Check your audio settings and try again.',
   'Bas konuş tuşu': 'Push-to-talk key',
   'Basılı tuttuğun sürece mikrofonun açık kalır.':
     'Your microphone stays on while you hold it down.',

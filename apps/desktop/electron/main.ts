@@ -4,6 +4,7 @@ import {
   app,
   BrowserWindow,
   dialog,
+  globalShortcut,
   ipcMain,
   Menu,
   nativeImage,
@@ -33,6 +34,7 @@ import { setupAgent } from './agent';
 import { whiteboardSvg } from './whiteboard-export';
 import { whiteboardPng } from './whiteboard-raster';
 import { setupLocale } from './locale';
+import { setupGlobalShortcuts } from './global-shortcuts';
 import { isRendererPermissionAllowed } from './permissions';
 import { t } from '@rooms/i18n';
 import type { ActivityResponse } from '@rooms/activity-protocol';
@@ -233,6 +235,13 @@ function applyMenus() {
 app.whenReady().then(async () => {
   if (!primaryInstance) return;
   setupLocale(assertSender, applyMenus);
+  const globalShortcuts = setupGlobalShortcuts({
+    ipc: ipcMain,
+    shortcuts: globalShortcut,
+    assertSender,
+    window: () => win,
+  });
+  app.on('will-quit', globalShortcuts.dispose);
   const notifications = setupNotifications(
     () => win,
     assertSender,
