@@ -502,20 +502,41 @@ export function applyCommand(
     }
     case 'whiteboard.put': {
       const existing = state.whiteboard.find((e) => e.id === command.element.id);
-      if (existing && existing.authorId !== identity.userId)
+      // Sticky notes can also be edited or moved by a community admin; strokes stay author-only.
+      const adminNote = !!existing && existing.kind === 'note' && identity.canControl;
+      if (existing && existing.authorId !== identity.userId && !adminNote)
         fail(403, 'WHITEBOARD_AUTHOR_REQUIRED');
+      if (existing && (existing.kind === 'note') !== (command.element.kind === 'note'))
+        fail(400, 'WHITEBOARD_KIND_IMMUTABLE');
       if (!existing && state.whiteboard.length >= 1000) fail(409, 'WHITEBOARD_FULL');
+      if (
+        !existing &&
+        command.element.kind === 'note' &&
+        state.whiteboard.filter((e) => e.kind === 'note').length >= 60
+      )
+        fail(409, 'WHITEBOARD_NOTES_FULL');
       state.whiteboard = state.whiteboard.filter((e) => e.id !== command.element.id);
-      state.whiteboard.push({ ...command.element, authorId: identity.userId });
+      state.whiteboard.push({
+        ...command.element,
+        authorId: existing ? existing.authorId : identity.userId,
+      });
       break;
     }
     case 'whiteboard.remove': {
       const existing = state.whiteboard.find((e) => e.id === command.elementId);
       if (!existing) fail(404, 'WHITEBOARD_ELEMENT_NOT_FOUND');
-      if (existing.authorId !== identity.userId) fail(403, 'WHITEBOARD_AUTHOR_REQUIRED');
+      if (
+        existing.authorId !== identity.userId &&
+        !(existing.kind === 'note' && identity.canControl)
+      )
+        fail(403, 'WHITEBOARD_AUTHOR_REQUIRED');
       state.whiteboard = state.whiteboard.filter((e) => e.id !== command.elementId);
       break;
     }
+    case 'whiteboard.clear':
+      if (!identity.canControl) fail(403, 'WHITEBOARD_CLEAR_DENIED');
+      state.whiteboard = [];
+      break;
     case 'game.create': {
       if (!identity.canCreate) fail(403, 'ACTIVITY_CREATE_DENIED');
       if (command.replacePrimary) {

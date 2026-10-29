@@ -687,7 +687,10 @@
 }
 .wb-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
+  max-width: 100%;
   gap: 2px;
   padding: 4px;
   border: 1px solid var(--color-border-subtle);
@@ -746,7 +749,15 @@
 }
 .wb-side {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
+  gap: 8px;
+}
+.rt-board-clear .button.danger {
+  background: #3e2c33;
+  border: 1px solid #7a4552;
+  color: #f38f9d;
 }
 .wb-stage {
   position: relative;
@@ -782,6 +793,9 @@
 .wb .wb-board.tool-text {
   cursor: text;
 }
+.wb .wb-board.tool-note {
+  cursor: copy;
+}
 .wb .wb-board.readonly {
   cursor: default;
 }
@@ -796,6 +810,47 @@
 }
 .wb .wb-board g.selected {
   filter: drop-shadow(0 0 5px #8b83ff);
+}
+/* Sticky notes: grab to move, focusable for keyboard moves (arrows), edit (Enter) and delete. */
+.wb .wb-board .wb-note {
+  cursor: grab;
+  outline: none;
+}
+.wb .wb-board .wb-note:focus-visible .wb-note-paper {
+  stroke: var(--color-action-focus);
+  stroke-width: 3;
+}
+.wb .wb-board .wb-note .is-dragging {
+  cursor: grabbing;
+  filter: drop-shadow(0 8px 10px #0008);
+}
+.wb .wb-board.tool-pen .wb-note,
+.wb .wb-board.tool-rectangle .wb-note,
+.wb .wb-board.tool-ellipse .wb-note,
+.wb .wb-board.tool-text .wb-note {
+  cursor: inherit;
+}
+.wb .wb-board .wb-note-paper {
+  filter: drop-shadow(0 3px 5px #0006);
+}
+.wb-note-input {
+  position: absolute;
+  box-sizing: border-box;
+  /* Same scale as the board's note text: 15 / 1000 of the board width, 12-unit padding. */
+  padding: 1.2cqw;
+  font: inherit;
+  font-size: 1.5cqw !important;
+  line-height: 1.27;
+  color: #1b1d24;
+  border: 0;
+  border-radius: 4px;
+  outline: 2px solid var(--color-action-focus);
+  resize: none;
+  box-shadow: 0 8px 18px #0008;
+  font-family: var(--font-family);
+}
+.wb-note-input::placeholder {
+  color: #1b1d2499;
 }
 .wb-text-input {
   position: absolute;
