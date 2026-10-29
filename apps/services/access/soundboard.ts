@@ -177,6 +177,28 @@ export function registerSoundboard(
       return reply.type('audio/wav').header('Cache-Control', 'no-store').send(bytes);
     });
   });
+  // Renames a sound (its emoji is the first word of the name). Same rights as removing it.
+  server.patch('/v1/soundboard/:channelId/:clipId', async (request) => {
+    const m = await member(request),
+      id = clipId.parse((request.params as { clipId: string }).clipId),
+      body = z
+        .object({ name: z.string().trim().min(1).max(40) })
+        .strict()
+        .parse(request.body);
+    return locked(m.communityId, async () => {
+      const value = await load(m.communityId),
+        entry = value.clips.find((c) => c.id === id);
+      if (!entry) throw new StoatError(404, 'SOUNDBOARD_NOT_FOUND');
+      if (entry.ownerId !== m.userId && !m.canManage)
+        throw new StoatError(403, 'SOUNDBOARD_DELETE_DENIED');
+      const renamed = { ...entry, name: body.name };
+      await save(m.communityId, {
+        version: 1,
+        clips: value.clips.map((c) => (c.id === id ? renamed : c)),
+      });
+      return renamed;
+    });
+  });
   server.delete('/v1/soundboard/:channelId/:clipId', async (request) => {
     const m = await member(request),
       id = clipId.parse((request.params as { clipId: string }).clipId);

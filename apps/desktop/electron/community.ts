@@ -1338,7 +1338,7 @@ export async function setupCommunity(
   }
   async function soundboardRequest(
     channelId: unknown,
-    method: 'GET' | 'POST' | 'DELETE',
+    method: 'GET' | 'POST' | 'DELETE' | 'PATCH',
     clipId?: unknown,
     input?: unknown,
   ) {
@@ -1349,16 +1349,21 @@ export async function setupCommunity(
     const body =
       input === undefined
         ? undefined
-        : z
-            .object({
-              name: z.string().trim().min(1).max(40),
-              audio: z
-                .string()
-                .max(2_666_672)
-                .regex(/^[A-Za-z0-9+/]*={0,2}$/),
-            })
-            .strict()
-            .parse(input);
+        : method === 'PATCH'
+          ? z
+              .object({ name: z.string().trim().min(1).max(40) })
+              .strict()
+              .parse(input)
+          : z
+              .object({
+                name: z.string().trim().min(1).max(40),
+                audio: z
+                  .string()
+                  .max(2_666_672)
+                  .regex(/^[A-Za-z0-9+/]*={0,2}$/),
+              })
+              .strict()
+              .parse(input);
     const response = await fetch(
       `${new URL(current.instanceUrl).origin}/rooms-access/v1/soundboard/${encodeURIComponent(channel)}${clip}`,
       {
@@ -1381,6 +1386,15 @@ export async function setupCommunity(
         SOUNDBOARD_NOT_FOUND: t('Bu ses kaldırılmış.'),
         SOUNDBOARD_INVALID_AUDIO: t('En fazla 8 saniyelik mono veya stereo ses seç.'),
       };
+      // A server that predates renaming answers the unknown route with a plain 404/405.
+      if (
+        method === 'PATCH' &&
+        (response.status === 404 || response.status === 405) &&
+        !messages[error]
+      )
+        throw new SocialInputError(
+          t('Sunucu henüz güncel değil; sesi düzenlemek için sunucunun güncellenmesi gerekir.'),
+        );
       throw new SocialInputError(messages[error] ?? t('Topluluk sesleri alınamadı. Yeniden dene.'));
     }
     if (method === 'GET' && clip) {
@@ -1406,7 +1420,7 @@ export async function setupCommunity(
     if (!valid()) throw new SocialInputError(t('Oturum değişti.'));
     return method === 'GET'
       ? soundboardCatalogSchema.parse(value)
-      : method === 'POST'
+      : method === 'POST' || method === 'PATCH'
         ? soundboardClipSchema.parse(value)
         : z
             .object({ deleted: z.literal(true) })
@@ -1418,6 +1432,9 @@ export async function setupCommunity(
     soundboardRequest(channel, 'POST', undefined, input),
   );
   handle('rooms:soundboard-read', (channel, clip) => soundboardRequest(channel, 'GET', clip));
+  handle('rooms:soundboard-rename', (channel, clip, name) =>
+    soundboardRequest(channel, 'PATCH', clip, { name }),
+  );
   handle('rooms:soundboard-remove', async (channel, clip) => {
     await soundboardRequest(channel, 'DELETE', clip);
   });
