@@ -794,6 +794,36 @@ it('shares whiteboard pointers lossily and keeps them apart from control input',
   expect(cursors.length).toBeLessThanOrEqual(600);
   await provider.disconnect();
 });
+it('relays soundboard reactions on their own topic, with a flood limit and no effect on control input', async () => {
+  const { provider, room, local, emit } = fixture();
+  await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+  const carol = { identity: 'carol', name: 'Carol', trackPublications: new Map() };
+  room.remoteParticipants.set('carol', carol);
+  const reactions: [string, string][] = [],
+    controls: string[] = [],
+    cursors: string[] = [];
+  provider.onReaction((payload, sender) => reactions.push([payload, sender]));
+  provider.onControl((payload) => controls.push(payload));
+  provider.onCursor((payload) => cursors.push(payload));
+  const body = '{"v":1,"k":"sound","e":"🎉"}';
+  await provider.publishReaction(body);
+  const [payload, options] = vi.mocked(local.publishData).mock.calls.at(-1)!;
+  expect(new TextDecoder().decode(payload)).toBe(body);
+  expect(options).toEqual({ reliable: true, topic: 'rooms-reaction-v1' });
+  await expect(provider.publishReaction('x'.repeat(257))).rejects.toThrow();
+  const packet = (value: string) => new TextEncoder().encode(value);
+  emit(RoomEvent.DataReceived, packet(body), carol, 0, 'rooms-reaction-v1');
+  // Server-originated or oversized packets and other topics never become reactions.
+  emit(RoomEvent.DataReceived, packet(body), undefined, 0, 'rooms-reaction-v1');
+  emit(RoomEvent.DataReceived, new Uint8Array(300), carol, 0, 'rooms-reaction-v1');
+  emit(RoomEvent.DataReceived, packet(body), carol, 0, 'rooms-unknown-v9');
+  expect(reactions).toEqual([[body, 'carol']]);
+  expect(controls).toEqual([]);
+  expect(cursors).toEqual([]);
+  for (let i = 0; i < 60; i++) emit(RoomEvent.DataReceived, packet(body), carol, 0, 'rooms-reaction-v1');
+  expect(reactions.length).toBeLessThanOrEqual(20);
+  await provider.disconnect();
+});
 it('follows a move only when the server sends it, and says when a moderator disconnected you', async () => {
   const { provider, room, emit } = fixture();
   await provider.connectRoom('room', 'token', 'ws://localhost:7880');

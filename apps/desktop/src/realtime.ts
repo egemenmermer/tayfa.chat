@@ -584,6 +584,13 @@ export const publishCursor = (payload: string) =>
     .catch(() => {});
 export const onCursor = (listener: (payload: string, senderId: string) => void) =>
   mediaProvider().onCursor?.(listener) ?? (() => {});
+/** Room-wide cues such as the soundboard's floating emoji; silently skipped offline. */
+export const publishReaction = (payload: string) =>
+  void mediaProvider()
+    .publishReaction?.(payload)
+    .catch(() => {});
+export const onReaction = (listener: (payload: string, senderId: string) => void) =>
+  mediaProvider().onReaction?.(listener) ?? (() => {});
 export const attachMediaTrack = (id: string, element: HTMLMediaElement) =>
   mediaProvider().attachTrack(id, element);
 

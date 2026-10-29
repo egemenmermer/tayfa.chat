@@ -138,6 +138,9 @@ export interface RealtimeMediaProvider {
   /** Lossy, room-wide pointer positions for shared surfaces such as the whiteboard. */
   publishCursor?(payload: string): Promise<void>;
   onCursor?(listener: (payload: string, senderId: string) => void): () => void;
+  /** Small room-wide visual cues (the soundboard's floating emoji); old clients ignore the topic. */
+  publishReaction?(payload: string): Promise<void>;
+  onReaction?(listener: (payload: string, senderId: string) => void): () => void;
   /** A moderator asked this client to join another voice room (sent by the server only). */
   onMove?(listener: (channelId: string) => void): () => void;
   readonly status: ConnectionStatus;
@@ -204,6 +207,7 @@ function screenLayers(pub: TrackPublication): ScreenLayer[] {
   });
 }
 const CURSOR_TOPIC = 'rooms-cursor-v1';
+const REACTION_TOPIC = 'rooms-reaction-v1';
 const MOVE_TOPIC = 'rooms-move-v1';
 const isScreenSource = (source: Track.Source) =>
   source === Track.Source.ScreenShare || source === Track.Source.ScreenShareAudio;
@@ -288,6 +292,22 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     return () => {
       this.cursorListeners.delete(listener);
     };
+  }
+  private reactionListeners = new Set<(payload: string, senderId: string) => void>();
+  onReaction(listener: (payload: string, senderId: string) => void) {
+    this.reactionListeners.add(listener);
+    return () => {
+      this.reactionListeners.delete(listener);
+    };
+  }
+  async publishReaction(payload: string) {
+    if (new TextEncoder().encode(payload).length > 256) throw Error('Invalid reaction packet.');
+    const room = this.room;
+    if (!room || this.state.status !== 'connected') return;
+    await room.localParticipant.publishData(new TextEncoder().encode(payload), {
+      reliable: true,
+      topic: REACTION_TOPIC,
+    });
   }
   private moveListeners = new Set<(channelId: string) => void>();
   onMove(listener: (channelId: string) => void) {
@@ -707,7 +727,9 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     let controlSecond = 0,
       controlCount = 0,
       cursorSecond = 0,
-      cursorCount = 0;
+      cursorCount = 0,
+      reactionSecond = 0,
+      reactionCount = 0;
     room.on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
       if (this.room !== room || this.state.status !== 'connected') return;
       if (!participant) {
@@ -737,6 +759,22 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
           for (const listener of this.cursorListeners) listener(data, participant.identity);
         } catch {
           /* Malformed data is never input. */
+        }
+        return;
+      }
+      if (topic === REACTION_TOPIC) {
+        // A sound spammed by one client must not turn into a flood of floating emoji.
+        const second = Math.floor(Date.now() / 1000);
+        if (second !== reactionSecond) {
+          reactionSecond = second;
+          reactionCount = 0;
+        }
+        if (payload.length > 256 || ++reactionCount > 20) return;
+        try {
+          const data = new TextDecoder('utf-8', { fatal: true }).decode(payload);
+          for (const listener of this.reactionListeners) listener(data, participant.identity);
+        } catch {
+          /* Malformed data is never a reaction. */
         }
         return;
       }

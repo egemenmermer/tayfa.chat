@@ -84,3 +84,48 @@ it('validates canonical bounded PCM instead of trusting declared extensions or d
   bad.writeUInt32LE(44100, 24);
   expect(() => soundDuration(bad)).toThrow();
 });
+
+it('renames a sound for its owner or a manager only and keeps the stored emoji word', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'rooms-soundboard-'));
+  const server = Fastify();
+  server.setErrorHandler((e, _r, reply) =>
+    reply
+      .code((e as any).status ?? (e as any).statusCode ?? 400)
+      .send({ error: (e as any).code ?? 'INVALID' }),
+  );
+  registerSoundboard(server, {
+    directory,
+    authorize: async (token) => ({
+      communityId: 'DEMO-community',
+      userId: token,
+      canUpload: true,
+      canManage: token === 'admin',
+    }),
+  });
+  const base = await server.listen({ host: '127.0.0.1', port: 0 });
+  const call = (token: string, method: string, path = '', body?: unknown) =>
+    fetch(`${base}/v1/soundboard/${scope}${path}`, {
+      method,
+      headers: { Authorization: token, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  try {
+    const sent = await (
+      await call('alice', 'POST', '', { name: 'Air horn', audio: audio().toString('base64') })
+    ).json();
+    const path = `/${sent.id}`;
+    const renamed = await call('alice', 'PATCH', path, { name: '🎉 Air horn' });
+    expect(renamed.status).toBe(200);
+    expect(await renamed.json()).toMatchObject({ id: sent.id, name: '🎉 Air horn', ownerId: 'alice' });
+    expect((await call('bob', 'PATCH', path, { name: 'x' })).status).toBe(403);
+    expect((await call('admin', 'PATCH', path, { name: '🔥 Air horn' })).status).toBe(200);
+    expect((await call('alice', 'PATCH', path, { name: ' ' })).status).toBe(400);
+    expect((await call('alice', 'PATCH', path, { name: 'x', ownerId: 'bob' })).status).toBe(400);
+    expect((await call('alice', 'PATCH', `/${'0'.repeat(8)}-0000-4000-8000-000000000000`, { name: 'x' })).status).toBe(404);
+    const catalog = await (await call('alice', 'GET')).json();
+    expect(catalog.clips).toEqual([expect.objectContaining({ id: sent.id, name: '🔥 Air horn' })]);
+  } finally {
+    await server.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});

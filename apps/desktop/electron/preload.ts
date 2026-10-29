@@ -165,6 +165,7 @@ const bridge: DesktopBridge = {
     upload: (id, input) => ipcRenderer.invoke('rooms:soundboard-upload', id, input),
     read: (id, clip) => ipcRenderer.invoke('rooms:soundboard-read', id, clip),
     remove: (id, clip) => ipcRenderer.invoke('rooms:soundboard-remove', id, clip),
+    rename: (id, clip, name) => ipcRenderer.invoke('rooms:soundboard-rename', id, clip, name),
   },
   globalShortcuts: {
     set: (shortcuts) => ipcRenderer.invoke('rooms:global-shortcuts-set', shortcuts),

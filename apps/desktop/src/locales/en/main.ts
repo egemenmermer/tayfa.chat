@@ -148,6 +148,8 @@ export const main: Catalog = {
   'Bu ses kaldırılmış.': 'This sound was removed.',
   'En fazla 8 saniyelik mono veya stereo ses seç.':
     'Choose a mono or stereo sound of up to 8 seconds.',
+  'Sunucu henüz güncel değil; sesi düzenlemek için sunucunun güncellenmesi gerekir.':
+    'The server is not up to date yet; it has to be updated before sounds can be edited.',
   'Topluluk sesleri alınamadı. Yeniden dene.': 'Couldn’t load community sounds. Try again.',
   'Ses dosyası alınamadı.': 'Couldn’t get the sound file.',
   'Ses dosyası çok büyük.': 'The sound file is too large.',
