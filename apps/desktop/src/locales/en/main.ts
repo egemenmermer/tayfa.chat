@@ -325,4 +325,26 @@ export const main: Catalog = {
     one: '{count} more alert. Open the Host machine page for details.',
     other: '{count} more alerts. Open the Host machine page for details.',
   },
+
+  // In-app updates (reasons and errors from the update service)
+  'İmzalı güncellemeler, doğrulanmış imzalı bir sürüm ve HTTPS güncelleme adresi ister.':
+    'Signed updates need a verified signed release and an HTTPS update address.',
+  'Uygulama içi güncellemeler macOS ve Windows sürümlerinde var; burada yeni sürümü elle kur.':
+    'In-app updates are available on macOS and Windows; install new versions by hand here.',
+  'Geliştirme sürümü güncellenmez; güncellemeler yalnızca kurulu uygulamada çalışır.':
+    'Development builds don’t update; updates only work in the installed app.',
+  'Bu Windows paketi güncelleme adresi olmadan derlendi; yeni sürümü GitHub sürümler sayfasından elle kur.':
+    'This Windows package was built without an update address; install new versions by hand from the GitHub releases page.',
+  'Kurulum yapılmadan açılan uygulama kendini güncelleyemez; Tayfa’yı Windows kurulum dosyasıyla kur.':
+    'An app opened without installing can’t update itself; install Tayfa with the Windows installer.',
+  'Güncelleme indirilemedi veya SHA-512 özeti tutmadı. Mevcut sürüm kurulu kalır; sonra yeniden dene.':
+    'The update couldn’t be downloaded or its SHA-512 didn’t match. Your current version stays installed; try again later.',
+  'Önce otomatik güncellemeleri etkinleştir.': 'Enable automatic updates first.',
+  'İndirilecek güncelleme yok. Önce güncellemeleri kontrol et.':
+    'There’s no update to download. Check for updates first.',
+  'İndirmeden önce güncellemeleri yeniden kontrol et.':
+    'Check for updates again before downloading.',
+  'Süren bir güncelleme indirmesi yok.': 'No update download is in progress.',
+  'Önce güncellemenin inip doğrulanması gerekiyor.':
+    'The update has to finish downloading and verifying first.',
 };

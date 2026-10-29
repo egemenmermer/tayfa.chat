@@ -117,14 +117,21 @@ export function About({ notify }: { notify(message: string): void }) {
   const native = !!window.rooms && !fixture;
   const configured = native && !!status?.configured,
     enabled = configured && !!status?.enabled;
+  // Windows (NSIS) checks the installer's SHA-512 from the release; it is not publisher-signed yet.
+  const windows = status?.engine === 'nsis';
   const reason = fixture
     ? t('Yerel örnek durum; güncelleme işlemleri kapalı.')
     : !native
       ? t('Masaüstü uygulamasında kullanılabilir.')
       : !configured
-        ? t('İmzalı dağıtım ve HTTPS güncelleme adresi yapılandırılmalı.')
+        ? // macOS keeps its generic text; other platforms explain why updates are unavailable.
+          status?.reason && status.engine !== 'sparkle'
+          ? status.reason
+          : t('İmzalı dağıtım ve HTTPS güncelleme adresi yapılandırılmalı.')
         : !status?.enabled
-          ? t('Önce imzalı güncellemeleri etkinleştir.')
+          ? windows
+            ? t('Önce otomatik güncellemeleri etkinleştir.')
+            : t('Önce imzalı güncellemeleri etkinleştir.')
           : '';
   const run = async (action: () => Promise<unknown>, download = false) => {
     if (!native) return;
@@ -264,6 +271,13 @@ export function About({ notify }: { notify(message: string): void }) {
               </div>
             )}
             {!fixture && reason && <p className="about-reason">{reason}</p>}
+            {!fixture && windows && (
+              <p className="about-reason">
+                {t(
+                  'Windows kurulum dosyası henüz yayıncı imzası taşımıyor; indirilen dosya GitHub sürümündeki SHA-512 özetiyle doğrulanır.',
+                )}
+              </p>
+            )}
             <div className="button-row">
               {status?.state === 'available' && (
                 <button
@@ -293,11 +307,19 @@ export function About({ notify }: { notify(message: string): void }) {
         {!status?.enabled && (
           <div className="about-setting">
             <div>
-              <strong>{t('İmzalı güncellemeler')}</strong>
-              <p>{t('İndirme ve yeniden başlatma isteğinle başlar.')}</p>
+              <strong>{windows ? t('Otomatik güncellemeler') : t('İmzalı güncellemeler')}</strong>
+              <p>
+                {windows
+                  ? t('Yeni sürüm arka planda iner, doğrulanır ve yeniden başlatınca kurulur.')
+                  : t('İndirme ve yeniden başlatma isteğinle başlar.')}
+              </p>
             </div>
             <Toggle
-              label={t('İmzalı güncellemeleri etkinleştir')}
+              label={
+                windows
+                  ? t('Otomatik güncellemeleri etkinleştir')
+                  : t('İmzalı güncellemeleri etkinleştir')
+              }
               disabled={!configured || working}
               value={status?.enabled ?? false}
               onChange={(value) => void run(() => window.rooms!.updates.setOptIn(value))}
@@ -362,7 +384,9 @@ export function About({ notify }: { notify(message: string): void }) {
                 {voice.channelId
                   ? t('Ses bağlantın ve açık görüşmeler kapanacak.')
                   : t('Uygulama kapanıp yeniden açılacak.')}{' '}
-                {t('İmzalı güncellemeyi şimdi kurmak istiyor musun?')}
+                {windows
+                  ? t('Güncellemeyi şimdi kurmak istiyor musun?')
+                  : t('İmzalı güncellemeyi şimdi kurmak istiyor musun?')}
               </p>
             ) : (
               <>
