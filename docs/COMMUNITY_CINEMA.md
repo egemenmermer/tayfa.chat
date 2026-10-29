@@ -43,6 +43,7 @@ Kişisel medya (Medyam) bundan ayrıdır ve özel kalır. Sinema'daki yeniden ya
 - **Kimin ne yapabildiği.**
   - Salon seçme, hesap bağlama, yeniden yükleme ve kaldırma yalnızca topluluk sahibine ve yöneticilerine (bütün izinleri veren rol, [Mimari](ARCHITECTURE.md)) açıktır.
   - Katalog, arama, rehber, detay, görsel ve izleme için salon kanalında görüntüleme izni (VIEW_CHANNEL) gerekir.
+  - YouTube sekmesindeki metin araması (`POST /rooms-access/v1/halls/:kanal/youtube-search`) DJ'in yt-dlp aramasını kullanır; DJ yetkisi gerekmez, salon kanalında görüntüleme ve bağlanma izni yeter (üye başına dakikada 20). Seçilen sonuç yapıştırılan bağlantı gibi açılır: kumandası olmayan üye yalnızca sıraya önerir. Eski bir Access sunucusunda uç yoktur; arayüz bunu söyler, bağlantı yapıştırmak çalışmaya devam eder.
   - Sahip olmayan üyeler maskeli sunucu adını bile görmez.
 - **İstemciye giden veri.**
   - İstemci yalnızca opak öğe kimliklerini (`l-…`, `m-…`, `s-…`, `e-…`, Stremio için `x-…`) ve opak görsel kimliklerini görür.
