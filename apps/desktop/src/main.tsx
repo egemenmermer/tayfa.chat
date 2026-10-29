@@ -12,7 +12,9 @@ import './interaction-quality.css';
 // BoardUI (Tailwind) styles apply only inside BoardUI regions; see boardui/foundations/globals.css.
 import './boardui/foundations/globals.css';
 import { installInputModality } from './input-modality';
+import { installWindowChrome } from './window-chrome';
 import { queryClient as client } from './query-client';
+installWindowChrome(document.documentElement);
 // A file dropped outside a drop target must never navigate the app window to that file.
 for (const type of ['dragover', 'drop'] as const)
   window.addEventListener(type, (event) => {

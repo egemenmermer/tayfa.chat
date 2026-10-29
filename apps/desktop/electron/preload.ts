@@ -38,6 +38,16 @@ const bridge: DesktopBridge = {
   },
   platform: process.platform as DesktopBridge['platform'],
   windowAction: (action) => ipcRenderer.invoke('rooms:window', action),
+  windowState: () => ipcRenderer.invoke('rooms:window-state'),
+  onWindowState: (listener) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      state: { maximized: boolean; fullscreen: boolean },
+    ) => listener(state);
+    ipcRenderer.on('rooms:window-state', handler);
+    return () => ipcRenderer.removeListener('rooms:window-state', handler);
+  },
+  setWindowTheme: (theme) => ipcRenderer.invoke('rooms:window-theme', theme),
   setAlwaysOnTop: (value) => ipcRenderer.invoke('rooms:always-on-top', value),
   loginItemStatus: () => ipcRenderer.invoke('rooms:login-item-status'),
   setLoginItem: (value) => ipcRenderer.invoke('rooms:login-item', value),
