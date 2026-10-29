@@ -124,7 +124,10 @@ export function About({ notify }: { notify(message: string): void }) {
     : !native
       ? t('Masaüstü uygulamasında kullanılabilir.')
       : !configured
-        ? (status?.reason ?? t('İmzalı dağıtım ve HTTPS güncelleme adresi yapılandırılmalı.'))
+        ? // macOS keeps its generic text; other platforms explain why updates are unavailable.
+          status?.reason && status.engine !== 'sparkle'
+          ? status.reason
+          : t('İmzalı dağıtım ve HTTPS güncelleme adresi yapılandırılmalı.')
         : !status?.enabled
           ? windows
             ? t('Önce otomatik güncellemeleri etkinleştir.')
@@ -381,7 +384,9 @@ export function About({ notify }: { notify(message: string): void }) {
                 {voice.channelId
                   ? t('Ses bağlantın ve açık görüşmeler kapanacak.')
                   : t('Uygulama kapanıp yeniden açılacak.')}{' '}
-                {t('İmzalı güncellemeyi şimdi kurmak istiyor musun?')}
+                {windows
+                  ? t('Güncellemeyi şimdi kurmak istiyor musun?')
+                  : t('İmzalı güncellemeyi şimdi kurmak istiyor musun?')}
               </p>
             ) : (
               <>

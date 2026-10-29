@@ -91,7 +91,9 @@ export function DesktopUpdates() {
           disabled={!status?.configured || !status.enabled || working}
           title={
             !status?.configured
-              ? (status?.reason ?? t('İmzalı dağıtım ve güncelleme adresi yapılandırılmalı.'))
+              ? status?.reason && status.engine !== 'sparkle'
+                ? status.reason
+                : t('İmzalı dağıtım ve güncelleme adresi yapılandırılmalı.')
               : undefined
           }
           onClick={() => void run(() => window.rooms!.updates.check())}

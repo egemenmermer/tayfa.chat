@@ -858,6 +858,7 @@ export const shell: Catalog = {
   // Windows in-app updates
   'Otomatik güncellemeler': 'Automatic updates',
   'Otomatik güncellemeleri etkinleştir': 'Enable automatic updates',
+  'Güncellemeyi şimdi kurmak istiyor musun?': 'Do you want to install the update now?',
   'Yeni sürüm arka planda iner, doğrulanır ve yeniden başlatınca kurulur.':
     'New versions download in the background, get verified and install when you restart.',
   'Windows kurulum dosyası henüz yayıncı imzası taşımıyor; indirilen dosya GitHub sürümündeki SHA-512 özetiyle doğrulanır.':
