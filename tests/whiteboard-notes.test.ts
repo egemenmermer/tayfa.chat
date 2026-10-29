@@ -15,11 +15,24 @@ import {
 
 const note = (id: string, text = 'Buy milk', x = 40, y = 50) => ({
   type: 'whiteboard.put' as const,
-  element: { id, kind: 'note' as const, points: [[x, y]], text, color: '#F7D774', width: 1 },
+  element: {
+    id,
+    kind: 'note' as const,
+    points: [[x, y]] as [number, number][],
+    text,
+    color: '#F7D774',
+    width: 1,
+  },
 });
 const stroke = (id: string) => ({
   type: 'whiteboard.put' as const,
-  element: { id, kind: 'stroke' as const, points: [[1, 1]], color: '#aabbcc', width: 2 },
+  element: {
+    id,
+    kind: 'stroke' as const,
+    points: [[1, 1]] as [number, number][],
+    color: '#aabbcc',
+    width: 2,
+  },
 });
 
 async function harness() {

@@ -147,7 +147,7 @@ export default function Whiteboard({
 
   /** Screen → board coordinates through the SVG's own transform (letterboxing included). */
   const point = (e: React.PointerEvent<SVGElement>): [number, number] => {
-    const svg = e.currentTarget.ownerSVGElement ?? e.currentTarget;
+    const svg = e.currentTarget.ownerSVGElement ?? (e.currentTarget as SVGSVGElement);
     const matrix = svg.getScreenCTM();
     if (!matrix) return [0, 0];
     const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(matrix.inverse());
