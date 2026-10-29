@@ -1237,8 +1237,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     for (const pub of person.trackPublications?.values() ?? []) {
       if (pub.source !== Track.Source.Microphone) continue;
       const track = pub.track as
-        | (Track & { setAudioContext?(context: AudioContext | undefined): void })
-        | undefined;
+        (Track & { setAudioContext?(context: AudioContext | undefined): void }) | undefined;
       const element = this.audio.get(pub.trackSid);
       if (!track?.setAudioContext || !element) continue;
       if (boost) {
@@ -1270,8 +1269,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   /** Microphone tracks currently played through the 200% Web Audio path. */
   private boosted = new Set<string>();
   setParticipantVolume(id: string, volume: number) {
-    if (!isParticipantLevel(volume))
-      throw new Error('Volume must be between 0 and 2.');
+    if (!isParticipantLevel(volume)) throw new Error('Volume must be between 0 and 2.');
     this.volumes.set(id, volume);
     if (this.listenerScope)
       try {
