@@ -1229,3 +1229,183 @@ describe('personal volume up to 200%', () => {
     localStorage.clear();
   });
 });
+
+describe('changing a running screen share in place', () => {
+  const capture = (name: string) => ({
+    name,
+    readyState: 'live',
+    contentHint: '',
+    stop: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    getConstraints: vi.fn(() => ({ width: { ideal: 1920 } })),
+    applyConstraints: vi.fn(async () => {}),
+  });
+  type Capture = ReturnType<typeof capture>;
+  async function sharing(layerEncodings = 3, withSound = true) {
+    const base = fixture();
+    // The fixture adds publishTrack/unpublishTrack with Object.assign, so its type omits them.
+    const ctx = {
+      ...base,
+      local: base.local as typeof base.local & {
+        publishTrack: ReturnType<typeof vi.fn>;
+        unpublishTrack: ReturnType<typeof vi.fn>;
+      },
+    };
+    await ctx.provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    const old = capture('old');
+    const video = {
+      mediaStreamTrack: old as Capture,
+      publishOptions: { simulcast: true, screenShareEncoding: { maxBitrate: 8_000_000 } },
+      lastEncodedDimensions: { width: 1920, height: 1080 } as unknown,
+      sender: { getParameters: vi.fn(() => ({ encodings: new Array(layerEncodings).fill({}) })) },
+      replaceTrack: vi.fn(async (track: Capture) => {
+        video.mediaStreamTrack = track;
+      }),
+    };
+    const sound = { stop: vi.fn() };
+    let soundPublished = withSound;
+    ctx.local.getTrackPublication.mockImplementation((source: Track.Source) =>
+      source === Track.Source.ScreenShare
+        ? { track: video }
+        : source === Track.Source.ScreenShareAudio && soundPublished
+          ? { track: sound }
+          : undefined,
+    );
+    await ctx.provider.publishScreen({ quality: '1080p60' });
+    ctx.local.unpublishTrack.mockImplementation(async (track: unknown) => {
+      if (track === sound) soundPublished = false;
+    });
+    ctx.local.publishTrack.mockImplementation(async (track: unknown, options: any) => {
+      if (options?.source === Track.Source.ScreenShareAudio) {
+        soundPublished = true;
+        sound.stop = vi.fn();
+      }
+      void track;
+    });
+    return { ...ctx, video, old, sound };
+  }
+  const display = (stream: { video?: Capture[]; audio?: { stop: () => void }[] }) => {
+    const getDisplayMedia = vi.fn(async () => ({
+      getVideoTracks: () => stream.video ?? [],
+      getAudioTracks: () => stream.audio ?? [],
+      getTracks: () => [...(stream.video ?? []), ...(stream.audio ?? [])],
+    }));
+    vi.stubGlobal('navigator', { ...navigator, mediaDevices: { getDisplayMedia } });
+    return getDisplayMedia;
+  };
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('swaps the picture on the live publication: nothing is unpublished, sound stays', async () => {
+    const { provider, local, video, old, sound } = await sharing();
+    const next = capture('next');
+    display({ video: [next] });
+    await provider.changeScreenSource();
+    expect(video.replaceTrack).toHaveBeenCalledWith(next, { userProvidedTrack: false });
+    expect(next.contentHint).toBe('motion');
+    expect(local.unpublishTrack).not.toHaveBeenCalled();
+    expect(local.publishTrack).not.toHaveBeenCalled();
+    expect(local.setScreenShareEnabled).toHaveBeenCalledTimes(1);
+    expect(old.stop).not.toHaveBeenCalled();
+    expect(sound.stop).not.toHaveBeenCalled();
+    expect(provider.snapshot()).toMatchObject({ sharing: true, sharingAudio: true });
+    await provider.disconnect();
+  });
+  it('keeps the old source when the new one cannot be captured or swapped in', async () => {
+    const { provider, local, video, old } = await sharing();
+    const getDisplayMedia = display({});
+    getDisplayMedia.mockRejectedValueOnce(new Error('Permission denied'));
+    await expect(provider.changeScreenSource()).rejects.toThrow('Permission denied');
+    expect(video.replaceTrack).not.toHaveBeenCalled();
+    const next = capture('next');
+    display({ video: [next] });
+    video.replaceTrack.mockRejectedValueOnce(new Error('sender closed'));
+    await expect(provider.changeScreenSource()).rejects.toThrow('sender closed');
+    expect(next.stop).toHaveBeenCalled();
+    expect(old.stop).not.toHaveBeenCalled();
+    expect(video.mediaStreamTrack).toBe(old);
+    expect(local.setScreenShareEnabled).toHaveBeenCalledTimes(1);
+    expect(provider.snapshot().sharing).toBe(true);
+    await provider.disconnect();
+  });
+  it('moves to another preset on the live sender and reports it', async () => {
+    const { provider, local, video, old } = await sharing();
+    expect(provider.snapshot().sharingQuality).toBe('1080p60');
+    await provider.changeScreenQuality('1080p30');
+    expect(old.applyConstraints).toHaveBeenCalledWith(
+      expect.objectContaining({ frameRate: { ideal: 30 } }),
+    );
+    expect(video.publishOptions.screenShareEncoding).toMatchObject({ maxBitrate: 5_000_000 });
+    expect(video.lastEncodedDimensions).toBeUndefined();
+    expect(video.replaceTrack).toHaveBeenCalledWith(old, { userProvidedTrack: false });
+    expect(local.unpublishTrack).not.toHaveBeenCalled();
+    expect(provider.snapshot().sharingQuality).toBe('1080p30');
+    await provider.disconnect();
+  });
+  it('publishes the same capture again only when the layer count differs (720p30)', async () => {
+    const { provider, local, video, old } = await sharing();
+    await provider.changeScreenQuality('720p30');
+    expect(local.unpublishTrack).toHaveBeenCalledWith(video, false);
+    expect(local.publishTrack).toHaveBeenCalledWith(
+      video,
+      expect.objectContaining({ source: Track.Source.ScreenShare, simulcast: true }),
+    );
+    expect(old.stop).not.toHaveBeenCalled();
+    expect(provider.snapshot().sharingQuality).toBe('720p30');
+    await provider.disconnect();
+  });
+  it('a refused quality change leaves the previous quality running', async () => {
+    const { provider, video, old } = await sharing();
+    const options = video.publishOptions;
+    old.applyConstraints.mockRejectedValueOnce(new Error('Overconstrained'));
+    await expect(provider.changeScreenQuality('4k30')).rejects.toThrow('Overconstrained');
+    expect(video.publishOptions).toBe(options);
+    expect(video.replaceTrack).not.toHaveBeenCalled();
+    expect(provider.snapshot()).toMatchObject({ sharing: true, sharingQuality: '1080p60' });
+    await provider.disconnect();
+  });
+  it('turns the sound off without touching the picture, and on again from a capture', async () => {
+    const { provider, local, video, sound } = await sharing();
+    await expect(provider.setScreenSound(false)).resolves.toEqual({ audio: false });
+    expect(local.unpublishTrack).toHaveBeenCalledWith(sound, true);
+    expect(provider.snapshot()).toMatchObject({ sharing: true, sharingAudio: false });
+    expect(video.replaceTrack).not.toHaveBeenCalled();
+    vi.stubGlobal('MediaStream', class {});
+    // The SDK probes a new audio track for silence with a real AudioContext.
+    vi.spyOn(LocalAudioTrack.prototype, 'checkForSilence').mockResolvedValue(false);
+    const picture = capture('throwaway');
+    const loopback = Object.assign(capture('loopback'), { kind: 'audio', getSettings: () => ({}) });
+    display({ video: [picture], audio: [loopback] });
+    await expect(provider.setScreenSound(true)).resolves.toEqual({ audio: true });
+    expect(picture.stop).toHaveBeenCalled();
+    expect(local.publishTrack).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ source: Track.Source.ScreenShareAudio, dtx: false, red: false }),
+    );
+    expect(provider.snapshot().sharingAudio).toBe(true);
+    await provider.disconnect();
+  });
+  it('reports no sound when the capture comes without a loopback track', async () => {
+    const { provider, local } = await sharing(3, false);
+    const picture = capture('throwaway');
+    display({ video: [picture] });
+    await expect(provider.setScreenSound(true)).resolves.toEqual({ audio: false });
+    expect(picture.stop).toHaveBeenCalled();
+    expect(local.publishTrack).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ source: Track.Source.ScreenShareAudio }),
+    );
+    await provider.disconnect();
+  });
+  it('refuses every change while nothing is shared', async () => {
+    const { provider } = fixture();
+    await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    await expect(provider.changeScreenSource()).rejects.toThrow('not being shared');
+    await expect(provider.changeScreenQuality('720p30')).rejects.toThrow('not being shared');
+    await expect(provider.setScreenSound(false)).rejects.toThrow('not being shared');
+    await provider.disconnect();
+  });
+});

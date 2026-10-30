@@ -778,4 +778,26 @@ export const media: Catalog = {
     'Couldn’t reconnect to {room}. Select the room to join it again.',
   '{room} odasıyla bağlantı koptu. Deneme {attempt}/{max}. Mikrofonun kapalı kalır.':
     'Lost the connection to {room}. Attempt {attempt}/{max}. Your microphone stays off.',
+  'Paylaşım yok; önce bir kaynak paylaş.': 'You are not sharing; share a source first.',
+  'Kaynak değiştirme bu sürümde kullanılamıyor.':
+    "Changing the source isn't available in this version.",
+  'Kaynak değiştirilemedi, önceki paylaşım sürüyor. ({reason})':
+    "Couldn't change the source; the previous share continues. ({reason})",
+  'Kalite değiştirme bu sürümde kullanılamıyor.':
+    "Changing the quality isn't available in this version.",
+  'Kalite değiştirilemedi, yayın önceki kaliteyle sürüyor. ({reason})':
+    "Couldn't change the quality; the stream continues at the previous quality. ({reason})",
+  'Ses ayarı bu sürümde kullanılamıyor.': "The sound setting isn't available in this version.",
+  'Paylaşılan kaynak artık bulunamıyor. Paylaşımı yeniden başlat.':
+    'The shared source can no longer be found. Start sharing again.',
+  'Ses ayarı değiştirilemedi, yayın olduğu gibi sürüyor. ({reason})':
+    "Couldn't change the sound; the stream continues as it was. ({reason})",
+  'Yayın ayarları': 'Stream settings',
+  'Yayın ayarları için sağ tıkla': 'Right-click for stream settings',
+  'Ekranı veya pencereyi değiştir': 'Change screen or window',
+  'Yayını durdur': 'Stop streaming',
+  'Hangi kaynağa geçelim?': 'Which source should we switch to?',
+  'Yayın kesilmeden seçtiğin pencereye veya ekrana geçer; izleyenler yerinde kalır.':
+    'Switches to the window or screen you pick without interrupting the stream; viewers stay connected.',
+  'Bu kaynağa geç': 'Switch to this source',
 };

@@ -26,6 +26,7 @@ import {
   RoomEvent,
   Track,
   LocalAudioTrack,
+  LocalVideoTrack,
   VideoPreset,
   VideoQuality,
   createLocalAudioTrack,
@@ -117,6 +118,8 @@ export interface MediaSnapshot {
   sharing: boolean;
   /** This client's screen share is sending system audio right now. */
   sharingAudio?: boolean;
+  /** Quality preset this client's screen share was published with; null while not sharing. */
+  sharingQuality?: ScreenShareQuality | null;
   /** This viewer's screen share quality for the app session; 'auto' until they pick one. */
   screenQuality?: ScreenViewQuality;
   audioBlocked: boolean;
@@ -168,6 +171,15 @@ export interface RealtimeMediaProvider {
   selectCamera?(deviceId: string): Promise<void>;
   publishScreen(options?: ScreenShareOptions): Promise<void>;
   stopScreen(): Promise<void>;
+  /**
+   * Swaps the shared screen or window for the one the host just selected, on the live
+   * publication, so viewers stay subscribed. A failure leaves the previous source sharing.
+   */
+  changeScreenSource?(): Promise<void>;
+  /** Moves the running share to another quality preset without stopping it. */
+  changeScreenQuality?(quality: ScreenShareQuality): Promise<void>;
+  /** Turns the share's system sound off, or on again (needs a capture the host just selected). */
+  setScreenSound?(on: boolean): Promise<{ audio: boolean }>;
   subscribe(participantId: string): Promise<MediaStream>;
   attachTrack(trackId: string, element: HTMLMediaElement): () => void;
   deviceSelection(inputId: string, outputId: string): Promise<void>;
@@ -204,6 +216,31 @@ const videoQualities = {
   high: VideoQuality.HIGH,
 } as const;
 // Announced layers carry the protocol enum; LiveKit's client enum uses the same numbers.
+/** Loopback capture of the system sound for a screen share: stereo, untouched, our own voices out. */
+const SCREEN_AUDIO_CAPTURE = {
+  channelCount: 2,
+  noiseSuppression: false,
+  autoGainControl: false,
+  echoCancellation: false,
+  restrictOwnAudio: true,
+};
+/** Publish options of a screen share's picture, from its quality plan. */
+function screenPublishOptions(plan: ReturnType<typeof screenPublishPlan>) {
+  return {
+    videoCodec: 'h264' as const,
+    screenShareEncoding: plan.encoding,
+    simulcast: true,
+    screenShareSimulcastLayers: plan.layers.map(
+      (layer) => new VideoPreset(layer.width, layer.height, layer.bitrate, layer.frameRate),
+    ),
+    degradationPreference: plan.degradationPreference,
+    audioPreset: { maxBitrate: 128000 },
+    forceStereo: true,
+    // Game and video sound is not speech: DTX would cut quiet passages, RED doubles stereo.
+    dtx: false,
+    red: false,
+  };
+}
 const qualityNames: Record<number, ScreenLayer['quality'] | undefined> = {
   [VideoQuality.LOW]: 'low',
   [VideoQuality.MEDIUM]: 'medium',
@@ -353,6 +390,8 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   private audio = new Map<string, HTMLMediaElement>();
   private volumes = new Map<string, number>();
   private watchedScreen: string | null = null;
+  /** What the running screen share was published with; null when this client is not sharing. */
+  private shareOptions: { quality: ScreenShareQuality; content: ScreenShareContent } | null = null;
   /** The viewer's pick for this app session; null until they choose, so LiveKit stays untouched. */
   private screenQuality: ScreenViewQuality | null = null;
   /** Announced screen choice of each remote participant, keyed by their LiveKit identity. */
@@ -710,6 +749,9 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       muted: !room.localParticipant.isMicrophoneEnabled,
       camera: room.localParticipant.isCameraEnabled,
       sharing: room.localParticipant.isScreenShareEnabled,
+      sharingQuality: room.localParticipant.isScreenShareEnabled
+        ? (this.shareOptions?.quality ?? null)
+        : null,
       sharingAudio:
         room.localParticipant.isScreenShareEnabled &&
         !!room.localParticipant.getTrackPublication?.(Track.Source.ScreenShareAudio)?.track,
@@ -919,6 +961,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
           muted: true,
           sharing: false,
           sharingAudio: false,
+          sharingQuality: null,
           camera: false,
           tracks: [],
           participants: [],
@@ -1208,53 +1251,26 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   }
   async publishScreen(options: ScreenShareOptions = {}) {
     const room = this.requireRoom();
-    const plan = screenPublishPlan(options.quality ?? '1080p60', options.content);
+    const quality = options.quality ?? '1080p60';
+    const plan = screenPublishPlan(quality, options.content);
     try {
       await room.localParticipant.setScreenShareEnabled(
         true,
         {
-          audio: options.audio
-            ? {
-                channelCount: 2,
-                noiseSuppression: false,
-                autoGainControl: false,
-                echoCancellation: false,
-                restrictOwnAudio: true,
-              }
-            : false,
+          audio: options.audio ? SCREEN_AUDIO_CAPTURE : false,
           resolution: plan.capture,
           // Set before publishing so the encoder starts in the right mode.
           contentHint: plan.contentHint,
         },
-        {
-          videoCodec: 'h264',
-          screenShareEncoding: plan.encoding,
-          simulcast: true,
-          screenShareSimulcastLayers: plan.layers.map(
-            (layer) => new VideoPreset(layer.width, layer.height, layer.bitrate, layer.frameRate),
-          ),
-          degradationPreference: plan.degradationPreference,
-          audioPreset: { maxBitrate: 128000 },
-          forceStereo: true,
-          // Game and video sound is not speech: DTX would cut quiet passages, RED doubles stereo.
-          dtx: false,
-          red: false,
-        },
+        screenPublishOptions(plan),
       );
       // A missing loopback track (no output device, OS refusal) keeps the picture shared; the
       // caller compares `sharingAudio` with what it asked for and tells the sharer.
+      this.shareOptions = { quality, content: options.content ?? 'motion' };
       this.patch({ error: null });
-      const capture = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track;
-      capture?.mediaStreamTrack.addEventListener(
-        'ended',
-        () => {
-          if (this.room === room)
-            void room.localParticipant
-              .setScreenShareEnabled(false)
-              .then(() => this.sync())
-              .catch((error) => this.fail(error));
-        },
-        { once: true },
+      this.endShareWithCapture(
+        room,
+        room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track,
       );
       this.sync();
     } catch (error) {
@@ -1262,18 +1278,156 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       throw new Error(this.state.error ?? 'Media operation failed.');
     }
   }
+  /** Ends the share when the OS or the shared window closes the capture. */
+  private endShareWithCapture(
+    room: Room,
+    capture: { mediaStreamTrack: MediaStreamTrack } | undefined,
+  ) {
+    capture?.mediaStreamTrack.addEventListener(
+      'ended',
+      () => {
+        if (this.room === room)
+          void room.localParticipant
+            .setScreenShareEnabled(false)
+            .then(() => {
+              this.shareOptions = null;
+              this.sync();
+            })
+            .catch((error) => this.fail(error));
+      },
+      { once: true },
+    );
+  }
+  /** The running share's live picture track, or an error when this client is not sharing. */
+  private runningShare() {
+    const room = this.requireRoom();
+    const video = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track;
+    if (!video || !room.localParticipant.isScreenShareEnabled)
+      throw new Error('Screen is not being shared.');
+    return { room, video: video as LocalVideoTrack };
+  }
+  async changeScreenSource() {
+    const { room, video } = this.runningShare();
+    const shared = this.shareOptions ?? { quality: '1080p60' as const, content: 'motion' as const };
+    const plan = screenPublishPlan(shared.quality, shared.content);
+    // The host selected the new source already. Until replaceTrack succeeds the old capture and
+    // publication are untouched, so any failure below leaves the previous source sharing.
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        width: { ideal: plan.capture.width },
+        height: { ideal: plan.capture.height },
+        frameRate: { ideal: plan.capture.frameRate },
+      },
+      audio: false,
+    });
+    const next = stream.getVideoTracks()[0];
+    if (!next) {
+      stream.getTracks().forEach((track) => track.stop());
+      throw new Error('The selected source gave no picture.');
+    }
+    next.contentHint = plan.contentHint;
+    try {
+      // LiveKit stops the old capture once the sender holds the new one and recomputes the
+      // encodings for the new source's size.
+      await video.replaceTrack(next, { userProvidedTrack: false });
+    } catch (error) {
+      stream.getTracks().forEach((track) => track.stop());
+      throw error;
+    }
+    this.endShareWithCapture(room, video);
+    this.sync();
+  }
+  async changeScreenQuality(quality: ScreenShareQuality) {
+    const { room, video } = this.runningShare();
+    const shared = this.shareOptions ?? { quality: '1080p60' as const, content: 'motion' as const };
+    if (quality === shared.quality) return;
+    const plan = screenPublishPlan(quality, shared.content);
+    const capture = video.mediaStreamTrack;
+    const before = { constraints: capture.getConstraints(), options: video.publishOptions };
+    const sameLayers = video.sender?.getParameters().encodings?.length === plan.layers.length + 1;
+    const resize = () =>
+      capture.applyConstraints({
+        width: { ideal: plan.capture.width },
+        height: { ideal: plan.capture.height },
+        frameRate: { ideal: plan.capture.frameRate },
+      });
+    try {
+      await resize();
+      if (sameLayers) {
+        // Same number of simulcast layers: new caps and sizes go onto the live sender.
+        video.publishOptions = { ...video.publishOptions, ...screenPublishOptions(plan) };
+        video.lastEncodedDimensions = undefined;
+        // The same track again: nothing is swapped, LiveKit only recomputes the encodings.
+        await video.replaceTrack(capture, { userProvidedTrack: false });
+      } else {
+        // A different layer count cannot be renegotiated in place: publish the same capture again.
+        await this.republishScreenCapture(room, video, screenPublishOptions(plan));
+      }
+    } catch (error) {
+      video.publishOptions = before.options;
+      await capture.applyConstraints(before.constraints).catch(() => {});
+      if (!sameLayers && !room.localParticipant.isScreenShareEnabled)
+        await this.republishScreenCapture(room, video, before.options ?? {}).catch(() => {});
+      this.sync();
+      throw error;
+    }
+    this.shareOptions = { ...shared, quality };
+    this.sync();
+  }
+  private async republishScreenCapture(room: Room, video: LocalVideoTrack, options: object) {
+    await room.localParticipant.unpublishTrack(video, false);
+    await room.localParticipant.publishTrack(video, {
+      ...options,
+      source: Track.Source.ScreenShare,
+    });
+  }
+  async setScreenSound(on: boolean) {
+    const { room } = this.runningShare();
+    const local = room.localParticipant;
+    const current = local.getTrackPublication(Track.Source.ScreenShareAudio)?.track;
+    if (!on) {
+      if (current) await local.unpublishTrack(current, true);
+      this.sync();
+      return { audio: false };
+    }
+    if (current) return { audio: true };
+    // The OS loopback comes with a capture; only its sound is kept, the picture of this second
+    // capture is dropped at once and the share keeps its own.
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: true,
+      audio: SCREEN_AUDIO_CAPTURE,
+    });
+    stream.getVideoTracks().forEach((track) => track.stop());
+    const sound = stream.getAudioTracks()[0];
+    if (!sound) return { audio: false };
+    try {
+      await local.publishTrack(new LocalAudioTrack(sound, undefined, false), {
+        source: Track.Source.ScreenShareAudio,
+        audioPreset: { maxBitrate: 128000 },
+        forceStereo: true,
+        dtx: false,
+        red: false,
+      });
+    } catch (error) {
+      sound.stop();
+      throw error;
+    }
+    this.sync();
+    return { audio: true };
+  }
   async stopScreen() {
     const room = this.room;
     if (!room) return;
     room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track?.stop();
     room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio)?.track?.stop();
-    this.patch({ sharing: false, sharingAudio: false });
+    this.shareOptions = null;
+    this.patch({ sharing: false, sharingAudio: false, sharingQuality: null });
     try {
       await room.localParticipant.setScreenShareEnabled(false);
       this.sync();
     } catch (error) {
       this.fail(error);
-      this.patch({ sharing: false, sharingAudio: false });
+      this.patch({ sharing: false, sharingAudio: false, sharingQuality: null });
       throw new Error(
         this.state.error ?? 'Screen publication could not be removed. Capture has stopped.',
       );

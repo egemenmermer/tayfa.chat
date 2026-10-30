@@ -32,6 +32,7 @@ import {
 import { release } from 'node:os';
 import { enumerateCaptureSources, CaptureSourcesError } from './capture-sources';
 import { displayMediaStreams, systemAudioSupport } from './system-audio';
+import { createCaptureChannel } from './capture-channel';
 import { findBrowserWindow } from './browser-video';
 import { ConversationVault } from './conversation-vault';
 import { PasswordRecoveryBroker } from './password-recovery';
@@ -146,6 +147,7 @@ export async function setupCommunity(
   let selectedAt = 0;
   let activeCapture: { epoch: string; displayId: string } | null = null;
   let activeCaptureScope: StoatClient | null = null;
+  const captureChannel = createCaptureChannel();
   let choices: DesktopCapturerSource[] = [];
   let choicesAt = 0;
   const conversationVault = new ConversationVault(app.getPath('userData'), safeStorage);
@@ -1949,7 +1951,8 @@ export async function setupCommunity(
     if (action === 'release') {
       activeCapture = null;
       remote.stop();
-    }
+      captureChannel.release(id.parse(channelId));
+    } else if (action === 'acquire') captureChannel.acquire(id.parse(channelId));
     return broker(`screens/${z.enum(['acquire', 'release']).parse(action)}`, {
       channelId: id.parse(channelId),
     });
@@ -1979,8 +1982,12 @@ export async function setupCommunity(
       .parse(await broker('screen/request/decide', body));
   });
   handle('rooms:media-leave', (channelId) => {
-    activeCapture = null;
-    remote.stop();
+    // The leave of a room we already switched away from can arrive after a share started in the
+    // new room; it must leave that share's capture and remote control alone.
+    if (captureChannel.leave(id.parse(channelId))) {
+      activeCapture = null;
+      remote.stop();
+    }
     return broker('leave', { channelId: id.parse(channelId) });
   });
   handle('rooms:capture-status', () => ({
