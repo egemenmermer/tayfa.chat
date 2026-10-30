@@ -8,8 +8,8 @@
 
 [![Latest release](https://img.shields.io/github/v/release/egemenmermer/rooms?style=flat-square&label=latest&color=8B5CF6)](https://github.com/egemenmermer/rooms/releases/latest)
 [![MIT license](https://img.shields.io/badge/license-MIT-64748B?style=flat-square)](LICENSE)
-[![Download for macOS](https://img.shields.io/badge/macOS-download-18181B?style=flat-square&logo=apple&logoColor=white)](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.34/ROOMS-0.1.18-rc.34-arm64.dmg)
-[![Download for Windows](https://img.shields.io/badge/Windows-download-2563EB?style=flat-square)](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.34/ROOMS-0.1.18-rc.34-windows-x64-setup.exe)
+[![Download for macOS](https://img.shields.io/badge/macOS-download-18181B?style=flat-square&logo=apple&logoColor=white)](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.35/ROOMS-0.1.18-rc.35-arm64.dmg)
+[![Download for Windows](https://img.shields.io/badge/Windows-download-2563EB?style=flat-square)](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.35/ROOMS-0.1.18-rc.35-windows-x64-setup.exe)
 
 Voice rooms, screen sharing, chat, music and shared activities — in one desktop app.
 
@@ -48,8 +48,8 @@ Current builds are on the [GitHub releases](https://github.com/egemenmermer/room
 
 | Platform                  | Package                                                                                                                             | Status                                                  |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| macOS 14+ / Apple Silicon | [Download RC34 DMG](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.34/ROOMS-0.1.18-rc.34-arm64.dmg)             | Signed and notarized by Apple                           |
-| Windows x64               | [Download RC34 EXE](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.34/ROOMS-0.1.18-rc.34-windows-x64-setup.exe) | Unsigned friends-test build; Windows may show a warning |
+| macOS 14+ / Apple Silicon | [Download RC35 DMG](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.35/ROOMS-0.1.18-rc.35-arm64.dmg)             | Signed and notarized by Apple                           |
+| Windows x64               | [Download RC35 EXE](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.35/ROOMS-0.1.18-rc.35-windows-x64-setup.exe) | Unsigned friends-test build; Windows may show a warning |
 
 1. Download the package for your platform and install the app.
 2. Get an invite link (`https://<server>/davet/…`) from your community admin.
@@ -258,8 +258,8 @@ Güncel paketler [GitHub sürümleri](https://github.com/egemenmermer/rooms/rele
 
 | Platform                  | Paket                                                                                                                            | Durum                                                    |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| macOS 14+ / Apple Silicon | [RC34 DMG indir](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.34/ROOMS-0.1.18-rc.34-arm64.dmg)             | Apple imzalı ve noter onaylı                             |
-| Windows x64               | [RC34 EXE indir](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.34/ROOMS-0.1.18-rc.34-windows-x64-setup.exe) | İmzasız arkadaş test paketi; sistem uyarısı gösterebilir |
+| macOS 14+ / Apple Silicon | [RC35 DMG indir](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.35/ROOMS-0.1.18-rc.35-arm64.dmg)             | Apple imzalı ve noter onaylı                             |
+| Windows x64               | [RC35 EXE indir](https://github.com/egemenmermer/rooms/releases/download/v0.1.18-rc.35/ROOMS-0.1.18-rc.35-windows-x64-setup.exe) | İmzasız arkadaş test paketi; sistem uyarısı gösterebilir |
 
 1. Platformuna uygun paketi indirip uygulamayı kur.
 2. Topluluk yöneticisinden davet bağlantısını (`https://<sunucu>/davet/…`) al.
