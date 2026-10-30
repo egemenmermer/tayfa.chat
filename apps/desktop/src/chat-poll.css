@@ -1,0 +1,164 @@
+/* Poll cards posted into a text channel (ChatPoll.tsx). */
+.chat-poll {
+  display: grid;
+  gap: 10px;
+  width: min(100%, 440px);
+  min-width: 0;
+  margin-top: 4px;
+  padding: 14px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-12);
+  background: var(--color-background-raised);
+}
+.chat-poll header,
+.chat-poll footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px 10px;
+  min-width: 0;
+}
+.chat-poll header > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-micro);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 1.2px;
+  color: var(--color-text-accent);
+}
+.chat-poll header small {
+  padding: 3px 8px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  font-size: var(--font-size-micro);
+  color: var(--color-text-secondary);
+}
+.chat-poll h3 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.chat-poll-options {
+  display: grid;
+  gap: 6px;
+}
+.chat-poll-options button {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-8);
+  background: var(--color-background-main);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.chat-poll-options button:hover:not(:disabled) {
+  border-color: var(--color-border-default);
+}
+.chat-poll-options button:disabled {
+  cursor: default;
+}
+.chat-poll-options button.voted {
+  border-color: var(--color-action-primary);
+}
+.chat-poll-options button > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: -1;
+  background: var(--color-background-hover);
+  transition: width var(--motion-quick, 160ms) ease-out;
+}
+.chat-poll-options button > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--font-size-ui);
+  overflow-wrap: anywhere;
+}
+.chat-poll-options small {
+  flex: none;
+  white-space: nowrap;
+  font-size: var(--font-size-micro);
+  color: var(--color-text-secondary);
+}
+.chat-poll footer {
+  font-size: var(--font-size-metadata);
+  color: var(--color-text-secondary);
+}
+.chat-poll footer > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.chat-poll-confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.chat-poll .text-button.danger {
+  color: var(--color-status-error);
+}
+.chat-poll-fallback {
+  margin: 0;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+.chat-poll-state {
+  margin: 0;
+  font-size: var(--font-size-metadata);
+  color: var(--color-text-muted);
+}
+.chat-poll.is-error .chat-poll-state,
+.chat-poll-error {
+  color: var(--color-status-error);
+}
+.chat-poll-error {
+  margin: 0;
+  font-size: var(--font-size-metadata);
+}
+.chat-poll.is-missing .chat-poll-state {
+  color: var(--color-status-warning);
+}
+.chat-poll-modal form {
+  display: grid;
+  gap: 12px;
+}
+.chat-poll-option-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.chat-poll-option-input input {
+  flex: 1;
+  min-width: 0;
+}
+.chat-poll-option-input button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--radius-8);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.chat-poll-option-input button:hover {
+  background: var(--color-background-hover);
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-poll-options button > i {
+    transition: none;
+  }
+}

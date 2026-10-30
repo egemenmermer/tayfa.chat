@@ -6,6 +6,7 @@ import {
   DisconnectReason,
   Track,
   LocalAudioTrack,
+  VideoQuality,
   createLocalAudioTrack,
   type Room,
 } from 'livekit-client';
@@ -338,10 +339,40 @@ describe('explicit screen quality and system audio', () => {
       expect.objectContaining({
         audio: false,
         resolution: { width: 1920, height: 1080, frameRate: 60 },
+        contentHint: 'motion',
       }),
       expect.objectContaining({
         videoCodec: 'h264',
-        screenShareEncoding: { maxBitrate: 10000000, maxFramerate: 60 },
+        screenShareEncoding: { maxBitrate: 8000000, maxFramerate: 60 },
+        simulcast: true,
+        // LiveKit's screen share default is maintain-resolution, which drops frames on motion.
+        degradationPreference: 'maintain-framerate',
+        screenShareSimulcastLayers: [
+          expect.objectContaining({
+            width: 640,
+            height: 360,
+            encoding: expect.objectContaining({ maxBitrate: 600000, maxFramerate: 30 }),
+          }),
+          expect.objectContaining({
+            width: 1280,
+            height: 720,
+            encoding: expect.objectContaining({ maxBitrate: 3500000, maxFramerate: 60 }),
+          }),
+        ],
+      }),
+    );
+    await provider.disconnect();
+  });
+  it('keeps text sharp for detail content and adds no layer equal to a 720p profile', async () => {
+    const { provider, local } = fixture();
+    await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    await provider.publishScreen({ quality: '720p30', content: 'detail' });
+    expect(local.setScreenShareEnabled).toHaveBeenCalledWith(
+      true,
+      expect.objectContaining({ contentHint: 'detail' }),
+      expect.objectContaining({
+        degradationPreference: 'maintain-resolution',
+        screenShareSimulcastLayers: [expect.objectContaining({ width: 640, height: 360 })],
       }),
     );
     await provider.disconnect();
@@ -364,16 +395,33 @@ describe('explicit screen quality and system audio', () => {
         }),
         resolution: { width: 3840, height: 2160, frameRate: 30 },
       }),
-      expect.objectContaining({ forceStereo: true }),
+      // Game and video sound: no speech DTX gaps, no doubled stereo RED.
+      expect.objectContaining({ forceStereo: true, dtx: false, red: false }),
     );
+    // Tayfa's own playback is asked to stay out (Windows 11, macOS 14.2+ honour it).
+    expect(local.setScreenShareEnabled).toHaveBeenCalledWith(
+      true,
+      expect.objectContaining({ audio: expect.objectContaining({ restrictOwnAudio: true }) }),
+      expect.anything(),
+    );
+    expect(provider.snapshot()).toMatchObject({ sharing: true, sharingAudio: true });
     await provider.disconnect();
   });
-  it('stops sharing if requested system audio was not acquired', async () => {
+  it('keeps sharing the picture when requested system audio was not acquired', async () => {
     const { provider, local } = fixture();
     await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    // Chromium rejects the whole capture when the loopback cannot start…
+    local.setScreenShareEnabled.mockRejectedValueOnce(
+      Object.assign(new Error('Could not start audio source'), { name: 'NotReadableError' }),
+    );
     await expect(provider.publishScreen({ audio: true })).rejects.toThrow();
-    expect(local.setScreenShareEnabled).toHaveBeenLastCalledWith(false);
-    expect(provider.snapshot().sharing).toBe(false);
+    expect(provider.snapshot().error).toBeTruthy();
+    // …while a capture without an audio track still shares the picture, without a stale error.
+    await provider.publishScreen({ audio: true });
+    expect(local.setScreenShareEnabled).toHaveBeenCalledTimes(2);
+    expect(provider.snapshot()).toMatchObject({ sharing: true, sharingAudio: false, error: null });
+    await provider.stopScreen();
+    expect(provider.snapshot()).toMatchObject({ sharing: false, sharingAudio: false });
     await provider.disconnect();
   });
 });
@@ -581,6 +629,99 @@ it('streams screen audio only to a listener who watches it and keeps it apart fr
   expect(element.muted).toBe(true);
   await provider.disconnect();
 });
+it('tells viewers whether a screen share carries sound', async () => {
+  const { provider, room, emit } = fixture();
+  await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+  const audio = screenPublication('screen-audio', Track.Source.ScreenShareAudio);
+  const person = (identity: string, withSound: boolean) => ({
+    identity,
+    name: identity,
+    isScreenShareEnabled: true,
+    setVolume: vi.fn(),
+    trackPublications: new Map(),
+    getTrackPublication: (source: Track.Source) =>
+      withSound && source === Track.Source.ScreenShareAudio ? audio : undefined,
+  });
+  room.remoteParticipants.set('bob', person('bob', true));
+  room.remoteParticipants.set('cem', person('cem', false));
+  emit(RoomEvent.TrackPublished);
+  const participants = provider.snapshot().participants;
+  expect(participants.find((p) => p.id === 'bob')).toMatchObject({ screenAudio: true });
+  expect(participants.find((p) => p.id === 'cem')).toMatchObject({ screenAudio: false });
+  await provider.disconnect();
+});
+it('caps watched screen video at the viewer choice, for a restarted share too', async () => {
+  const { provider, room, emit } = fixture();
+  await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+  const announced = (...layers: [VideoQuality, number, number][]) => ({
+    layers: layers.map(([quality, width, height]) => ({ quality, width, height })),
+  });
+  const video = Object.assign(screenPublication('screen-video', Track.Source.ScreenShare), {
+    trackInfo: announced(
+      [VideoQuality.LOW, 640, 360],
+      [VideoQuality.MEDIUM, 1280, 720],
+      [VideoQuality.HIGH, 1920, 1080],
+    ),
+    setVideoQuality: vi.fn(),
+  });
+  // The audio publication has no setVideoQuality: calling it there would throw.
+  const audio = screenPublication('screen-audio', Track.Source.ScreenShareAudio);
+  const bob = {
+    identity: 'bob',
+    name: 'Bob',
+    setVolume: vi.fn(),
+    trackPublications: new Map<string, object>([
+      ['video', video],
+      ['audio', audio],
+    ]),
+  };
+  room.remoteParticipants.set('bob', bob);
+  provider.watchScreen('bob');
+  // Until the viewer picks, LiveKit's adaptive stream stays in charge.
+  expect(video.setVideoQuality).not.toHaveBeenCalled();
+  expect(provider.snapshot().screenQuality).toBe('auto');
+  expect(provider.snapshot().tracks).toContainEqual(
+    expect.objectContaining({
+      id: 'screen-video',
+      layers: [
+        { quality: 'low', width: 640, height: 360 },
+        { quality: 'medium', width: 1280, height: 720 },
+        { quality: 'high', width: 1920, height: 1080 },
+      ],
+    }),
+  );
+  provider.setScreenQuality(720);
+  expect(video.setVideoQuality).toHaveBeenLastCalledWith(VideoQuality.MEDIUM);
+  expect(provider.snapshot().screenQuality).toBe(720);
+  // An rc.34 share (q/h, no high layer) restarts as a new publication; the choice follows it.
+  const rc34 = Object.assign(screenPublication('screen-video-2', Track.Source.ScreenShare), {
+    trackInfo: announced([VideoQuality.LOW, 960, 540], [VideoQuality.MEDIUM, 1920, 1080]),
+    setVideoQuality: vi.fn(),
+  });
+  bob.trackPublications.set('video', rc34);
+  emit(RoomEvent.TrackSubscribed, { kind: 'video' }, rc34, bob);
+  expect(rc34.setVideoQuality).toHaveBeenLastCalledWith(VideoQuality.LOW);
+  provider.setScreenQuality('auto');
+  expect(rc34.setVideoQuality).toHaveBeenLastCalledWith(VideoQuality.MEDIUM);
+  // A single-layer publisher only has its one layer to give.
+  const single = Object.assign(screenPublication('screen-video-3', Track.Source.ScreenShare), {
+    trackInfo: announced([VideoQuality.HIGH, 1920, 1080]),
+    setVideoQuality: vi.fn(),
+  });
+  bob.trackPublications.set('video', single);
+  emit(RoomEvent.TrackSubscribed, { kind: 'video' }, single, bob);
+  provider.setScreenQuality(360);
+  expect(single.setVideoQuality).toHaveBeenLastCalledWith(VideoQuality.HIGH);
+  // Not watching: nothing is requested for a stream this listener does not receive.
+  provider.watchScreen(null);
+  single.setVideoQuality.mockClear();
+  provider.setScreenQuality(1080);
+  expect(single.setVideoQuality).not.toHaveBeenCalled();
+  expect(() => provider.setScreenQuality(0)).toThrow();
+  await provider.disconnect();
+  // The choice lasts for the app session, across leaving voice.
+  expect(provider.snapshot().screenQuality).toBe(1080);
+});
 it('advertises a remote screen share without downloading it until the listener watches', async () => {
   const { provider, room, emit } = fixture();
   await provider.connectRoom('room', 'token', 'ws://localhost:7880');
@@ -651,6 +792,37 @@ it('shares whiteboard pointers lossily and keeps them apart from control input',
   for (let i = 0; i < 700; i++)
     emit(RoomEvent.DataReceived, packet('{"b":"room"}'), carol, 0, 'rooms-cursor-v1');
   expect(cursors.length).toBeLessThanOrEqual(600);
+  await provider.disconnect();
+});
+it('relays soundboard reactions on their own topic, with a flood limit and no effect on control input', async () => {
+  const { provider, room, local, emit } = fixture();
+  await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+  const carol = { identity: 'carol', name: 'Carol', trackPublications: new Map() };
+  room.remoteParticipants.set('carol', carol);
+  const reactions: [string, string][] = [],
+    controls: string[] = [],
+    cursors: string[] = [];
+  provider.onReaction((payload, sender) => reactions.push([payload, sender]));
+  provider.onControl((payload) => controls.push(payload));
+  provider.onCursor((payload) => cursors.push(payload));
+  const body = '{"v":1,"k":"sound","e":"🎉"}';
+  await provider.publishReaction(body);
+  const [payload, options] = vi.mocked(local.publishData).mock.calls.at(-1)!;
+  expect(new TextDecoder().decode(payload)).toBe(body);
+  expect(options).toEqual({ reliable: true, topic: 'rooms-reaction-v1' });
+  await expect(provider.publishReaction('x'.repeat(257))).rejects.toThrow();
+  const packet = (value: string) => new TextEncoder().encode(value);
+  emit(RoomEvent.DataReceived, packet(body), carol, 0, 'rooms-reaction-v1');
+  // Server-originated or oversized packets and other topics never become reactions.
+  emit(RoomEvent.DataReceived, packet(body), undefined, 0, 'rooms-reaction-v1');
+  emit(RoomEvent.DataReceived, new Uint8Array(300), carol, 0, 'rooms-reaction-v1');
+  emit(RoomEvent.DataReceived, packet(body), carol, 0, 'rooms-unknown-v9');
+  expect(reactions).toEqual([[body, 'carol']]);
+  expect(controls).toEqual([]);
+  expect(cursors).toEqual([]);
+  for (let i = 0; i < 60; i++)
+    emit(RoomEvent.DataReceived, packet(body), carol, 0, 'rooms-reaction-v1');
+  expect(reactions.length).toBeLessThanOrEqual(20);
   await provider.disconnect();
 });
 it('follows a move only when the server sends it, and says when a moderator disconnected you', async () => {
@@ -886,7 +1058,11 @@ it('attaches the selected local filter before any microphone publication', async
     (local as unknown as { publishTrack: ReturnType<typeof vi.fn> }).publishTrack.mock
       .invocationCallOrder[0],
   );
-  expect(SoundboardMixer).toHaveBeenCalledWith(true, 'strong', expect.any(Object));
+  // The mixer also gets the input gate and leveler defaults (automatic sensitivity, leveler on).
+  expect(SoundboardMixer).toHaveBeenCalledWith(true, 'strong', expect.any(Object), {
+    gate: { auto: true, threshold: -34 },
+    leveler: true,
+  });
   await provider.disconnect();
 });
 it('never publishes raw microphone audio after a filter initialization failure', async () => {
@@ -940,4 +1116,296 @@ it('does not close an AudioContext that is already closed when leaving voice', a
   (provider as unknown as { soundContext: unknown }).soundContext = { state: 'closed', close };
   await expect(provider.disconnect()).resolves.toBeUndefined();
   expect(close).not.toHaveBeenCalled();
+});
+
+describe('personal volume up to 200%', () => {
+  function voice(identity = 'bob') {
+    const element = document.createElement('audio');
+    element.play = vi.fn(async () => {});
+    element.pause = vi.fn();
+    const track = {
+      kind: 'audio',
+      attach: () => element,
+      setAudioContext: vi.fn(),
+      setVolume: vi.fn(),
+    };
+    const publication = { trackSid: `TR_${identity}`, source: Track.Source.Microphone, track };
+    const person = {
+      identity,
+      setVolume: vi.fn(),
+      trackPublications: new Map([[publication.trackSid, publication]]),
+    };
+    return { element, track, publication, person };
+  }
+  it('maps 0, 100% and 200% to gains, boosting above 100% through Web Audio', async () => {
+    const { provider, room, emit } = fixture();
+    await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    const { element, track, publication, person } = voice();
+    room.remoteParticipants.set(person.identity, person);
+    emit(RoomEvent.TrackSubscribed, track, publication, person);
+    provider.setParticipantVolume('bob', 0);
+    expect(person.setVolume).toHaveBeenLastCalledWith(0, Track.Source.Microphone);
+    provider.setParticipantVolume('bob', 1);
+    expect(person.setVolume).toHaveBeenLastCalledWith(1, Track.Source.Microphone);
+    // Up to 100% the ordinary element volume is used.
+    expect(track.setAudioContext).not.toHaveBeenCalled();
+    expect(element.muted).toBe(false);
+    provider.setParticipantVolume('bob', 2);
+    expect(track.setAudioContext).toHaveBeenLastCalledWith(expect.any(Object));
+    expect(element.muted).toBe(true);
+    expect(person.setVolume).toHaveBeenLastCalledWith(2, Track.Source.Microphone);
+    provider.setParticipantVolume('bob', 1.5);
+    expect(person.setVolume).toHaveBeenLastCalledWith(1.5, Track.Source.Microphone);
+    expect(track.setAudioContext).toHaveBeenCalledTimes(1);
+    // Back to 100%: the element plays again and nothing above 1 reaches it.
+    provider.setParticipantVolume('bob', 1);
+    expect(track.setAudioContext).toHaveBeenLastCalledWith(undefined);
+    expect(element.muted).toBe(false);
+    expect(person.setVolume).toHaveBeenLastCalledWith(1, Track.Source.Microphone);
+    expect(() => provider.setParticipantVolume('bob', 2.01)).toThrow();
+    expect(() => provider.setParticipantVolume('bob', -0.1)).toThrow();
+    expect(() => provider.setParticipantVolume('bob', Number.NaN)).toThrow();
+    expect(provider.snapshot().participants.find((p) => p.id === 'bob')?.volume).toBe(1);
+    await provider.disconnect();
+  });
+  it('keeps the music bot curve and caps it at the element volume', async () => {
+    const { provider, room } = fixture();
+    await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    const { person } = voice('rooms-music-room');
+    room.remoteParticipants.set(person.identity, person);
+    provider.setParticipantVolume(person.identity, 0.5);
+    expect(person.setVolume).toHaveBeenLastCalledWith(0.25, Track.Source.Microphone);
+    provider.setParticipantVolume(person.identity, 2);
+    expect(person.setVolume).toHaveBeenLastCalledWith(1, Track.Source.Microphone);
+    await provider.disconnect();
+  });
+  it('silences a boosted person while deafened and restores the level afterwards', async () => {
+    const { provider, room, emit } = fixture();
+    await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    const { element, track, publication, person } = voice();
+    room.remoteParticipants.set(person.identity, person);
+    emit(RoomEvent.TrackSubscribed, track, publication, person);
+    provider.setParticipantVolume('bob', 1.8);
+    await provider.deafen(true);
+    expect(person.setVolume).toHaveBeenLastCalledWith(0, Track.Source.Microphone);
+    expect(element.muted).toBe(true);
+    // Lowering the level while deafened must not leak sound through the element.
+    provider.setParticipantVolume('bob', 0.7);
+    expect(element.muted).toBe(true);
+    provider.setParticipantVolume('bob', 1.2);
+    expect(person.setVolume).toHaveBeenLastCalledWith(0, Track.Source.Microphone);
+    await provider.deafen(false);
+    expect(person.setVolume).toHaveBeenLastCalledWith(1.2, Track.Source.Microphone);
+    provider.setParticipantVolume('bob', 0);
+    expect(person.setVolume).toHaveBeenLastCalledWith(0, Track.Source.Microphone);
+    await provider.disconnect();
+  });
+  it('boosts a replacement track right away and persists levels per account up to 200%', async () => {
+    localStorage.clear();
+    const first = fixture();
+    first.provider.setListenerScope('DEMO-server:alice');
+    await first.provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    first.provider.setParticipantVolume('bob', 1.75);
+    first.provider.setScreenVolume('bob', 0.5);
+    expect(() => first.provider.setScreenVolume('bob', 1.5)).toThrow();
+    await first.provider.disconnect();
+    // A stored screen level above 100% is never trusted, a person level up to 200% is.
+    localStorage.setItem(
+      'rooms-listener-levels-v1:DEMO-server:alice',
+      JSON.stringify({ bob: 1.75, 'screen:bob': 1.9, carl: 2.5 }),
+    );
+    const second = fixture();
+    second.provider.setListenerScope('DEMO-server:alice');
+    await second.provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    const { track, publication, person } = voice();
+    second.room.remoteParticipants.set(person.identity, person);
+    second.emit(RoomEvent.TrackSubscribed, track, publication, person);
+    expect(track.setAudioContext).toHaveBeenLastCalledWith(expect.any(Object));
+    expect(person.setVolume).toHaveBeenLastCalledWith(1.75, Track.Source.Microphone);
+    expect(JSON.parse(localStorage.getItem('rooms-listener-levels-v1:DEMO-server:alice')!)).toEqual(
+      expect.objectContaining({ bob: 1.75 }),
+    );
+    await second.provider.disconnect();
+    localStorage.clear();
+  });
+});
+
+describe('changing a running screen share in place', () => {
+  const capture = (name: string) => ({
+    name,
+    readyState: 'live',
+    contentHint: '',
+    stop: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    getConstraints: vi.fn(() => ({ width: { ideal: 1920 } })),
+    applyConstraints: vi.fn(async () => {}),
+  });
+  type Capture = ReturnType<typeof capture>;
+  async function sharing(layerEncodings = 3, withSound = true) {
+    const base = fixture();
+    // The fixture adds publishTrack/unpublishTrack with Object.assign, so its type omits them.
+    const ctx = {
+      ...base,
+      local: base.local as typeof base.local & {
+        publishTrack: ReturnType<typeof vi.fn>;
+        unpublishTrack: ReturnType<typeof vi.fn>;
+      },
+    };
+    await ctx.provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    const old = capture('old');
+    const video = {
+      mediaStreamTrack: old as Capture,
+      publishOptions: { simulcast: true, screenShareEncoding: { maxBitrate: 8_000_000 } },
+      lastEncodedDimensions: { width: 1920, height: 1080 } as unknown,
+      sender: { getParameters: vi.fn(() => ({ encodings: new Array(layerEncodings).fill({}) })) },
+      replaceTrack: vi.fn(async (track: Capture) => {
+        video.mediaStreamTrack = track;
+      }),
+    };
+    const sound = { stop: vi.fn() };
+    let soundPublished = withSound;
+    ctx.local.getTrackPublication.mockImplementation((source: Track.Source) =>
+      source === Track.Source.ScreenShare
+        ? { track: video }
+        : source === Track.Source.ScreenShareAudio && soundPublished
+          ? { track: sound }
+          : undefined,
+    );
+    await ctx.provider.publishScreen({ quality: '1080p60' });
+    ctx.local.unpublishTrack.mockImplementation(async (track: unknown) => {
+      if (track === sound) soundPublished = false;
+    });
+    ctx.local.publishTrack.mockImplementation(async (track: unknown, options: any) => {
+      if (options?.source === Track.Source.ScreenShareAudio) {
+        soundPublished = true;
+        sound.stop = vi.fn();
+      }
+      void track;
+    });
+    return { ...ctx, video, old, sound };
+  }
+  const display = (stream: { video?: Capture[]; audio?: { stop: () => void }[] }) => {
+    const getDisplayMedia = vi.fn(async () => ({
+      getVideoTracks: () => stream.video ?? [],
+      getAudioTracks: () => stream.audio ?? [],
+      getTracks: () => [...(stream.video ?? []), ...(stream.audio ?? [])],
+    }));
+    vi.stubGlobal('navigator', { ...navigator, mediaDevices: { getDisplayMedia } });
+    return getDisplayMedia;
+  };
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('swaps the picture on the live publication: nothing is unpublished, sound stays', async () => {
+    const { provider, local, video, old, sound } = await sharing();
+    const next = capture('next');
+    display({ video: [next] });
+    await provider.changeScreenSource();
+    expect(video.replaceTrack).toHaveBeenCalledWith(next, { userProvidedTrack: false });
+    expect(next.contentHint).toBe('motion');
+    expect(local.unpublishTrack).not.toHaveBeenCalled();
+    expect(local.publishTrack).not.toHaveBeenCalled();
+    expect(local.setScreenShareEnabled).toHaveBeenCalledTimes(1);
+    expect(old.stop).not.toHaveBeenCalled();
+    expect(sound.stop).not.toHaveBeenCalled();
+    expect(provider.snapshot()).toMatchObject({ sharing: true, sharingAudio: true });
+    await provider.disconnect();
+  });
+  it('keeps the old source when the new one cannot be captured or swapped in', async () => {
+    const { provider, local, video, old } = await sharing();
+    const getDisplayMedia = display({});
+    getDisplayMedia.mockRejectedValueOnce(new Error('Permission denied'));
+    await expect(provider.changeScreenSource()).rejects.toThrow('Permission denied');
+    expect(video.replaceTrack).not.toHaveBeenCalled();
+    const next = capture('next');
+    display({ video: [next] });
+    video.replaceTrack.mockRejectedValueOnce(new Error('sender closed'));
+    await expect(provider.changeScreenSource()).rejects.toThrow('sender closed');
+    expect(next.stop).toHaveBeenCalled();
+    expect(old.stop).not.toHaveBeenCalled();
+    expect(video.mediaStreamTrack).toBe(old);
+    expect(local.setScreenShareEnabled).toHaveBeenCalledTimes(1);
+    expect(provider.snapshot().sharing).toBe(true);
+    await provider.disconnect();
+  });
+  it('moves to another preset on the live sender and reports it', async () => {
+    const { provider, local, video, old } = await sharing();
+    expect(provider.snapshot().sharingQuality).toBe('1080p60');
+    await provider.changeScreenQuality('1080p30');
+    expect(old.applyConstraints).toHaveBeenCalledWith(
+      expect.objectContaining({ frameRate: { ideal: 30 } }),
+    );
+    expect(video.publishOptions.screenShareEncoding).toMatchObject({ maxBitrate: 5_000_000 });
+    expect(video.lastEncodedDimensions).toBeUndefined();
+    expect(video.replaceTrack).toHaveBeenCalledWith(old, { userProvidedTrack: false });
+    expect(local.unpublishTrack).not.toHaveBeenCalled();
+    expect(provider.snapshot().sharingQuality).toBe('1080p30');
+    await provider.disconnect();
+  });
+  it('publishes the same capture again only when the layer count differs (720p30)', async () => {
+    const { provider, local, video, old } = await sharing();
+    await provider.changeScreenQuality('720p30');
+    expect(local.unpublishTrack).toHaveBeenCalledWith(video, false);
+    expect(local.publishTrack).toHaveBeenCalledWith(
+      video,
+      expect.objectContaining({ source: Track.Source.ScreenShare, simulcast: true }),
+    );
+    expect(old.stop).not.toHaveBeenCalled();
+    expect(provider.snapshot().sharingQuality).toBe('720p30');
+    await provider.disconnect();
+  });
+  it('a refused quality change leaves the previous quality running', async () => {
+    const { provider, video, old } = await sharing();
+    const options = video.publishOptions;
+    old.applyConstraints.mockRejectedValueOnce(new Error('Overconstrained'));
+    await expect(provider.changeScreenQuality('4k30')).rejects.toThrow('Overconstrained');
+    expect(video.publishOptions).toBe(options);
+    expect(video.replaceTrack).not.toHaveBeenCalled();
+    expect(provider.snapshot()).toMatchObject({ sharing: true, sharingQuality: '1080p60' });
+    await provider.disconnect();
+  });
+  it('turns the sound off without touching the picture, and on again from a capture', async () => {
+    const { provider, local, video, sound } = await sharing();
+    await expect(provider.setScreenSound(false)).resolves.toEqual({ audio: false });
+    expect(local.unpublishTrack).toHaveBeenCalledWith(sound, true);
+    expect(provider.snapshot()).toMatchObject({ sharing: true, sharingAudio: false });
+    expect(video.replaceTrack).not.toHaveBeenCalled();
+    vi.stubGlobal('MediaStream', class {});
+    // The SDK probes a new audio track for silence with a real AudioContext.
+    vi.spyOn(LocalAudioTrack.prototype, 'checkForSilence').mockResolvedValue(false);
+    const picture = capture('throwaway');
+    const loopback = Object.assign(capture('loopback'), { kind: 'audio', getSettings: () => ({}) });
+    display({ video: [picture], audio: [loopback] });
+    await expect(provider.setScreenSound(true)).resolves.toEqual({ audio: true });
+    expect(picture.stop).toHaveBeenCalled();
+    expect(local.publishTrack).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ source: Track.Source.ScreenShareAudio, dtx: false, red: false }),
+    );
+    expect(provider.snapshot().sharingAudio).toBe(true);
+    await provider.disconnect();
+  });
+  it('reports no sound when the capture comes without a loopback track', async () => {
+    const { provider, local } = await sharing(3, false);
+    const picture = capture('throwaway');
+    display({ video: [picture] });
+    await expect(provider.setScreenSound(true)).resolves.toEqual({ audio: false });
+    expect(picture.stop).toHaveBeenCalled();
+    expect(local.publishTrack).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ source: Track.Source.ScreenShareAudio }),
+    );
+    await provider.disconnect();
+  });
+  it('refuses every change while nothing is shared', async () => {
+    const { provider } = fixture();
+    await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    await expect(provider.changeScreenSource()).rejects.toThrow('not being shared');
+    await expect(provider.changeScreenQuality('720p30')).rejects.toThrow('not being shared');
+    await expect(provider.setScreenSound(false)).rejects.toThrow('not being shared');
+    await provider.disconnect();
+  });
 });

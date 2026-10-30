@@ -38,17 +38,29 @@ export function DesktopUpdates() {
     }
   };
   const working = busy || ['checking', 'downloading', 'verifying'].includes(status?.state ?? '');
+  // Windows (NSIS) checks the installer's SHA-512 from the release; it is not publisher-signed yet.
+  const windows = status?.engine === 'nsis';
   return (
     <section className="desktop-updates">
       <div className="settings-row">
         <div>
-          <h4>{t('İmzalı güncellemeler')}</h4>
-          <p>{t('Yeni sürümleri isteğinle denetle; kurulumdan önce yayıncı imzası doğrulanır.')}</p>
+          <h4>{windows ? t('Otomatik güncellemeler') : t('İmzalı güncellemeler')}</h4>
+          <p>
+            {windows
+              ? t(
+                  'Windows kurulum dosyası henüz yayıncı imzası taşımıyor; indirilen dosya GitHub sürümündeki SHA-512 özetiyle doğrulanır.',
+                )
+              : t('Yeni sürümleri isteğinle denetle; kurulumdan önce yayıncı imzası doğrulanır.')}
+          </p>
         </div>
         <Toggle
           value={status?.enabled ?? false}
           disabled={!status?.configured || working}
-          label={t('İmzalı güncellemeleri etkinleştir')}
+          label={
+            windows
+              ? t('Otomatik güncellemeleri etkinleştir')
+              : t('İmzalı güncellemeleri etkinleştir')
+          }
           onChange={(value) => void run(() => window.rooms!.updates.setOptIn(value))}
         />
       </div>
@@ -63,7 +75,9 @@ export function DesktopUpdates() {
             {status?.reason
               ? uiError(status.reason)
               : !status?.enabled
-                ? t('Denetlemek için imzalı güncellemeleri etkinleştir.')
+                ? windows
+                  ? t('Önce otomatik güncellemeleri etkinleştir.')
+                  : t('Denetlemek için imzalı güncellemeleri etkinleştir.')
                 : t('Güncelleme kurulumu açık uygulamayı yeniden başlatır.')}
           </p>
           {status?.state === 'downloading' && (
@@ -77,7 +91,9 @@ export function DesktopUpdates() {
           disabled={!status?.configured || !status.enabled || working}
           title={
             !status?.configured
-              ? t('İmzalı dağıtım ve güncelleme adresi yapılandırılmalı.')
+              ? status?.reason && status.engine !== 'sparkle'
+                ? status.reason
+                : t('İmzalı dağıtım ve güncelleme adresi yapılandırılmalı.')
               : undefined
           }
           onClick={() => void run(() => window.rooms!.updates.check())}

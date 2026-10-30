@@ -16,6 +16,8 @@ li{display:grid;gap:8px}
 a.button{display:block;text-align:center;text-decoration:none;padding:12px 16px;border-radius:10px;font-weight:600;background:var(--accent);color:#fff}
 a.secondary{background:transparent;border:1px solid var(--line);color:var(--text)}
 .hint{margin:0;color:var(--muted);font-size:13px}
+.lead{margin:0 0 24px;display:grid;gap:8px}
+h2{margin:0 0 14px;padding-top:20px;border-top:1px solid var(--line);font-size:15px}
 .note{margin:24px 0 0;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
 `;
 export const INVITE_PAGE_STYLE_HASH = createHash('sha256').update(STYLE).digest('base64');
@@ -69,12 +71,16 @@ interface InviteCopy {
   titleNamed: (name: string) => string;
   titleAnonymous: string;
   expires: (date: string) => string;
+  openInApp: string;
+  existingAccount: string;
+  existingFallback: string;
+  existingPasteOnly: string;
+  newUsers: string;
   stepInstall: string;
   download: string;
   platforms: string;
-  stepOpen: string;
-  openInApp: string;
-  pasteAfterOpen: string;
+  stepRegister: string;
+  registerAfterInstall: string;
   pasteOnly: string;
   note: string;
 }
@@ -90,12 +96,20 @@ const copy: Record<InviteLocale, InviteCopy> = {
     titleNamed: (name) => `${name} topluluğuna davet edildin`, // i18n-ignore: Turkish copy of the page
     titleAnonymous: 'Bir Tayfa topluluğuna davet edildin', // i18n-ignore: Turkish copy of the page
     expires: (date) => `Son geçerlilik: ${date}`, // i18n-ignore: Turkish copy of the page
+    openInApp: "Tayfa'da aç", // i18n-ignore: Turkish copy of the page
+    existingAccount:
+      "Zaten hesabın varsa: <b>Tayfa'da aç</b> → topluluğa katıl. Uygulamada <b>Daveti kabul et</b> düğmesine basman yeterli.", // i18n-ignore: Turkish copy of the page
+    existingFallback:
+      "Açılmazsa Tayfa'da topluluk menüsünden <b>Davet bağlantısıyla katıl</b> seçeneğine (eski sürümlerde Topluluklar → <b>Davetle katıl</b>) bu sayfanın adresini yapıştır.", // i18n-ignore: Turkish copy of the page
+    existingPasteOnly:
+      "Zaten hesabın varsa: Tayfa'da topluluk menüsünden <b>Davet bağlantısıyla katıl</b> seçeneğine (eski sürümlerde Topluluklar → <b>Davetle katıl</b>) bu sayfanın adresini yapıştır.", // i18n-ignore: Turkish copy of the page
+    newUsers: 'Henüz hesabın yok mu?', // i18n-ignore: Turkish copy of the page
     stepInstall: "Tayfa'yı bilgisayarına kur", // i18n-ignore: Turkish copy of the page
     download: 'Uygulamayı indir', // i18n-ignore: Turkish copy of the page
     platforms: 'macOS (Apple Silicon) ve Windows için.', // i18n-ignore: Turkish copy of the page
-    stepOpen: 'Daveti uygulamada aç', // i18n-ignore: Turkish copy of the page
-    openInApp: "Tayfa'da aç", // i18n-ignore: Turkish copy of the page
-    pasteAfterOpen: "Açılmazsa Tayfa'da <b>Kayıt ol</b> sekmesine bu sayfanın adresini yapıştır.", // i18n-ignore: Turkish copy of the page
+    stepRegister: 'Davetle kayıt ol', // i18n-ignore: Turkish copy of the page
+    registerAfterInstall:
+      "Kurduktan sonra yukarıdaki <b>Tayfa'da aç</b> düğmesine yeniden bas; <b>Kayıt ol</b> ekranı bu davetle açılır. Açılmazsa <b>Kayıt ol</b> sekmesine bu sayfanın adresini yapıştır.", // i18n-ignore: Turkish copy of the page
     pasteOnly: "Tayfa'da <b>Kayıt ol</b> sekmesine bu sayfanın adresini yapıştır.", // i18n-ignore: Turkish copy of the page
     note: 'Tayfa masaüstünde çalışır. Bu bağlantıyı telefondan açtıysan bilgisayarına gönder.', // i18n-ignore: Turkish copy of the page
   },
@@ -109,13 +123,20 @@ const copy: Record<InviteLocale, InviteCopy> = {
     titleNamed: (name) => `You’ve been invited to join ${name}`,
     titleAnonymous: 'You’ve been invited to a Tayfa community',
     expires: (date) => `Valid until: ${date}`,
+    openInApp: 'Open in Tayfa',
+    existingAccount:
+      'Already have an account? <b>Open in Tayfa</b> → join the community. In the app, just press <b>Accept invite</b>.',
+    existingFallback:
+      'If it doesn’t open, choose <b>Join with an invite link</b> in Tayfa’s community menu (in older versions: Communities → <b>Join with an invite</b>) and paste this page’s address.',
+    existingPasteOnly:
+      'Already have an account? Choose <b>Join with an invite link</b> in Tayfa’s community menu (in older versions: Communities → <b>Join with an invite</b>) and paste this page’s address.',
+    newUsers: 'New to Tayfa?',
     stepInstall: 'Install Tayfa on your computer',
     download: 'Download the app',
     platforms: 'For macOS (Apple Silicon) and Windows.',
-    stepOpen: 'Open the invite in the app',
-    openInApp: 'Open in Tayfa',
-    pasteAfterOpen:
-      'If it doesn’t open, paste this page’s address into the <b>Sign up</b> tab in Tayfa.',
+    stepRegister: 'Sign up with this invite',
+    registerAfterInstall:
+      'After installing, press <b>Open in Tayfa</b> above again; the <b>Sign up</b> screen opens with this invite. If it doesn’t open, paste this page’s address into the <b>Sign up</b> tab.',
     pasteOnly: 'Paste this page’s address into the <b>Sign up</b> tab in Tayfa.',
     note: 'Tayfa runs on desktop. If you opened this link on your phone, send it to your computer.',
   },
@@ -184,23 +205,27 @@ export function renderInvitePage(
   const title = state.communityName
     ? text.titleNamed(escape(state.communityName))
     : text.titleAnonymous;
-  const open = state.appLink
-    ? `<li><p class="step"><span>2</span>${text.stepOpen}</p>
-<a class="button secondary" href="${escape(state.appLink)}">${text.openInApp}</a>
-<p class="hint">${text.pasteAfterOpen}</p></li>`
-    : `<li><p class="step"><span>2</span>${text.stepOpen}</p>
-<p class="hint">${text.pasteOnly}</p></li>`;
+  // Everyone starts with the app link: it joins an existing account and opens Kayıt ol otherwise.
+  const lead = state.appLink
+    ? `<div class="lead"><a class="button" href="${escape(state.appLink)}">${text.openInApp}</a>
+<p class="hint">${text.existingAccount}</p>
+<p class="hint">${text.existingFallback}</p></div>`
+    : `<div class="lead"><p class="hint">${text.existingPasteOnly}</p></div>`;
+  const register = state.appLink ? text.registerAfterInstall : text.pasteOnly;
   return {
     status: 200,
     html: page(
       text,
       `<h1>${title}</h1>
 <p class="meta">${text.expires(escape(formatExpiry(state.expiresAt, text.lang)))}</p>
+${lead}
+<h2>${text.newUsers}</h2>
 <ol>
 <li><p class="step"><span>1</span>${text.stepInstall}</p>
-<a class="button" href="${escape(state.downloadUrl)}">${text.download}</a>
+<a class="button secondary" href="${escape(state.downloadUrl)}">${text.download}</a>
 <p class="hint">${text.platforms}</p></li>
-${open}
+<li><p class="step"><span>2</span>${text.stepRegister}</p>
+<p class="hint">${register}</p></li>
 </ol>
 <p class="note">${text.note}</p>`,
     ),

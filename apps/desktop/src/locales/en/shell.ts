@@ -172,6 +172,11 @@ export const shell: Catalog = {
   'Davet açılıyor…': 'Opening invite…',
   'Davet bağlantısı': 'Invite link',
   'Davet bağlantısı aç': 'Open an invite link',
+  'Davet bağlantısıyla katıl': 'Join with an invite link',
+  'Zaten hesabın var mı? Giriş yap; davet kendiliğinden kabul edilir.':
+    'Already have an account? Sign in; the invite is accepted automatically.',
+  'Arkadaşının gönderdiği davet bağlantısını yapıştır. Katılmadan önce topluluğu görürsün.':
+    'Paste the invite link your friend sent. You’ll see the community before you join.',
   'Davet bağlantısı kopyalandı.': 'Invite link copied.',
   'Davet kabul edildi. Topluluğuna hoş geldin.': 'Invite accepted. Welcome to your community.',
   'Davet kontrol ediliyor…': 'Checking the invite…',
@@ -854,4 +859,13 @@ export const shell: Catalog = {
     'Couldn’t change the microphone. Check your voice settings and try again.',
   'Bu mesajın kanalı açılamadı. Kanal listesinden yeniden dene.':
     'Couldn’t open this message’s channel. Try again from the channel list.',
+
+  // Windows in-app updates
+  'Otomatik güncellemeler': 'Automatic updates',
+  'Otomatik güncellemeleri etkinleştir': 'Enable automatic updates',
+  'Güncellemeyi şimdi kurmak istiyor musun?': 'Do you want to install the update now?',
+  'Yeni sürüm arka planda iner, doğrulanır ve yeniden başlatınca kurulur.':
+    'New versions download in the background, get verified and install when you restart.',
+  'Windows kurulum dosyası henüz yayıncı imzası taşımıyor; indirilen dosya GitHub sürümündeki SHA-512 özetiyle doğrulanır.':
+    'The Windows installer isn’t publisher-signed yet; the download is checked against the SHA-512 published with the GitHub release.',
 };

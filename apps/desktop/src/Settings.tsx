@@ -20,6 +20,13 @@ import { SettingsConnection } from './SettingsConnection';
 import { AssistantManagement } from './AssistantManagement';
 import { VoiceAvatar } from './VoiceAvatar';
 import { PersonalSoundSettings } from './PersonalSoundSettings';
+import { InputSensitivity, type InputMeterSource } from './InputSensitivity';
+import {
+  createMicGateNode,
+  type MicGateNode,
+} from '../../../packages/media-providers/src/mic-gate-node';
+import { createMicLeveler } from '../../../packages/media-providers/src/mic-leveler';
+import type { MicGateReport } from '../../../packages/media-providers/src/mic-gate';
 import './reference-settings.css';
 import { AgentReferenceSettingsContent, AgentSettings } from './Agent';
 import { PersonalProviders } from './Providers';
@@ -71,6 +78,8 @@ import {
 import { Avatar, IconButton, Modal, Toggle } from '@rooms/design';
 import { useRooms, withInputLevel } from './store';
 import { PushToTalkKeyField } from './PushToTalkKeyField';
+import { ShortcutKeyField } from './ShortcutKeyField';
+import { useShortcutStatus } from './GlobalShortcuts';
 import { formatPushToTalkKey, pushToTalkKey } from './push-to-talk-key';
 import { ConnectionPane } from './ConnectionPane';
 import { useModerationRights } from './VoiceModeration';
@@ -556,6 +565,13 @@ export default function Settings({
     : 'appearance';
   const savedPreferences = useRooms((state) => state.preferences);
   const [p, setDraftPreferences] = useState(() => ({ ...savedPreferences }));
+  const registered = useShortcutStatus((state) => state.status);
+  const globalShortcutsAvailable = !!window.rooms?.globalShortcuts;
+  // The system's answer describes the saved shortcuts, so a draft that differs shows none yet.
+  const shortcutStatus = {
+    mute: p.muteKey === savedPreferences.muteKey ? registered?.mute : null,
+    deafen: p.deafenKey === savedPreferences.deafenKey ? registered?.deafen : null,
+  };
   // What the draft started from. Other writers change the store while Settings is open
   // (the microphone keeps microphoneOn, a narrow window keeps showFriends); comparing with
   // this instead of the live store keeps their changes out of "unsaved" and out of Save.
@@ -722,6 +738,16 @@ export default function Settings({
     inputLevel = (inputName ? p.inputLevels[inputName] : undefined) ?? 100;
   const inputPercent = useRef(100);
   inputPercent.current = inputLevel;
+  useEffect(() => {
+    if (testLevel.current) testLevel.current.gain.value = inputLevel / 100;
+  }, [inputLevel]);
+  useEffect(() => {
+    testGate.current?.configure({ auto: p.inputSensitivityAuto, threshold: p.inputSensitivity });
+  }, [p.inputSensitivityAuto, p.inputSensitivity]);
+  const roomMeter = useCallback<InputMeterSource>(
+    (listener) => mediaProvider().subscribeInputMeter?.(listener) ?? (() => {}),
+    [],
+  );
   const cameraId = p.cameraId;
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const cameraRef = useRef<MediaStream | null>(null);
@@ -824,8 +850,21 @@ export default function Settings({
   const denoiserRef = useRef<Awaited<ReturnType<typeof createNoiseSuppressionNode>> | null>(null);
   const frame = useRef(0);
   const mounted = useRef(true);
+  // The microphone test runs the same input gate as a room, so its meter shows what would be sent.
+  const testGate = useRef<MicGateNode | null>(null);
+  const testLevel = useRef<GainNode | null>(null);
+  const testListeners = useRef(new Set<(report: MicGateReport) => void>());
+  const testMeter = useCallback<InputMeterSource>((listener) => {
+    testListeners.current.add(listener);
+    return () => {
+      testListeners.current.delete(listener);
+    };
+  }, []);
   const stopMic = useCallback(() => {
     micEpoch.current++;
+    testGate.current?.destroy();
+    testGate.current = null;
+    testLevel.current = null;
     denoiserRef.current?.disconnect();
     denoiserRef.current?.destroy();
     denoiserRef.current = null;
@@ -877,7 +916,8 @@ export default function Settings({
           deviceId: p.inputId ? { exact: p.inputId } : undefined,
           echoCancellation: true,
           noiseSuppression: false,
-          autoGainControl: false,
+          // As in a room: the browser AGC runs unless strong noise removal replaces it.
+          autoGainControl: !p.noiseSuppression || p.noiseSuppressionMode !== 'strong',
           channelCount: 1,
           sampleRate: 48000,
         },
@@ -909,6 +949,31 @@ export default function Settings({
         source.connect(denoiser);
         denoiser.connect(analyser);
       } else source.connect(analyser);
+      const gate = await createMicGateNode(
+        context,
+        { auto: p.inputSensitivityAuto, threshold: p.inputSensitivity },
+        { onLevel: (report) => testListeners.current.forEach((listener) => listener(report)) },
+      );
+      if (!mounted.current || epoch !== micEpoch.current) {
+        gate?.destroy();
+        return;
+      }
+      if (gate) {
+        // Same order as the room: level, filter, leveler (filter on), gate. A silent sink keeps it running.
+        const levelNode = context.createGain(),
+          sink = context.createGain(),
+          leveler = p.noiseSuppression && p.micLeveler ? createMicLeveler(context) : null;
+        levelNode.gain.value = inputPercent.current / 100;
+        sink.gain.value = 0;
+        (denoiserRef.current ?? source).connect(levelNode);
+        if (leveler) {
+          levelNode.connect(leveler.input);
+          leveler.output.connect(gate);
+        } else levelNode.connect(gate);
+        gate.connect(sink).connect(context.destination);
+        testGate.current = gate;
+        testLevel.current = levelNode;
+      }
       await context.resume();
       if (!mounted.current || epoch !== micEpoch.current) return;
       const values = new Uint8Array(analyser.frequencyBinCount);
@@ -1377,6 +1442,19 @@ export default function Settings({
                         )}
                       </p>
                     )}
+                    <InputSensitivity
+                      auto={p.inputSensitivityAuto}
+                      threshold={p.inputSensitivity}
+                      onAuto={(value) => setPreference('inputSensitivityAuto', value)}
+                      onThreshold={(value) => setPreference('inputSensitivity', value)}
+                      source={
+                        testing
+                          ? testMeter
+                          : realtime.status === 'connected' && !realtime.muted
+                            ? roomMeter
+                            : null
+                      }
+                    />
                     <Row
                       title={t('Giriş seviyesi')}
                       description={t('Mikrofon denemesinde ölçülen yerel seviye.')}
@@ -1491,7 +1569,9 @@ export default function Settings({
                     <h2>{t('Konuşma davranışı')}</h2>
                     <Row
                       title={t('Bas konuş')}
-                      description={t('Uygulama odaktayken tuşları basılı tut.')}
+                      description={t(
+                        'Tuşu basılı tut, bırakınca mikrofon kapanır. Yalnızca Tayfa odaktayken çalışır.',
+                      )}
                     >
                       <Toggle
                         label={t('Bas konuş')}
@@ -1506,6 +1586,43 @@ export default function Settings({
                       <PushToTalkKeyField
                         value={p.pushToTalkKey}
                         onChange={(value) => setPreference('pushToTalkKey', value)}
+                      />
+                    </Row>
+                    <p className="ref-settings-note">
+                      {t(
+                        'Bas konuş, başka bir uygulamadayken çalışmaz: sistem tuşun bırakıldığını bildirmiyor. Başka uygulamadayken konuşmak için aşağıdaki mikrofon kısayolunu kullan.',
+                      )}
+                    </p>
+                    <Row
+                      title={t('Mikrofonu aç / kapat')}
+                      description={
+                        globalShortcutsAvailable
+                          ? t('Başka bir uygulamadayken de çalışır.')
+                          : t(
+                              'Sistem genelinde kısayollar yalnızca masaüstü uygulamasında çalışır.',
+                            )
+                      }
+                    >
+                      <ShortcutKeyField
+                        label={t('Mikrofonu aç / kapat')}
+                        value={p.muteKey}
+                        onChange={(value) => setPreference('muteKey', value)}
+                        others={[p.deafenKey, ...(p.pushToTalk ? [p.pushToTalkKey] : [])]}
+                        status={shortcutStatus?.mute}
+                      />
+                    </Row>
+                    <Row
+                      title={t('Sesi kapat')}
+                      description={t(
+                        'Hoparlörü kapatır ve açar; başka bir uygulamadayken de çalışır.',
+                      )}
+                    >
+                      <ShortcutKeyField
+                        label={t('Sesi kapat')}
+                        value={p.deafenKey}
+                        onChange={(value) => setPreference('deafenKey', value)}
+                        others={[p.muteKey, ...(p.pushToTalk ? [p.pushToTalkKey] : [])]}
+                        status={shortcutStatus?.deafen}
                       />
                     </Row>
                     <p className="ref-settings-note">
@@ -1545,6 +1662,28 @@ export default function Settings({
                         <option value="strong">{t('Güçlü')}</option>
                         <option value="standard">{t('Standart')}</option>
                       </select>
+                    </Row>
+                    <Row
+                      title={t('Ses seviyesini dengele')}
+                      description={
+                        p.noiseSuppression
+                          ? t(
+                              'Gürültü azaltmadan sonra kısık ve yüksek konuşmayı birbirine yaklaştırır.',
+                            )
+                          : t(
+                              'Gürültü azaltma kapalıyken sistemin otomatik kazancı çalışır; dengeleme kullanılmaz.',
+                            )
+                      }
+                    >
+                      <Toggle
+                        label={t('Ses seviyesini dengele')}
+                        value={p.micLeveler}
+                        disabled={!p.noiseSuppression}
+                        onChange={(value) => {
+                          stopMic();
+                          setPreference('micLeveler', value);
+                        }}
+                      />
                     </Row>
                     <p className="ref-settings-note" role="status">
                       {realtime.noiseProcessing?.status === 'failed'
@@ -1697,6 +1836,22 @@ export default function Settings({
                   [tr('Home / Spaces / Chat / Voice / Cinema'), '⌘ / Ctrl 1–5'],
                   [tr('Open settings'), '⌘ / Ctrl ,'],
                   [t('Mikrofonu aç / kapat'), '⌘ / Ctrl Shift M'],
+                  ...(p.muteKey
+                    ? [
+                        [
+                          t('Mikrofonu aç / kapat (sistem genelinde)'),
+                          formatPushToTalkKey(pushToTalkKey(p.muteKey)),
+                        ],
+                      ]
+                    : []),
+                  ...(p.deafenKey
+                    ? [
+                        [
+                          t('Sesi kapat (sistem genelinde)'),
+                          formatPushToTalkKey(pushToTalkKey(p.deafenKey)),
+                        ],
+                      ]
+                    : []),
                   [
                     tr('Push to talk (when enabled)'),
                     formatPushToTalkKey(pushToTalkKey(p.pushToTalkKey)),

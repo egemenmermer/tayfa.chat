@@ -38,6 +38,16 @@ const bridge: DesktopBridge = {
   },
   platform: process.platform as DesktopBridge['platform'],
   windowAction: (action) => ipcRenderer.invoke('rooms:window', action),
+  windowState: () => ipcRenderer.invoke('rooms:window-state'),
+  onWindowState: (listener) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      state: { maximized: boolean; fullscreen: boolean },
+    ) => listener(state);
+    ipcRenderer.on('rooms:window-state', handler);
+    return () => ipcRenderer.removeListener('rooms:window-state', handler);
+  },
+  setWindowTheme: (theme) => ipcRenderer.invoke('rooms:window-theme', theme),
   setAlwaysOnTop: (value) => ipcRenderer.invoke('rooms:always-on-top', value),
   loginItemStatus: () => ipcRenderer.invoke('rooms:login-item-status'),
   setLoginItem: (value) => ipcRenderer.invoke('rooms:login-item', value),
@@ -165,6 +175,16 @@ const bridge: DesktopBridge = {
     upload: (id, input) => ipcRenderer.invoke('rooms:soundboard-upload', id, input),
     read: (id, clip) => ipcRenderer.invoke('rooms:soundboard-read', id, clip),
     remove: (id, clip) => ipcRenderer.invoke('rooms:soundboard-remove', id, clip),
+    rename: (id, clip, name) => ipcRenderer.invoke('rooms:soundboard-rename', id, clip, name),
+  },
+  globalShortcuts: {
+    set: (shortcuts) => ipcRenderer.invoke('rooms:global-shortcuts-set', shortcuts),
+    onTrigger: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, action: 'mute' | 'deafen') =>
+        listener(action);
+      ipcRenderer.on('rooms:global-shortcut', handler);
+      return () => ipcRenderer.removeListener('rooms:global-shortcut', handler);
+    },
   },
   personalSounds: {
     profile: () => ipcRenderer.invoke('rooms:personal-sounds-profile'),
@@ -273,6 +293,8 @@ const bridge: DesktopBridge = {
     categories: (hallId, kind) => ipcRenderer.invoke('rooms:cinema-categories', hallId, kind),
     items: (hallId, query) => ipcRenderer.invoke('rooms:cinema-items', hallId, query),
     search: (hallId, text, kinds) => ipcRenderer.invoke('rooms:cinema-search', hallId, text, kinds),
+    youtubeSearch: (hallId, text) =>
+      ipcRenderer.invoke('rooms:cinema-youtube-search', hallId, text),
     guide: (hallId, refs, from, to) =>
       ipcRenderer.invoke('rooms:cinema-guide', hallId, refs, from, to),
     details: (hallId, ref) => ipcRenderer.invoke('rooms:cinema-details', hallId, ref),

@@ -33,6 +33,7 @@ import {
   useRealtime,
   joinVoice,
   leaveVoice,
+  prewarmVoice,
   toggleMic,
   toggleDeafen,
   toggleCamera,
@@ -47,7 +48,8 @@ import { VoiceAvatar } from './VoiceAvatar';
 import { QuietMenu } from './QuietMenu';
 import { ChannelTools, useChannelManagement } from './ChannelTools';
 import { UserProfileDialog } from './SocialSurfaces';
-import type { SocialUser } from '@rooms/social';
+import type { InviteLink, SocialUser } from '@rooms/social';
+import { JoinWithInviteDialog } from './Invite';
 import { t, uiError } from './i18n';
 import { UpdateNotice } from './UpdateNotice';
 import { HallBackground } from './cinema/HallBackground';
@@ -249,12 +251,15 @@ function ChannelListState({ createSpace }: { createSpace(): void }) {
 export function MinimalSidebar({
   notify,
   invite,
+  joinInvite,
   createSpace,
   search,
   help,
 }: {
   notify(message: string): void;
   invite(): void;
+  /** Opens InviteLanding for a pasted link; without it the menu has no join entry. */
+  joinInvite?(link: InviteLink): void;
   createSpace(): void;
   /** Kept for callers; server settings now open the settings page. */
   editSpace?(): void;
@@ -267,6 +272,7 @@ export function MinimalSidebar({
     location = useLocation();
 
   const [person, setPerson] = useState<SocialUser | null>(null);
+  const [joining, setJoining] = useState(false);
   const [memberMenu, setMemberMenu] = useState<
       (VoiceMemberTarget & { x: number; y: number }) | null
     >(null),
@@ -336,6 +342,9 @@ export function MinimalSidebar({
             <hr />
             <button onClick={createSpace}>{t('Topluluk oluştur')}</button>
             <button onClick={invite}>{t('Davet oluştur')}</button>
+            {joinInvite && (
+              <button onClick={() => setJoining(true)}>{t('Davet bağlantısıyla katıl')}</button>
+            )}
             <button disabled={!space} onClick={() => navigate('/settings?tab=server-profile')}>
               {t('Sunucu ayarları')}
             </button>
@@ -464,11 +473,16 @@ export function MinimalSidebar({
                   data-channel-id={ch.id}
                   className={`minimal-nav ${(r.channelId === ch.id || c.activeChannelId === ch.id) && location.pathname === '/voice' ? 'selected' : ''}`}
                   onClick={() => enter(ch.id, ch.name)}
+                  onPointerEnter={() => prewarmVoice(ch.id)}
+                  onFocus={() => prewarmVoice(ch.id)}
                 >
                   <Volume2 size={15} aria-hidden="true" />
                   <span title={ch.name}>{ch.name}</span>
-                  {r.channelId === ch.id && r.status === 'connected' && (
-                    <i className="room-connected-dot" />
+                  {r.channelId === ch.id && r.busy ? (
+                    <small className="room-connecting">{t('Bağlanıyor…')}</small>
+                  ) : (
+                    r.channelId === ch.id &&
+                    r.status === 'connected' && <i className="room-connected-dot" />
                   )}
                 </button>
                 {occupants.map((p) => {
@@ -693,6 +707,9 @@ export function MinimalSidebar({
           user={person}
           onClose={() => setPerson(null)}
         />
+      )}
+      {joining && joinInvite && (
+        <JoinWithInviteDialog onClose={() => setJoining(false)} onInvite={joinInvite} />
       )}
     </ChannelTools>
   );

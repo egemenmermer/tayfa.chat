@@ -1,0 +1,76 @@
+.own-share-menu {
+  position: fixed;
+  width: 280px;
+  z-index: 520;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface, #22252d);
+  color: var(--text, #f2f3f7);
+  border: 1px solid var(--border, #363a45);
+  border-radius: 10px;
+  box-shadow: 0 12px 35px #0007;
+  padding: 6px;
+}
+.own-share-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.own-share-menu button:hover:not(:disabled),
+.own-share-menu button:focus-visible {
+  background: #ffffff12;
+  outline: 2px solid var(--accent, #7c8cff);
+  outline-offset: -2px;
+}
+.own-share-menu button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.own-share-menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+  border-block: 1px solid var(--border, #363a45);
+}
+.own-share-menu-label {
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--text-secondary, #a4a9b6);
+}
+.own-share-menu-check {
+  display: inline-flex;
+  width: 16px;
+  flex: none;
+}
+.own-share-menu-note {
+  padding: 0 8px 6px 32px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-secondary, #a4a9b6);
+}
+.own-share-menu-stop {
+  color: var(--danger, #ff6b6b);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .own-share-menu {
+    animation: own-share-menu-in 90ms ease-out;
+  }
+}
+@keyframes own-share-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}

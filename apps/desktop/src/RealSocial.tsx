@@ -1,11 +1,19 @@
 import { useMentionInput } from './MentionInput';
 import { ChatAttachment } from './ChatAttachment';
 import { ScreenShareGallery } from './ScreenShareGallery';
+import {
+  OWN_SHARE_ATTRIBUTE,
+  OwnShareMenu,
+  SHARE_QUALITIES,
+  readShareAudioChoice,
+  rememberShareAudioChoice,
+} from './ShareMenu';
 import { VoiceRoomViewActions } from './VoiceRoomViewActions';
 import { openActivity, retiredActivity } from './activity-route';
 import { FriendRequestButton } from './FriendRequestButton';
 import { MediaStage } from './MediaStage';
-import { watchScreen, setScreenVolume } from './realtime';
+import { watchScreen, setScreenVolume, setScreenQuality } from './realtime';
+import { PersonVolumeSlider } from './PersonVolumeSlider';
 export { MediaStage } from './MediaStage';
 import './reference-chat.css';
 import './reference-voice.css';
@@ -23,6 +31,8 @@ import { ChatAgentRequest } from './ChatAgent';
 import { EmojiPicker, GifPicker, isGifMessage } from './ComposerPickers';
 import { AppDirectory } from './AppDirectory';
 import { InviteLinkCard } from './InviteLinkCard';
+import { ChatPollCard, ChatPollComposer } from './ChatPoll';
+import { chatPollId } from './chat-poll';
 import {
   Fragment,
   useCallback,
@@ -40,6 +50,7 @@ import {
   ArrowDown,
   ArrowRight,
   AlertCircle,
+  BarChart3,
   Bell,
   Download,
   Film,
@@ -103,6 +114,7 @@ import {
   toggleCamera,
   startScreen,
   stopScreen,
+  changeScreenSource,
   setParticipantVolume,
   startRoomAudio,
 } from './realtime';
@@ -348,6 +360,8 @@ export function CommunityChat({
   const closeReminder = useCallback(() => setReminder(null), []);
   const [agentPrompt, setAgentPrompt] = useState<string | null>(null);
   const [picker, setPicker] = useState<'gif' | 'emoji' | 'apps' | null>(null);
+  const [pollComposer, setPollComposer] = useState(false);
+  const closePollComposer = useCallback(() => setPollComposer(false), []);
   const pickerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!picker) return;
@@ -790,6 +804,8 @@ export function CommunityChat({
               new Date(m.timestamp).toLocaleDateString(locale);
           const unread = previous?.id === unreadAnchor.current;
           const own = m.author.id === c.user?.id;
+          // Poll cards only exist in community channels; DMs have no activity room.
+          const pollId = channel?.spaceId ? chatPollId(m.content) : null;
           return (
             <Fragment key={m.id}>
               {newDay && (
@@ -827,7 +843,9 @@ export function CommunityChat({
                     <time dateTime={m.timestamp}>{clockText(m.timestamp)}</time>
                     {m.editedTimestamp && <span>{t('düzenlendi')}</span>}
                   </div>
-                  {isGifMessage(m.content) ? (
+                  {pollId ? (
+                    <ChatPollCard channelId={m.channelId} pollId={pollId} content={m.content} />
+                  ) : isGifMessage(m.content) ? (
                     <img className="chat-gif" src={m.content.trim()} alt="GIF" loading="lazy" />
                   ) : (
                     <p>{messageText(m.content)}</p>
@@ -1129,6 +1147,18 @@ export function CommunityChat({
             >
               <LayoutGrid size={20} />
             </IconButton>
+            {channel?.spaceId && (
+              <IconButton
+                label={t('Anket')}
+                disabled={!!editing}
+                onClick={() => {
+                  setPicker(null);
+                  setPollComposer(true);
+                }}
+              >
+                <BarChart3 size={20} />
+              </IconButton>
+            )}
             {assistant && (
               <IconButton
                 label={t('Asistanı etiketle')}
@@ -1169,6 +1199,15 @@ export function CommunityChat({
             )}
           </div>
         </div>
+      )}
+      {pollComposer && channel?.spaceId && (
+        <ChatPollComposer
+          key={channel.id}
+          channelId={channel.id}
+          channelName={channel.name}
+          onClose={closePollComposer}
+          notify={notify}
+        />
       )}
       {reminder && c.activeChannelId && (
         <MessageReminder
@@ -1769,11 +1808,7 @@ export function CommunityVoice({
             </div>
           )}
           {share && r.sharing && (
-            <button
-              className="button secondary"
-              disabled={!connected}
-              onClick={() => report(stopScreen().then(chooseSource), notify)}
-            >
+            <button className="button secondary" disabled={!connected} onClick={chooseSource}>
               <ReferenceIcon name="monitor" size={16} />
               {t('Kaynağı değiştir')}
             </button>
@@ -1911,8 +1946,11 @@ export function CommunityVoice({
                     {t('İzlemeyi bırak')}
                   </button>
                 )}
+                {r.sharing && <ShareAudioBadge on={!!r.sharingAudio} />}
                 {r.sharing && (
                   <button
+                    {...{ [OWN_SHARE_ATTRIBUTE]: '' }}
+                    aria-haspopup="menu"
                     className="button danger small"
                     onClick={() => report(stopScreen(), notify)}
                   >
@@ -1923,6 +1961,8 @@ export function CommunityVoice({
               <ScreenShareGallery
                 onWatch={watchScreen}
                 onVolume={setScreenVolume}
+                quality={r.screenQuality ?? 'auto'}
+                onQuality={setScreenQuality}
                 onClose={() => {
                   watchScreen(null);
                   navigate('/voice');
@@ -2097,14 +2137,10 @@ export function CommunityVoice({
             <>
               <label className="field-label">
                 {t('Kişisel ses · {percent}%', { percent: Math.round(person.volume * 100) })}
-                <input
-                  type="range"
-                  aria-label={t('Katılımcı sesi')}
-                  min={0}
-                  max={1}
-                  step={0.01}
+                <PersonVolumeSlider
+                  label={t('Katılımcı sesi')}
                   value={person.volume}
-                  onChange={(e) => setParticipantVolume(person.id, Number(e.target.value))}
+                  onChange={(value) => setParticipantVolume(person.id, value)}
                 />
               </label>
               {!person.id.startsWith('rooms-music-') && (
@@ -2233,6 +2269,45 @@ export function CommunityVoice({
     </div>
   );
 }
+/** Tells the sharer whether their screen share is sending sound right now. */
+function ShareAudioBadge({ on }: { on: boolean }) {
+  const label = on ? t('Yayın sesi paylaşılıyor') : t('Yayında ses yok');
+  return (
+    <span
+      className={`share-audio-state ${on ? 'on' : ''}`}
+      role="status"
+      aria-label={label}
+      title={label}
+    >
+      <ReferenceIcon name={on ? 'volume' : 'volume-off'} size={15} />
+      {on ? t('Sesli') : t('Sessiz')}
+    </span>
+  );
+}
+/** Explains what "Sesi de paylaş" does here, or why this computer cannot do it. */
+function shareAudioNote(
+  status: {
+    systemAudio: boolean;
+    systemAudioOwnExcluded?: boolean;
+    systemAudioReason?: 'macos-version' | 'os';
+  } | null,
+  checking: boolean,
+) {
+  if (!status)
+    return checking
+      ? t('Ses paylaşımı denetleniyor…')
+      : t('Ses paylaşımı denetlenemedi; görüntü sessiz paylaşılır.');
+  if (!status.systemAudio)
+    return status.systemAudioReason === 'macos-version'
+      ? t('Bu Mac sesi paylaşamaz: macOS 14.2 veya üstü gerekir. Görüntü sessiz paylaşılır.')
+      : t('Bu işletim sistemi sesi paylaşamaz. Görüntü sessiz paylaşılır.');
+  return status.systemAudioOwnExcluded
+    ? t('Oyun ya da video sesi izleyenlere gider. Tayfa’daki konuşmalar yayına karışmaz.')
+    : t(
+        'Oyun ya da video sesi izleyenlere gider. Windows 10’da Tayfa’daki konuşmalar da yayına karışır; izleyenler kendi seslerini yankı olarak duyabilir.',
+      );
+}
+
 export function RealVoiceDock({
   openLauncher,
   notify,
@@ -2249,7 +2324,12 @@ export function RealVoiceDock({
   const familiarRoom = true;
   const [shareQuality, setShareQuality] =
       useState<import('@rooms/media').ScreenShareQuality>('1080p60'),
-    [shareAudio, setShareAudio] = useState(false);
+    // null until the sharer flips the switch: sound is shared wherever the OS can capture it.
+    [shareAudioChoice, setShareAudioChoice] = useState<boolean | null>(readShareAudioChoice);
+  // 'change' swaps the source of the running share; 'start' begins a new one.
+  const [pickerMode, setPickerMode] = useState<'start' | 'change'>('start');
+  const sharingNow = useRef(false);
+  sharingNow.current = r.sharing;
   const [picker, setPicker] = useState(false),
     [sources, setSources] = useState<{ id: string; name: string; thumbnail: string }[]>([]),
     [selected, setSelected] = useState(''),
@@ -2259,7 +2339,10 @@ export function RealVoiceDock({
   const [captureStatus, setCaptureStatus] = useState<{
     screen: string;
     systemAudio: boolean;
+    systemAudioOwnExcluded?: boolean;
+    systemAudioReason?: 'macos-version' | 'os';
   } | null>(null);
+  const shareAudio = !!captureStatus?.systemAudio && (shareAudioChoice ?? true);
   const generation = useRef(0);
   const close = useCallback(() => {
     generation.current++;
@@ -2270,6 +2353,7 @@ export function RealVoiceDock({
   }, []);
   const choose = useCallback(async () => {
     const epoch = ++generation.current;
+    setPickerMode(sharingNow.current ? 'change' : 'start');
     setPicker(true);
     setBusy(true);
     setError('');
@@ -2385,10 +2469,19 @@ export function RealVoiceDock({
           </div>
           <div className="room-dock-group room-activity-controls">
             {r.sharing ? (
-              <button className="stop-sharing" onClick={() => report(stopScreen(), notify)}>
-                <ReferenceIcon name="x" size={15} />
-                {t('Paylaşımı durdur')}
-              </button>
+              <>
+                <ShareAudioBadge on={!!r.sharingAudio} />
+                <button
+                  {...{ [OWN_SHARE_ATTRIBUTE]: '' }}
+                  aria-haspopup="menu"
+                  title={t('Yayın ayarları için sağ tıkla')}
+                  className="stop-sharing"
+                  onClick={() => report(stopScreen(), notify)}
+                >
+                  <ReferenceIcon name="x" size={15} />
+                  {t('Paylaşımı durdur')}
+                </button>
+              </>
             ) : (
               <IconButton
                 label={t('Ekran paylaş')}
@@ -2435,6 +2528,7 @@ export function RealVoiceDock({
           )}
         </div>
       )}
+      <OwnShareMenu notify={notify} />
       {r.error && (
         <div className="voice-error-notice" role="alert">
           <span>{r.error}</span>
@@ -2443,11 +2537,19 @@ export function RealVoiceDock({
       )}
       {picker && (
         <Modal
-          title={t('Ne paylaşmak istersin?')}
+          title={
+            pickerMode === 'change' ? t('Hangi kaynağa geçelim?') : t('Ne paylaşmak istersin?')
+          }
           onClose={close}
           className="capture-modal reference-capture-modal"
         >
-          <p className="modal-description">{t('Paylaşacağın pencereyi veya ekranı seç.')}</p>
+          <p className="modal-description">
+            {pickerMode === 'change'
+              ? t(
+                  'Yayın kesilmeden seçtiğin pencereye veya ekrana geçer; izleyenler yerinde kalır.',
+                )
+              : t('Paylaşacağın pencereyi veya ekranı seç.')}
+          </p>
           <div className="segmented reference-source-tabs" aria-label={t('Kaynak türü')}>
             {(['window', 'screen'] as const).map((kind) => (
               <button
@@ -2525,41 +2627,45 @@ export function RealVoiceDock({
               {t('Yalnızca seçtiğin kaynak paylaşılır. Paylaşım, onay verdiğinde başlar.')}
             </span>
           </div>
-          <label className="field-label">
-            {t('Paylaşım kalitesi')}
-            <select
-              value={shareQuality}
-              onChange={(e) =>
-                setShareQuality(e.target.value as import('@rooms/media').ScreenShareQuality)
-              }
-            >
-              {(['720p30', '1080p30', '1080p60', '1440p60', '4k30'] as const).map((quality) => (
-                <option key={quality} value={quality}>
-                  {quality}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="reference-capture-audio">
-            <button
-              className={`toggle ${shareAudio ? 'on' : ''}`}
-              role="switch"
-              aria-label={t('Sistem sesini paylaş')}
-              aria-checked={shareAudio}
-              disabled={!captureStatus?.systemAudio}
-              onClick={() => setShareAudio(!shareAudio)}
-            >
-              <span />
-            </button>
-            <div>
-              <strong>{t('Sistem sesini paylaş')}</strong>
-              <small>
-                {captureStatus?.systemAudio
-                  ? t('Bilgisayar sesi de odaya gönderilir.')
-                  : t('Sistem sesi için desteklenen işletim sistemi gerekli.')}
-              </small>
+          {pickerMode === 'start' && (
+            <label className="field-label">
+              {t('Paylaşım kalitesi')}
+              <select
+                value={shareQuality}
+                onChange={(e) =>
+                  setShareQuality(e.target.value as import('@rooms/media').ScreenShareQuality)
+                }
+              >
+                {SHARE_QUALITIES.map((quality) => (
+                  <option key={quality} value={quality}>
+                    {quality}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {pickerMode === 'start' && (
+            <div className="reference-capture-audio">
+              <button
+                className={`toggle ${shareAudio ? 'on' : ''}`}
+                role="switch"
+                aria-label={t('Sesi de paylaş')}
+                aria-checked={shareAudio}
+                aria-describedby="capture-audio-note"
+                disabled={!captureStatus?.systemAudio}
+                onClick={() => {
+                  setShareAudioChoice(!shareAudio);
+                  rememberShareAudioChoice(!shareAudio);
+                }}
+              >
+                <span />
+              </button>
+              <div>
+                <strong>{t('Sesi de paylaş')}</strong>
+                <small id="capture-audio-note">{shareAudioNote(captureStatus, busy)}</small>
+              </div>
             </div>
-          </div>
+          )}
           <div className="button-row">
             <button className="button secondary" disabled={busy} onClick={close}>
               {t('Vazgeç')}
@@ -2570,12 +2676,38 @@ export function RealVoiceDock({
               onClick={() => {
                 const epoch = generation.current;
                 setBusy(true);
-                void startScreen(selected, {
-                  quality: shareQuality,
-                  audio: shareAudio,
-                  content: 'motion',
-                })
-                  .then(() => {
+                if (pickerMode === 'change') {
+                  // The running publication keeps going; a failed switch leaves the old source.
+                  void changeScreenSource(selected)
+                    .then(() => {
+                      if (generation.current === epoch) close();
+                    })
+                    .catch((e) => {
+                      if (generation.current === epoch) setError(uiError(e));
+                    })
+                    .finally(() => {
+                      if (generation.current === epoch) setBusy(false);
+                    });
+                  return;
+                }
+                const share = (audio: boolean) =>
+                  startScreen(selected, { quality: shareQuality, audio, content: 'motion' });
+                void share(shareAudio)
+                  .catch(async (error: unknown) => {
+                    // Chromium fails the whole capture when the loopback cannot start (no
+                    // output device): share the picture alone rather than nothing. The source
+                    // list is one-shot, so it is fetched again first.
+                    if (!shareAudio || generation.current !== epoch) throw error;
+                    await mediaBridge().captureSources();
+                    return share(false);
+                  })
+                  .then((result) => {
+                    if (shareAudio && !result.audio)
+                      notify(
+                        t(
+                          'Ses paylaşılamadı, yalnızca görüntü gidiyor. Bilgisayarda bir hoparlör ya da kulaklık seçili olmalı.',
+                        ),
+                      );
                     // Keep the selected personal player visible while its window is shared.
                     if (generation.current !== epoch) return;
                     if (location.pathname !== '/media') navigate('/voice?view=share');
@@ -2590,7 +2722,13 @@ export function RealVoiceDock({
               }}
             >
               <ReferenceIcon name="monitor" size={16} />
-              {busy ? t('Başlatılıyor…') : t('Seçili kaynağı paylaş')}
+              {pickerMode === 'change'
+                ? busy
+                  ? t('Değiştiriliyor…')
+                  : t('Bu kaynağa geç')
+                : busy
+                  ? t('Başlatılıyor…')
+                  : t('Seçili kaynağı paylaş')}
             </button>
           </div>
         </Modal>

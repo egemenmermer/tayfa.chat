@@ -427,3 +427,52 @@ describe('invite landing page language', () => {
     expect(invalid.html).not.toMatch(/[çğıöşüÇĞİÖŞÜ]/);
   });
 });
+
+describe('invite landing page for existing accounts and new users', () => {
+  const valid = {
+    kind: 'valid',
+    communityName: 'Dostlar',
+    expiresAt: '2026-10-20T12:00:00Z',
+    appLink: 'rooms://invite?server=https%3A%2F%2Ffriends.example&code=abc',
+    downloadUrl: 'https://friends.example/download',
+  } as const;
+  const openHref = 'href="rooms://invite?server=https%3A%2F%2Ffriends.example&amp;code=abc"';
+
+  it('leads with the primary app link and tells account holders it joins the community', () => {
+    for (const [lang, existing, signUp, download] of [
+      [
+        'tr',
+        "Zaten hesabın varsa: <b>Tayfa'da aç</b> → topluluğa katıl.",
+        'Henüz hesabın yok mu?',
+        'Uygulamayı indir',
+      ],
+      [
+        'en',
+        'Already have an account? <b>Open in Tayfa</b> → join the community.',
+        'New to Tayfa?',
+        'Download the app',
+      ],
+    ] as const) {
+      const html = renderInvitePage(valid, lang).html;
+      expect(html).toContain(`<a class="button" ${openHref}>`);
+      expect(html).toContain(existing);
+      // Account holders never read "Kayıt ol" before the open link and their own instructions.
+      const order = [openHref, existing, signUp, download, lang === 'tr' ? 'Kayıt ol' : 'Sign up'];
+      const positions = order.map((part) => html.indexOf(part));
+      expect(positions.every((index) => index >= 0)).toBe(true);
+      expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+      // The fallback names the join entry that rc.34 already has, too.
+      expect(html).toContain(lang === 'tr' ? '<b>Davetle katıl</b>' : '<b>Join with an invite</b>');
+      expect(html.match(/class="button"/g)).toHaveLength(1);
+    }
+  });
+
+  it('keeps paste instructions for both cases when the app link is unknown', () => {
+    const html = renderInvitePage({ ...valid, appLink: null }).html;
+    expect(html).not.toContain('rooms://');
+    expect(html).toContain('Zaten hesabın varsa: Tayfa');
+    expect(html).toContain('<b>Davet bağlantısıyla katıl</b>');
+    expect(html).toContain("Tayfa'da <b>Kayıt ol</b> sekmesine bu sayfanın adresini yapıştır.");
+    expect(html).not.toContain('yeniden bas');
+  });
+});

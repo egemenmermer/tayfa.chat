@@ -63,6 +63,7 @@ vi.mock('../apps/desktop/src/realtime', () => ({
   stopScreen: vi.fn(),
   watchScreen: vi.fn(),
   setScreenVolume: vi.fn(),
+  setScreenQuality: vi.fn(),
   setParticipantVolume: vi.fn(),
   startRoomAudio: vi.fn(),
   attachMediaTrack: f.attach,

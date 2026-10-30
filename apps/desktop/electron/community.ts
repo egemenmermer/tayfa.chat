@@ -31,6 +31,8 @@ import {
 } from '../../../packages/shared-contracts/src/music';
 import { release } from 'node:os';
 import { enumerateCaptureSources, CaptureSourcesError } from './capture-sources';
+import { displayMediaStreams, systemAudioSupport } from './system-audio';
+import { createCaptureChannel } from './capture-channel';
 import { findBrowserWindow } from './browser-video';
 import { ConversationVault } from './conversation-vault';
 import { PasswordRecoveryBroker } from './password-recovery';
@@ -76,6 +78,7 @@ import {
   SOCIAL_REACTION_PATTERN,
   SOCIAL_ROLE_PERMISSION_KEYS,
   type SocialUser,
+  type SocialMember,
   type GatewayEvent,
 } from '@rooms/social';
 import type { SocialSession } from '@rooms/contracts';
@@ -137,16 +140,14 @@ export async function setupCommunity(
       if (window === getWindow()) subscribePresence();
     }),
   );
-  const supportsSystemAudio = () =>
-    process.platform === 'win32' ||
-    (process.platform === 'darwin' &&
-      (Number(release().split('.')[0]) > 23 ||
-        (Number(release().split('.')[0]) === 23 && Number(release().split('.')[1]) >= 2)));
+  const audioSupport = () => systemAudioSupport(process.platform, release());
+  const supportsSystemAudio = () => audioSupport().supported;
   let selectedAudio = false;
   let selected: DesktopCapturerSource | null = null;
   let selectedAt = 0;
   let activeCapture: { epoch: string; displayId: string } | null = null;
   let activeCaptureScope: StoatClient | null = null;
+  const captureChannel = createCaptureChannel();
   let choices: DesktopCapturerSource[] = [];
   let choicesAt = 0;
   const conversationVault = new ConversationVault(app.getPath('userData'), safeStorage);
@@ -893,9 +894,22 @@ export async function setupCommunity(
       throw new SocialInputError('The account changed. Open community management again.');
     return result;
   });
-  handle('rooms:social-members', (spaceId) =>
-    requireClient().listCommunityMembers(id.parse(spaceId)),
-  );
+  // The panel, the mention picker and the DM picker may ask at the same moment: they share one
+  // in-flight request (never a finished one, so membership changes are not served stale).
+  const memberRequests = new Map<string, Promise<SocialMember[]>>();
+  handle('rooms:social-members', (spaceId) => {
+    const current = requireClient(),
+      space = id.parse(spaceId),
+      key = `${current.instanceUrl}:${user!.id}:${space}`;
+    let pending = memberRequests.get(key);
+    if (!pending) {
+      pending = current.listCommunityMembers(space).finally(() => {
+        if (memberRequests.get(key) === pending) memberRequests.delete(key);
+      });
+      memberRequests.set(key, pending);
+    }
+    return pending;
+  });
   handle('rooms:social-friends', () => requireClient().listFriends());
   handle('rooms:social-add-friend', (username) =>
     requireClient().addFriend(z.string().min(7).max(37).parse(username)),
@@ -1326,7 +1340,7 @@ export async function setupCommunity(
   }
   async function soundboardRequest(
     channelId: unknown,
-    method: 'GET' | 'POST' | 'DELETE',
+    method: 'GET' | 'POST' | 'DELETE' | 'PATCH',
     clipId?: unknown,
     input?: unknown,
   ) {
@@ -1337,16 +1351,21 @@ export async function setupCommunity(
     const body =
       input === undefined
         ? undefined
-        : z
-            .object({
-              name: z.string().trim().min(1).max(40),
-              audio: z
-                .string()
-                .max(2_666_672)
-                .regex(/^[A-Za-z0-9+/]*={0,2}$/),
-            })
-            .strict()
-            .parse(input);
+        : method === 'PATCH'
+          ? z
+              .object({ name: z.string().trim().min(1).max(40) })
+              .strict()
+              .parse(input)
+          : z
+              .object({
+                name: z.string().trim().min(1).max(40),
+                audio: z
+                  .string()
+                  .max(2_666_672)
+                  .regex(/^[A-Za-z0-9+/]*={0,2}$/),
+              })
+              .strict()
+              .parse(input);
     const response = await fetch(
       `${new URL(current.instanceUrl).origin}/rooms-access/v1/soundboard/${encodeURIComponent(channel)}${clip}`,
       {
@@ -1369,6 +1388,15 @@ export async function setupCommunity(
         SOUNDBOARD_NOT_FOUND: t('Bu ses kaldırılmış.'),
         SOUNDBOARD_INVALID_AUDIO: t('En fazla 8 saniyelik mono veya stereo ses seç.'),
       };
+      // A server that predates renaming answers the unknown route with a plain 404/405.
+      if (
+        method === 'PATCH' &&
+        (response.status === 404 || response.status === 405) &&
+        !messages[error]
+      )
+        throw new SocialInputError(
+          t('Sunucu henüz güncel değil; sesi düzenlemek için sunucunun güncellenmesi gerekir.'),
+        );
       throw new SocialInputError(messages[error] ?? t('Topluluk sesleri alınamadı. Yeniden dene.'));
     }
     if (method === 'GET' && clip) {
@@ -1394,7 +1422,7 @@ export async function setupCommunity(
     if (!valid()) throw new SocialInputError(t('Oturum değişti.'));
     return method === 'GET'
       ? soundboardCatalogSchema.parse(value)
-      : method === 'POST'
+      : method === 'POST' || method === 'PATCH'
         ? soundboardClipSchema.parse(value)
         : z
             .object({ deleted: z.literal(true) })
@@ -1406,6 +1434,9 @@ export async function setupCommunity(
     soundboardRequest(channel, 'POST', undefined, input),
   );
   handle('rooms:soundboard-read', (channel, clip) => soundboardRequest(channel, 'GET', clip));
+  handle('rooms:soundboard-rename', (channel, clip, name) =>
+    soundboardRequest(channel, 'PATCH', clip, { name }),
+  );
   handle('rooms:soundboard-remove', async (channel, clip) => {
     await soundboardRequest(channel, 'DELETE', clip);
   });
@@ -1920,7 +1951,8 @@ export async function setupCommunity(
     if (action === 'release') {
       activeCapture = null;
       remote.stop();
-    }
+      captureChannel.release(id.parse(channelId));
+    } else if (action === 'acquire') captureChannel.acquire(id.parse(channelId));
     return broker(`screens/${z.enum(['acquire', 'release']).parse(action)}`, {
       channelId: id.parse(channelId),
     });
@@ -1950,8 +1982,12 @@ export async function setupCommunity(
       .parse(await broker('screen/request/decide', body));
   });
   handle('rooms:media-leave', (channelId) => {
-    activeCapture = null;
-    remote.stop();
+    // The leave of a room we already switched away from can arrive after a share started in the
+    // new room; it must leave that share's capture and remote control alone.
+    if (captureChannel.leave(id.parse(channelId))) {
+      activeCapture = null;
+      remote.stop();
+    }
     return broker('leave', { channelId: id.parse(channelId) });
   });
   handle('rooms:capture-status', () => ({
@@ -1964,6 +2000,8 @@ export async function setupCommunity(
     screen:
       process.platform === 'darwin' ? systemPreferences.getMediaAccessStatus('screen') : 'unknown',
     systemAudio: supportsSystemAudio(),
+    systemAudioOwnExcluded: audioSupport().ownAudioExcluded,
+    ...(audioSupport().reason ? { systemAudioReason: audioSupport().reason } : {}),
   }));
   handle('rooms:capture-sources', async () => {
     choices = [];
@@ -2066,10 +2104,7 @@ export async function setupCommunity(
         source.id.startsWith('screen:') && source.display_id
           ? { epoch: randomUUID(), displayId: source.display_id }
           : null;
-      callback({
-        video: source,
-        ...(audio && supportsSystemAudio() ? { audio: 'loopback' as const } : {}),
-      });
+      callback(displayMediaStreams(source, audio, audioSupport()));
     },
     { useSystemPicker: false },
   );

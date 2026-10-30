@@ -1,9 +1,17 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Maximize, Minimize, Monitor, ExternalLink, X, Volume2 } from 'lucide-react';
-import type { MediaTrack, MediaParticipant } from '@rooms/media';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { Maximize, Minimize, Monitor, ExternalLink, X, Volume2, VolumeX } from 'lucide-react';
+import {
+  screenQualityChoices,
+  screenQualitySelection,
+  type MediaTrack,
+  type MediaParticipant,
+  type ScreenLayer,
+  type ScreenViewQuality,
+} from '@rooms/media';
 import { t, uiError } from './i18n';
 import './screen-share-gallery.css';
 import { RemoteControlActions, RemoteViewerInput } from './RemoteControl';
+import { OWN_SHARE_ATTRIBUTE } from './ShareMenu';
 export function ScreenShareGallery({
   tracks,
   people,
@@ -12,10 +20,15 @@ export function ScreenShareGallery({
   initialTrackId,
   onWatch,
   onVolume,
+  quality = 'auto',
+  onQuality,
   onClose,
 }: {
   onWatch?(participantId: string | null): void;
   onVolume?(participantId: string, volume: number): void;
+  /** This viewer's screen quality for the session; the picker shows it on remote streams. */
+  quality?: ScreenViewQuality;
+  onQuality?(quality: ScreenViewQuality): void;
   onClose?(): void;
   initialTrackId?: string;
   tracks: MediaTrack[];
@@ -82,7 +95,15 @@ export function ScreenShareGallery({
   };
   return (
     <div className="room-screen-gallery">
-      <div ref={stage} className="room-screen-focus" data-screen-focus>
+      <div
+        ref={stage}
+        className="room-screen-focus"
+        data-screen-focus
+        // Your own tile: right-click, or Shift+F10 / the menu key, opens the stream settings.
+        {...(active?.local
+          ? { [OWN_SHARE_ATTRIBUTE]: '', tabIndex: 0, 'aria-haspopup': 'menu' as const }
+          : {})}
+      >
         {active &&
           (active.subscribed === false ? (
             <p className="room-screen-waiting" role="status">
@@ -98,7 +119,17 @@ export function ScreenShareGallery({
             {active ? name(active) : t('Paylaşım sona erdi')}
           </span>
           <div>
-            {onVolume && active && !active.local && (
+            {onVolume && active && !active.local && participant?.screenAudio === false && (
+              <span
+                className="room-screen-volume no-sound"
+                role="status"
+                title={t('Paylaşan sesi açmadı ya da sesi paylaşılamıyor.')}
+              >
+                <VolumeX size={16} />
+                {t('Bu yayında ses yok')}
+              </span>
+            )}
+            {onVolume && active && !active.local && participant?.screenAudio !== false && (
               <label className="room-screen-volume">
                 <Volume2 size={16} />
                 <input
@@ -111,6 +142,19 @@ export function ScreenShareGallery({
                   onChange={(event) => onVolume(active.participantId, Number(event.target.value))}
                 />
               </label>
+            )}
+            {onQuality && active && !active.local && active.subscribed !== false && (
+              <ScreenQualityPicker
+                layers={active.layers ?? []}
+                quality={quality}
+                onChange={(value) => {
+                  try {
+                    onQuality(value);
+                  } catch (e) {
+                    notify(uiError(e));
+                  }
+                }}
+              />
             )}
             <button
               aria-label={t('Paylaşımı ayrı pencerede izle')}
@@ -160,5 +204,51 @@ export function ScreenShareGallery({
         </div>
       )}
     </div>
+  );
+}
+/**
+ * Viewer quality for a remote screen share: Otomatik or one of the layers the publisher sends.
+ * A single-layer stream (simulcast off) shows that one quality and says why there is no choice.
+ */
+export function ScreenQualityPicker({
+  layers,
+  quality,
+  onChange,
+}: {
+  layers: readonly ScreenLayer[];
+  quality: ScreenViewQuality;
+  onChange(quality: ScreenViewQuality): void;
+}) {
+  const hint = useId();
+  const choices = screenQualityChoices(layers);
+  if (!choices.length) return null;
+  const single = choices.length === 1;
+  const explanation = t('Bu yayın tek kalitede geliyor; seçilecek başka kalite yok.');
+  return (
+    <label className="room-screen-quality" title={single ? explanation : undefined}>
+      <select
+        aria-label={t('Görüntü kalitesi')}
+        aria-describedby={single ? hint : undefined}
+        // aria-disabled, not disabled: the explanation must stay reachable with the keyboard.
+        aria-disabled={single || undefined}
+        value={single ? String(choices[0]) : String(screenQualitySelection(layers, quality))}
+        onChange={(event) => {
+          if (!single)
+            onChange(event.target.value === 'auto' ? 'auto' : Number(event.target.value));
+        }}
+      >
+        {!single && <option value="auto">{t('Otomatik')}</option>}
+        {choices.map((lines) => (
+          <option key={lines} value={String(lines)}>
+            {`${lines}p`}
+          </option>
+        ))}
+      </select>
+      {single && (
+        <span id={hint} className="room-screen-quality-hint">
+          {explanation}
+        </span>
+      )}
+    </label>
   );
 }

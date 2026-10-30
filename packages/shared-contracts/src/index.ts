@@ -59,6 +59,8 @@ export interface DesktopBridge {
   hostOps?: import('./hostops').HostOpsBridge;
   soundboard?: import('./soundboard').SoundboardBridge;
   personalSounds?: import('./personal-sounds').PersonalSoundsBridge;
+  /** System-wide mute and deafen shortcuts; absent in fixtures and old preloads. */
+  globalShortcuts?: import('./global-shortcuts').GlobalShortcutsBridge;
   /** Collaborative Studio projects (op log + long poll); absent in fixtures and old preloads. */
   studio?: import('./studio').StudioBridge;
   desktopWindow: {
@@ -75,6 +77,11 @@ export interface DesktopBridge {
   onInvite(listener: (invite: { serverUrl: string; code: string }) => void): () => void;
   platform: 'darwin' | 'win32' | 'linux';
   windowAction(action: 'minimize' | 'maximize' | 'close' | 'fullscreen'): Promise<void>;
+  /** Maximized/fullscreen state, for the app-drawn title bar. */
+  windowState(): Promise<{ maximized: boolean; fullscreen: boolean }>;
+  onWindowState(listener: (state: { maximized: boolean; fullscreen: boolean }) => void): () => void;
+  /** Tells the main process which theme the window buttons should match (Windows overlay). */
+  setWindowTheme(theme: 'dark' | 'light'): Promise<void>;
   setAlwaysOnTop(value: boolean): Promise<void>;
   loginItemStatus(): Promise<boolean>;
   setLoginItem(value: boolean): Promise<boolean>;
@@ -237,6 +244,10 @@ export interface DesktopBridge {
       camera: string;
       screen: string;
       systemAudio: boolean;
+      /** Tayfa's own playback stays out of shared system audio (Windows 11, macOS 14.2+). */
+      systemAudioOwnExcluded?: boolean;
+      /** Why system audio is unavailable: an older macOS, or an OS without loopback capture. */
+      systemAudioReason?: 'macos-version' | 'os';
     }>;
   };
 }

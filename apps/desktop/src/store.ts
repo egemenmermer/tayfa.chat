@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DEFAULT_PUSH_TO_TALK_KEY, parsePushToTalkKey } from './push-to-talk-key';
+import { normalizeGlobalShortcut } from './global-shortcut';
+import {
+  MIC_GATE_DEFAULT_DB,
+  clampMicGateThreshold,
+} from '../../../packages/media-providers/src/mic-gate';
 
 export interface Preferences {
   roomEventSounds: boolean;
@@ -13,6 +18,10 @@ export interface Preferences {
   noiseSuppressionMode: 'standard' | 'strong';
   pushToTalk: boolean;
   pushToTalkKey: string;
+  /** System-wide mute toggle in push-to-talk key format; empty is no shortcut. */
+  muteKey: string;
+  /** System-wide deafen toggle; empty is no shortcut. */
+  deafenKey: string;
   reduceMotion: boolean;
   reduceTransparency: boolean;
   compact: boolean;
@@ -29,6 +38,12 @@ export interface Preferences {
   microphoneOn: boolean;
   /** Microphone level per device name, 0–200 % (100 sends it as captured). */
   inputLevels: Record<string, number>;
+  /** Input sensitivity follows the noise floor; off uses `inputSensitivity`. */
+  inputSensitivityAuto: boolean;
+  /** Manual input sensitivity in dBFS: quieter sound is not sent. */
+  inputSensitivity: number;
+  /** "Ses seviyesini dengele": the leveler after the noise filter. */
+  micLeveler: boolean;
 }
 const defaults: Preferences = {
   roomEventSounds: true,
@@ -39,6 +54,8 @@ const defaults: Preferences = {
   noiseSuppressionMode: 'strong',
   pushToTalk: false,
   pushToTalkKey: DEFAULT_PUSH_TO_TALK_KEY,
+  muteKey: '',
+  deafenKey: '',
   reduceMotion: false,
   reduceTransparency: false,
   compact: false,
@@ -52,6 +69,9 @@ const defaults: Preferences = {
   accent: 'pearl',
   microphoneOn: false,
   inputLevels: {},
+  inputSensitivityAuto: true,
+  inputSensitivity: MIC_GATE_DEFAULT_DB,
+  micLeveler: true,
 };
 interface RoomsState {
   preferences: Preferences;
@@ -105,6 +125,10 @@ function preferencesFrom(value: unknown): Preferences {
       if (parsePushToTalkKey(previous[key])) result.pushToTalkKey = previous[key] as string;
       continue;
     }
+    if (key === 'muteKey' || key === 'deafenKey') {
+      result[key] = normalizeGlobalShortcut(previous[key]);
+      continue;
+    }
     if (key === 'chatFontSize') {
       result.chatFontSize = normalizeChatFontSize(previous[key]);
       continue;
@@ -115,6 +139,10 @@ function preferencesFrom(value: unknown): Preferences {
     }
     if (key === 'inputLevels') {
       result.inputLevels = normalizeInputLevels(previous[key]);
+      continue;
+    }
+    if (key === 'inputSensitivity') {
+      result.inputSensitivity = clampMicGateThreshold(previous[key]);
       continue;
     }
     if (
@@ -141,7 +169,9 @@ export const useRooms = create<RoomsState>()(
                   ? normalizeSoundEffectsLevel(value)
                   : key === 'inputLevels'
                     ? normalizeInputLevels(value)
-                    : value,
+                    : key === 'inputSensitivity'
+                      ? clampMicGateThreshold(value)
+                      : value,
           },
         })),
     }),

@@ -286,6 +286,13 @@ export function ConnectionPane({
                       <Globe size={12} />
                       {serverHost(fromLink.serverUrl)}
                     </p>
+                    <button
+                      type="button"
+                      className="ref-auth-back"
+                      onClick={() => navigate(`/setup/signin?${params}`)}
+                    >
+                      {t('Zaten hesabın var mı? Giriş yap; davet kendiliğinden kabul edilir.')}
+                    </button>
                     <button type="button" className="ref-auth-back" onClick={forgetLink}>
                       {t('Başka bir davet bağlantısı kullan')}
                     </button>

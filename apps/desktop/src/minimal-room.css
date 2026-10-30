@@ -211,6 +211,25 @@
   border-radius: 50%;
   background: #82b8a0;
 }
+.room-connecting {
+  flex: none;
+  color: #aba5b5;
+  font-size: 11px;
+  animation: room-connecting 1.2s ease-in-out infinite alternate;
+}
+@keyframes room-connecting {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .room-connecting {
+    animation: none;
+  }
+}
 .occupancy-unavailable {
   display: block;
   margin: 3px 0 6px 34px;

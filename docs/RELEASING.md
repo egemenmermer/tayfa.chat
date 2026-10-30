@@ -53,7 +53,17 @@ Windows geliştirme paketlemesi ayrıdır. Mevcut arkadaş EXE'leri imzasızdır
 
 ## Güncelleme ve yayınlama
 
-Mac uygulama içi güncellemesi, dağıtıcının uyumlu anahtarı ve beslemesi ve doğru imzalı dosyalarıyla Sparkle üzerinden çalışır. Kaynak derlemesi başkasının kanalına otomatik katılmaz. Windows/yerel paket ve güncelleme kabulü hedef derlemede ayrı incelenir; mevcut Windows dağıtımı yeni EXE'nin elle kurulmasını kullanır.
+Mac uygulama içi güncellemesi, dağıtıcının uyumlu anahtarı ve beslemesi ve doğru imzalı dosyalarıyla Sparkle üzerinden çalışır. Kaynak derlemesi başkasının kanalına otomatik katılmaz. Windows güncellemesi aşağıda ayrı anlatılır.
+
+### Windows uygulama içi güncellemesi
+
+- Kurulu (NSIS) Windows uygulaması electron-updater ile `<besleme>latest.yml` dosyasını okur. Besleme macOS appcast'iyle aynı kuralı izler: `https://github.com/<sahip>/<depo>/releases/latest/download/`, yani GitHub'da **Latest** işaretli sürüm. Sürüm numarasının `-rc.N` olması bunu değiştirmez; kanal `latest` olarak sabittir.
+- `public-package-check.yml` içindeki `windows_installer=true` işi `ROOMS_UPDATE_FEED`'i depo adından türetir (yeni sır yok), `dist/update-config.json` yazar, electron-builder'a generic yayın ayarını verir ve EXE'nin yanında `latest.yml` ile `.blockmap` üretir. `node scripts/windows-update-feed.mjs verify release` sürümü, dosya adını, boyutu ve SHA-512 özetini EXE'ye karşı denetler; tutmazsa iş durur.
+- **Yayın adımı:** `windows-test-candidate` yapıtındaki üç dosyayı sürüme yükle: `ROOMS-<sürüm>-windows-x64-setup.exe`, aynı adın `.blockmap` dosyası ve `latest.yml`. EXE'nin adını değiştirme; `latest.yml` bu adı gösterir. Latest yapılan her sürümde `latest.yml` bulunmalı; yoksa (ör. yalnız Mac düzeltmesi) Windows istemcileri güncelleme görmez. Yayından sonra appcast kontrolünün yanında `releases/latest/download/latest.yml` dosyasının yeni sürümü ve yüklenen EXE'nin özetini gösterdiğini denetle.
+- Uygulamada güncellemeler varsayılan açıktır (macOS gibi; kullanıcı kapatabilir). İlk denetim açılıştan 30 sn sonra, sonra 6 saatte bir yapılır. Yeni sürüm arka planda iner, SHA-512 tutarsa "Yeniden başlat ve güncelle" ile ya da uygulamadan normal çıkışta aynı klasöre sessizce kurulur. Fark indirmesi (blockmap) kapalıdır: `latest/download/` adresi eski sürümün blockmap'ini sunmaz.
+- **İmzasız Windows paketi:** EXE yayıncı imzası taşımaz. HTTPS ve SHA-512, indirilen dosyanın `latest.yml`'ın gösterdiği dosya olduğunu ve bozulmadığını kanıtlar; yayıncıyı kanıtlamaz. Sürüme dosya yükleyebilen biri EXE'yi ve `latest.yml`'ı birlikte değiştirebilir; güven GitHub hesabının ve sürüm yetkisinin korunmasına dayanır. İlk elle kurulumda SmartScreen uyarısı çıkabilir; "tüm kullanıcılar için" kurulumda güncelleme UAC onayı isteyebilir.
+- **İlk otomatik güncelleme:** rc.35 bu güncelleyiciyi taşıyan ilk Windows sürümüdür ve elle kurulmalıdır. Uygulama içi ilk güncelleme rc.35 → rc.36 olur.
+- Geri alma Mac'tekiyle aynıdır: önceki sürümü yeniden Latest yap (`gh release edit <önceki etiket> --latest`). Sürüm düşürme kapalı olduğundan bozuk sürümü almış istemciler düzeltmeyi daha yüksek bir sürümle ya da elle alır.
 
 ```sh
 pnpm release:mac:publish
@@ -74,6 +84,7 @@ Besleme adresi ile arşiv indirme adresinin ömrünü ayır. Güncel besleme sab
 - Dağıtılan gerçek dosyanın imza/noter/güven kontrolleri tamamlanır.
 - Temiz kurulum, desteklenen önceki sürümden güncelleme ve kurtarma/geri dönüş denenir.
 - Yalnız incelenen baytlar yüklenir; uzaktaki boyut ve özet doğrulanır.
+- Windows için EXE, `.blockmap` ve `latest.yml` birlikte yüklenir; `releases/latest/download/latest.yml` yeni sürümü gösterir.
 - Dosyalar yerleşmeden katalog/feed etkinleştirilmez. Önceki kayıtlar ve geri dönüş paketi korunur.
 - Sürüm, platformlar, sınırlamalar ve destek yolu açıkça yazılır.
 

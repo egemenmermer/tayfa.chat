@@ -221,7 +221,7 @@ export const commandSchema = z
           element: z
             .object({
               id: opaqueId,
-              kind: z.enum(['stroke', 'text', 'rectangle', 'ellipse']),
+              kind: z.enum(['stroke', 'text', 'rectangle', 'ellipse', 'note']),
               points: z
                 .array(
                   z.tuple([
@@ -235,10 +235,16 @@ export const commandSchema = z
               color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
               width: z.number().min(1).max(24),
             })
-            .strict(),
+            .strict()
+            // A sticky note is anchored by its top-left corner: exactly one point.
+            .refine((element) => element.kind !== 'note' || element.points.length === 1, {
+              message: 'A note needs exactly one anchor point',
+            }),
         })
         .strict(),
       z.object({ type: z.literal('whiteboard.remove'), elementId: opaqueId }).strict(),
+      // Clears every stroke and note. Community admins (the `canControl` rule) only.
+      z.object({ type: z.literal('whiteboard.clear') }).strict(),
       z
         .object({
           type: z.literal('game.create'),
@@ -322,7 +328,11 @@ export interface Poll {
 }
 export interface BoardElement {
   id: string;
-  kind: 'stroke' | 'text' | 'rectangle' | 'ellipse';
+  /**
+   * `note` is a sticky note: `points[0]` is its top-left corner, `text` its body, `color` its paper.
+   * Clients that predate notes draw it as an invisible one-point stroke and otherwise ignore it.
+   */
+  kind: 'stroke' | 'text' | 'rectangle' | 'ellipse' | 'note';
   points: [number, number][];
   text?: string;
   color: string;

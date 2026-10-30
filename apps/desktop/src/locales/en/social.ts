@@ -3,6 +3,24 @@ import type { Catalog } from '@rooms/i18n';
 /** English for the social group. Keys are the Turkish source text exactly as written in the code. */
 export const social: Catalog = {
   'Bu oda': 'This room',
+  // Polls posted into a text channel (ChatPoll.tsx, chat-poll.ts).
+  'Anket: {question} — Tayfa’nın yeni sürümünde oy ver.':
+    'Poll: {question} — vote in the latest Tayfa.',
+  ANKET: 'POLL',
+  'Anket yükleniyor…': 'Loading poll…',
+  'Anket şu an açılamıyor.': 'The poll can’t be opened right now.',
+  'Bu anket bulunamadı. Silinmiş ya da başka bir kanala ait olabilir.':
+    'This poll wasn’t found. It may have been removed or belong to another channel.',
+  'Bu kanalda anket açma iznin yok.': 'You don’t have permission to start polls in this channel.',
+  'Bu kanal anket sınırına ulaştı ({count}).': 'This channel has reached its poll limit ({count}).',
+  'Kanal değişti. Anketi açtığın kanala dönüp yeniden dene.':
+    'The channel changed. Go back to the channel where you started the poll and try again.',
+  'Kanala anket gönder': 'Send a poll to the channel',
+  'Anketi gönder': 'Send poll',
+  'Mesajı yeniden gönder': 'Send the message again',
+  '#{channel} kanalını görebilen herkes oy verebilir.': 'Everyone who can see #{channel} can vote.',
+  'Kişi başına tek seçim. Oyunu kapanana kadar değiştirebilirsin.':
+    'One choice per person. You can change your vote until the poll closes.',
   'Bildirim kanalı': 'Notification channel',
   'Kanal yok': 'No channels',
   'Özel mesaj': 'Direct message',
@@ -540,10 +558,24 @@ export const social: Catalog = {
   'Yalnızca seçtiğin kaynak paylaşılır. Paylaşım, onay verdiğinde başlar.':
     'Only the source you pick is shared. Sharing starts once you confirm.',
   'Paylaşım kalitesi': 'Share quality',
-  'Sistem sesini paylaş': 'Share system audio',
-  'Bilgisayar sesi de odaya gönderilir.': 'Your computer’s sound is sent to the room too.',
-  'Sistem sesi için desteklenen işletim sistemi gerekli.':
-    'System audio needs a supported operating system.',
+  'Sesi de paylaş': 'Share sound too',
+  'Yayın sesi paylaşılıyor': 'Stream sound is being shared',
+  'Yayında ses yok': 'This stream has no sound',
+  Sesli: 'Sound on',
+  Sessiz: 'No sound',
+  'Ses paylaşımı denetleniyor…': 'Checking sound sharing…',
+  'Ses paylaşımı denetlenemedi; görüntü sessiz paylaşılır.':
+    'Couldn’t check sound sharing; the picture is shared without sound.',
+  'Bu Mac sesi paylaşamaz: macOS 14.2 veya üstü gerekir. Görüntü sessiz paylaşılır.':
+    'This Mac can’t share sound: it needs macOS 14.2 or later. The picture is shared without sound.',
+  'Bu işletim sistemi sesi paylaşamaz. Görüntü sessiz paylaşılır.':
+    'This operating system can’t share sound. The picture is shared without sound.',
+  'Oyun ya da video sesi izleyenlere gider. Tayfa’daki konuşmalar yayına karışmaz.':
+    'Game or video sound goes to viewers. Voices in Tayfa stay out of the stream.',
+  'Oyun ya da video sesi izleyenlere gider. Windows 10’da Tayfa’daki konuşmalar da yayına karışır; izleyenler kendi seslerini yankı olarak duyabilir.':
+    'Game or video sound goes to viewers. On Windows 10, voices in Tayfa get into the stream too; viewers may hear themselves echo.',
+  'Ses paylaşılamadı, yalnızca görüntü gidiyor. Bilgisayarda bir hoparlör ya da kulaklık seçili olmalı.':
+    'Sound couldn’t be shared, only the picture is going out. A speaker or headset must be selected on this computer.',
   'Başlatılıyor…': 'Starting…',
   'Seçili kaynağı paylaş': 'Share selected source',
   'Davet oluştur': 'Create invite',

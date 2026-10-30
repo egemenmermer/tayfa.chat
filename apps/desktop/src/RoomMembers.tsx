@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import type { SocialMember } from '@rooms/social';
+import type { SocialMember, SocialUser } from '@rooms/social';
 import { IconButton } from '@rooms/design';
 import { useCommunity } from './community';
 import { useRealtime } from './realtime';
@@ -8,7 +9,29 @@ import { VoiceAvatar } from './VoiceAvatar';
 import { ReferenceIcon } from './ReferenceIcon';
 import { t, uiError } from './i18n';
 import { sample } from './dev/sample';
+import { queryClient } from './query-client';
+import { ROOM_MEMBERS_STALE_MS, roomMembersQuery } from './room-members';
 import { directMessageFailed } from './FriendRequiredDialog';
+
+const EMPTY: SocialMember[] = [];
+
+async function fixtureMembers(user: SocialUser | null): Promise<SocialMember[]> {
+  const fixture = await import('./dev/reference-fixtures');
+  const next: SocialMember[] = fixture.getReferenceFriends().map((f) => ({
+    user: f.user,
+    status: f.status,
+    statusText: fixture.getReferencePresenceText(f.user.id),
+    roles: [],
+  }));
+  if (user)
+    next.unshift({
+      user,
+      status: 'online',
+      statusText: sample('Buradayım', "I'm here"),
+      roles: [],
+    });
+  return next;
+}
 
 export function RoomMembers({
   onClose,
@@ -20,54 +43,31 @@ export function RoomMembers({
   const c = useCommunity(),
     media = useRealtime(),
     navigate = useNavigate();
-  const [members, setMembers] = useState<SocialMember[]>([]);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
+  const fixture = import.meta.env.DEV && new URLSearchParams(location.search).has('fixture');
+  const enabled = fixture ? !!c.user : !!(c.activeSpaceId && window.rooms);
+  const spaceKey = fixture ? 'fixture' : c.activeSpaceId;
+  const query = useQuery(
+    {
+      ...roomMembersQuery(
+        c.serverUrl,
+        c.user?.id,
+        spaceKey ?? '',
+        fixture ? () => fixtureMembers(c.user) : undefined,
+      ),
+      enabled,
+      // Cached members render at once; this keeps them fresh in the background while visible.
+      refetchInterval: () => (document.hidden ? false : ROOM_MEMBERS_STALE_MS),
+    },
+    queryClient,
+  );
   useEffect(() => {
-    let disposed = false;
-    setMembers([]);
-    setError('');
-    setLoading(true);
-    const refresh = async () => {
-      try {
-        let next: SocialMember[] = [];
-        if (import.meta.env.DEV && new URLSearchParams(location.search).has('fixture')) {
-          const fixture = await import('./dev/reference-fixtures');
-          next = fixture.getReferenceFriends().map((f) => ({
-            user: f.user,
-            status: f.status,
-            statusText: fixture.getReferencePresenceText(f.user.id),
-            roles: [],
-          }));
-          if (c.user)
-            next.unshift({
-              user: c.user,
-              status: 'online',
-              statusText: sample('Buradayım', "I'm here"),
-              roles: [],
-            });
-        } else if (c.activeSpaceId && window.rooms) {
-          next = await window.rooms.social.members(c.activeSpaceId);
-        }
-        if (!disposed) {
-          setMembers(next);
-          setError('');
-        }
-      } catch (failure) {
-        if (!disposed) setError(uiError(failure));
-      } finally {
-        if (!disposed) setLoading(false);
-      }
-    };
-    void refresh();
-    const timer = setInterval(() => {
-      if (!document.hidden) void refresh();
-    }, 30000);
-    return () => {
-      disposed = true;
-      clearInterval(timer);
-    };
-  }, [c.activeSpaceId, c.user?.id]);
+    const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['room-members'] });
+    window.addEventListener('rooms:community-management-invalidated', invalidate);
+    return () => window.removeEventListener('rooms:community-management-invalidated', invalidate);
+  }, []);
+  const members = query.data ?? EMPTY;
+  const error = query.error ? uiError(query.error) : '';
+  const loading = query.isLoading;
   const visible = members.map((member) => ({
     ...member,
     status: c.status === 'connected' ? (c.presence[member.user.id] ?? member.status) : 'unknown',

@@ -138,7 +138,7 @@ const snapshot = z
       z
         .object({
           id,
-          kind: z.enum(['stroke', 'text', 'rectangle', 'ellipse']),
+          kind: z.enum(['stroke', 'text', 'rectangle', 'ellipse', 'note']),
           points: z.array(z.tuple([number, number])),
           text: z.string().optional(),
           color: z.string(),

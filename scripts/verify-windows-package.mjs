@@ -28,7 +28,7 @@ const result = {
     'Hosted Windows Server 2025 VM, not a physical Windows friend device',
     'No live login, microphone, camera, room, private IPTV or DJ publication',
     'Hosted Windows has no audio endpoint; native video display is required, physical audio stays open',
-    'Windows automatic updates unavailable; manual installers only',
+    'In-app update from a previous release not exercised (unsigned NSIS, SHA-512 via latest.yml; needs a real PC)',
     'Unsigned candidate; no SmartScreen/security warning bypass',
   ],
 };

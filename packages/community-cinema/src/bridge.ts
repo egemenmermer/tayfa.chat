@@ -28,6 +28,7 @@ import type {
   StremioTitle,
   StremioType,
 } from './types';
+import type { YouTubeSearchResult } from './youtube-search';
 
 export const CINEMA_SCHEME = 'rooms-cinema';
 
@@ -130,7 +131,9 @@ export type CinemaErrorCode =
   /** The stream list is old; list the streams again. */
   | 'CINEMA_STREMIO_STREAM_EXPIRED'
   /** The debrid service does not have this stream yet (it started downloading it). */
-  | 'CINEMA_STREMIO_NOT_CACHED';
+  | 'CINEMA_STREMIO_NOT_CACHED'
+  /** The server could not search YouTube (old server without the route, search down). */
+  | 'CINEMA_YOUTUBE_SEARCH_UNAVAILABLE';
 
 export interface CinemaBridge {
   status(communityId: string): Promise<CinemaStatus>;
@@ -144,6 +147,8 @@ export interface CinemaBridge {
   categories(hallId: string, kind: CatalogKind): Promise<CinemaCategory[]>;
   items(hallId: string, query: CinemaItemsQuery): Promise<CinemaPage>;
   search(hallId: string, text: string, kinds?: CatalogKind[]): Promise<CinemaItem[]>;
+  /** Searches YouTube by text (up to 5 results) for the hall's "YouTube" tab. */
+  youtubeSearch(hallId: string, text: string): Promise<YouTubeSearchResult[]>;
   /** Programmes overlapping [fromMs, toMs) per live item ref. */
   guide(
     hallId: string,

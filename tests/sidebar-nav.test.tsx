@@ -295,3 +295,33 @@ it('gives long names a tooltip so a truncated name stays readable', async () => 
   await mount();
   expect(screen.getByText(long).getAttribute('title')).toBe(long);
 });
+
+it('offers joining with a pasted invite link from the community menu', async () => {
+  const joinInvite = vi.fn();
+  render(
+    <MemoryRouter initialEntries={['/chat']}>
+      <MinimalSidebar
+        notify={() => {}}
+        invite={() => {}}
+        joinInvite={joinInvite}
+        createSpace={() => {}}
+        search={() => {}}
+        help={() => {}}
+      />
+    </MemoryRouter>,
+  );
+  await act(async () => {});
+  fireEvent.click(screen.getByRole('button', { name: 'Davet bağlantısıyla katıl' }));
+  const token = 'd'.repeat(64);
+  fireEvent.change(screen.getByLabelText('Davet bağlantısı'), {
+    target: { value: `https://local.example/davet/${token}` },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Daveti aç' }));
+  expect(joinInvite).toHaveBeenCalledWith({ serverUrl: 'https://local.example', code: token });
+  expect(screen.queryByLabelText('Davet bağlantısı')).toBeNull();
+});
+
+it('hides the join entry when the app gives it nowhere to go', async () => {
+  await mount();
+  expect(screen.queryByRole('button', { name: 'Davet bağlantısıyla katıl' })).toBeNull();
+});

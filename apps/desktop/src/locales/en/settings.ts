@@ -121,7 +121,33 @@ export const settings: Catalog = {
   'Test sesi yalnızca bu cihazda çalar.': 'The test sound plays only on this device.',
   'Konuşma davranışı': 'Speaking behavior',
   'Bas konuş': 'Push to talk',
-  'Uygulama odaktayken tuşları basılı tut.': 'Hold the keys down while the app is focused.',
+  'Tuşu basılı tut, bırakınca mikrofon kapanır. Yalnızca Tayfa odaktayken çalışır.':
+    'Hold the key to talk, release to mute. Works only while Tayfa is focused.',
+  'Bas konuş, başka bir uygulamadayken çalışmaz: sistem tuşun bırakıldığını bildirmiyor. Başka uygulamadayken konuşmak için aşağıdaki mikrofon kısayolunu kullan.':
+    'Push to talk does not work while another app is focused, because the system does not report when a key is released. To use your microphone from another app, set the microphone shortcut below.',
+  'Başka bir uygulamadayken de çalışır.': 'Also works while another app is focused.',
+  'Sistem genelinde kısayollar yalnızca masaüstü uygulamasında çalışır.':
+    'System-wide shortcuts work only in the desktop app.',
+  'Hoparlörü kapatır ve açar; başka bir uygulamadayken de çalışır.':
+    'Turns your speakers off and on. Also works while another app is focused.',
+  'Mikrofonu aç / kapat (sistem genelinde)': 'Mute / unmute (system-wide)',
+  'Sesi kapat (sistem genelinde)': 'Turn sound off (system-wide)',
+  Atanmadı: 'Not set',
+  Ata: 'Set',
+  Temizle: 'Clear',
+  'Kısayola Ctrl, Alt veya ⌘ / Win ekle; tek başına harf yazmayı engeller.':
+    'Add Ctrl, Alt or ⌘ / Win to the shortcut; a bare letter would block typing.',
+  'Bu kısayol Tayfa veya sistem tarafından kullanılıyor. Başka bir tuş dene.':
+    'Tayfa or your system already uses this shortcut. Try another key.',
+  'Bu kısayol başka bir Tayfa kısayoluyla aynı.': 'This is the same as another Tayfa shortcut.',
+  'Başka bir uygulama bu kısayolu kullanıyor, Tayfa kaydedemedi. Başka bir tuş seç.':
+    'Another app is using this shortcut, so Tayfa could not register it. Choose another key.',
+  'Bu tuş kısayol olarak kullanılamıyor. Başka bir tuş dene.':
+    'This key cannot be used as a shortcut. Try another key.',
+  'Kısayollar kaydedilemedi. Ayarlardan yeniden dene.':
+    'Shortcuts could not be registered. Try again from Settings.',
+  'Ses değiştirilemedi. Ses ayarlarını kontrol edip yeniden dene.':
+    'Could not change the sound. Check your audio settings and try again.',
   'Bas konuş tuşu': 'Push-to-talk key',
   'Basılı tuttuğun sürece mikrofonun açık kalır.':
     'Your microphone stays on while you hold it down.',
@@ -820,4 +846,27 @@ export const settings: Catalog = {
     'Selected camera isn’t connected (the default is used)',
   'Seçtiğin kamera odalarda ve özel görüşmelerde kullanılır. Kamera denemesi odaya yayınlanmaz.':
     'The camera you choose is used in rooms and private calls. The camera test isn’t broadcast to the room.',
+  // Input sensitivity (IT-micgate)
+  'Giriş hassasiyeti': 'Input sensitivity',
+  'Eşiğin altındaki sesler (klavye, nefes) gönderilmez. Konuşma halkan tam olarak sesin gittiği anda yanar.':
+    'Sounds below the threshold (keyboard, breathing) aren’t sent. Your speaking ring lights exactly when sound goes out.',
+  'Otomatik giriş hassasiyeti': 'Automatic input sensitivity',
+  'Gönderilecek mikrofon seviyesi': 'Microphone level that would be sent',
+  'Ölçüm yok': 'No reading',
+  '{level} dB · gönderiliyor': '{level} dB · sending',
+  '{level} dB · gönderilmiyor': '{level} dB · not sending',
+  'Giriş hassasiyeti eşiği': 'Input sensitivity threshold',
+  'Seviyeyi görmek için mikrofonu dene ya da odada mikrofonunu aç.':
+    'To see the level, test the microphone or turn your mic on in a room.',
+  'Otomatik eşik: {value} dB · ortam gürültüsüne göre ayarlanır.':
+    'Automatic threshold: {value} dB · follows the background noise.',
+  'Bu seviye gönderilir.': 'This level is sent.',
+  'Bu seviye gönderilmez.': 'This level isn’t sent.',
+  'Bas konuş ve mikrofon kapatma önce gelir: tuş bırakılınca ya da mikrofon kapalıyken hiçbir şey gitmez; tuş basılıyken de yalnızca eşiği geçen ses gider.':
+    'Push to talk and mute come first: nothing is sent once the key is released or while the mic is off, and while the key is held only sound above the threshold is sent.',
+  'Ses seviyesini dengele': 'Even out loudness',
+  'Gürültü azaltmadan sonra kısık ve yüksek konuşmayı birbirine yaklaştırır.':
+    'After noise reduction, brings quiet and loud speech closer together.',
+  'Gürültü azaltma kapalıyken sistemin otomatik kazancı çalışır; dengeleme kullanılmaz.':
+    'With noise reduction off, the system’s automatic gain runs instead; leveling isn’t used.',
 };

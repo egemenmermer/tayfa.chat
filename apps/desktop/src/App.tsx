@@ -17,6 +17,7 @@ import {
   UserProfileDialog,
 } from './SocialSurfaces';
 import { RoomMembers } from './RoomMembers';
+import { prefetchRoomMembers } from './room-members';
 import { FriendsPage } from './FriendsPage';
 import { FriendRequiredDialog } from './FriendRequiredDialog';
 import DmCallRuntime from './DmCallRuntime';
@@ -44,6 +45,7 @@ import { badgeCount, useCommunity, initializeCommunity } from './community';
 import { useModerationRights } from './VoiceModeration';
 import { useRealtime, toggleMic } from './realtime';
 import { PushToTalk } from './PushToTalk';
+import { GlobalShortcuts } from './GlobalShortcuts';
 import { CommunitySpaces, CommunityInvite, RealVoiceDock } from './RealSocial';
 import { Home } from './Home';
 import { ConnectionPane } from './ConnectionPane';
@@ -291,7 +293,8 @@ export default function App() {
       .catch(() => {});
     return window.rooms.onInvite((value) => setNativeInvite(value));
   }, []);
-  // Signed out, an invitation link is a signup: open Kayıt ol with the link already filled in.
+  // Signed out, an invitation link opens Kayıt ol (or Giriş yap on a device that used its server)
+  // with the link already filled in; signing in then joins the community.
   useEffect(() => {
     if (!startupReady || !nativeInvite || community.user) return;
     const params = new URLSearchParams({
@@ -299,7 +302,7 @@ export default function App() {
       invite: nativeInvite.code,
     });
     setNativeInvite(null);
-    navigate(`/setup/register?${params}`, { replace: true });
+    navigate(`/setup/${defaultStartTab(params)}?${params}`, { replace: true });
   }, [startupReady, nativeInvite, community.user, navigate]);
   const [toast, setToast] = useState('');
   const notify = useCallback((message: string) => setToast(message), []);
@@ -342,6 +345,10 @@ export default function App() {
   const dmView =
     ['/chat', '/dm'].includes(visiblePath) &&
     community.dms.some((dm) => dm.id === community.activeChannelId);
+  const warmMembers = () => {
+    if (!dmView)
+      prefetchRoomMembers(community.serverUrl, community.user?.id, community.activeSpaceId);
+  };
   const communityView =
     !dmView &&
     !!community.user &&
@@ -580,6 +587,7 @@ export default function App() {
       className={`app minimal-room-ui ${hallView ? 'hall-mode' : ''} ${voiceView ? 'voice-mode' : ''} ${mediaView ? 'personal-media-mode' : ''} ${communityView ? 'community-mode' : ''} ${visiblePath === '/chat' || visiblePath === '/dm' ? 'chat-mode' : ''} ${realtime.channelId ? 'voice-active' : ''} ${channelNavOpen ? 'channel-nav-open' : ''} ${contextDrawerOpen ? 'context-drawer-open' : ''}`}
     >
       {<PushToTalk notify={notify} />}
+      <GlobalShortcuts notify={notify} />
       <div className="window-chrome">
         <div className="traffic-space">
           {import.meta.env.DEV && !window.rooms && !localFixture && (
@@ -622,6 +630,7 @@ export default function App() {
           <MinimalSidebar
             notify={notify}
             invite={() => open('invite')}
+            joinInvite={setNativeInvite}
             createSpace={() => open('create-space')}
             editSpace={() => open('edit-space')}
             search={() => open('command')}
@@ -669,6 +678,8 @@ export default function App() {
                 label={dmView ? t('Kişi bilgisi') : t('Üyeler')}
                 className="toolbar-icon"
                 disabled={!community.user}
+                onPointerEnter={warmMembers}
+                onFocus={warmMembers}
                 onClick={() => (dmView ? open('profile') : toggleContext())}
               >
                 <Users size={19} />

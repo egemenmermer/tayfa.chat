@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { IconButton } from '@rooms/design';
 import { useRealtime, setParticipantVolume } from './realtime';
+import { PersonVolumeSlider } from './PersonVolumeSlider';
 import { ReferenceIcon } from './ReferenceIcon';
 import { VoiceAvatar } from './VoiceAvatar';
 import { t } from './i18n';
@@ -68,15 +69,11 @@ export function VoiceContext({
               <span>{participant.name}</span>
               <span>{t('%{percent}', { percent: Math.round(participant.volume * 100) })}</span>
             </div>
-            <input
-              aria-label={t('{name} kişisel ses seviyesi', { name: participant.name })}
-              type="range"
-              min="0"
-              max="1"
-              step="0.01"
+            <PersonVolumeSlider
+              label={t('{name} kişisel ses seviyesi', { name: participant.name })}
               value={participant.volume}
               disabled={!connected}
-              onChange={(e) => setParticipantVolume(participant.id, Number(e.target.value))}
+              onChange={(value) => setParticipantVolume(participant.id, value)}
             />
             <p>{t('Yalnızca senin duyduğun ses değişir.')}</p>
           </section>

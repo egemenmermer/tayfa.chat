@@ -172,6 +172,8 @@
 
 .room-screen-overlay > div {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
   pointer-events: auto;
 }
@@ -183,6 +185,11 @@
 .room-screen-volume input {
   width: clamp(60px, 12vw, 150px);
   accent-color: #9c8bff;
+}
+.room-screen-volume.no-sound {
+  font-size: 12px;
+  opacity: 0.75;
+  white-space: nowrap;
 }
 /* A remote stream is only advertised until the listener chooses to watch it. */
 .room-share-preview .room-share-invite {
@@ -208,4 +215,38 @@
   height: 100%;
   margin: 0;
   color: #a9abb8;
+}
+/* Viewer quality picker; the overlay ignores the pointer, so the select takes it back. */
+.room-screen-quality {
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+}
+.room-screen-quality select {
+  min-width: 0;
+  max-width: 12ch;
+  padding: 8px 6px;
+  background: #101116c9;
+  border: 0;
+  border-radius: 7px;
+  color: #eee;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.room-screen-quality select[aria-disabled='true'] {
+  cursor: default;
+  opacity: 0.8;
+}
+.room-screen-quality select:focus-visible {
+  outline: 2px solid #9c8bff;
+  outline-offset: 1px;
+}
+.room-screen-quality-hint {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }

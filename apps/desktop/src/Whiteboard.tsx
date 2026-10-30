@@ -10,6 +10,7 @@ import {
   MousePointer2,
   Pencil,
   Square,
+  StickyNote,
   Trash2,
   Type,
   Undo2,
@@ -20,9 +21,32 @@ import type { ActivityCommand, BoardElement } from '@rooms/activity-protocol';
 import type { useActivityRoom } from './activity';
 import { t, uiError } from './i18n';
 import { onCursor, publishCursor, useRealtime } from './realtime';
+import {
+  NOTE_COLORS,
+  NOTE_FONT,
+  NOTE_HEIGHT,
+  NOTE_INK,
+  NOTE_LINE,
+  NOTE_MAX_CHARS,
+  NOTE_PADDING,
+  NOTE_WIDTH,
+  placeNote,
+  wrapNoteText,
+} from './whiteboard-notes';
 
 type Edit = { kind: 'add' | 'remove'; element: BoardElement };
-type Tool = 'select' | 'pen' | 'text' | 'erase' | 'rectangle' | 'ellipse';
+type Tool = 'select' | 'pen' | 'text' | 'note' | 'erase' | 'rectangle' | 'ellipse';
+type NoteDraft = { id: string | null; x: number; y: number; text: string; color: string };
+type NoteDrag = {
+  id: string;
+  dx: number;
+  dy: number;
+  ox: number;
+  oy: number;
+  x: number;
+  y: number;
+  moved: boolean;
+};
 const colors = ['#B8CDFF', '#65BC94', '#E7B96F', '#E57B7B', '#F4F6F8'];
 const cursorColors = ['#8B83FF', '#53C793', '#F2BB67', '#F17984', '#6CC4F0', '#D58CF0'];
 // The shared drawing space; every viewer scales it to fit, so coordinates match everywhere.
@@ -56,6 +80,10 @@ export default function Whiteboard({
     [selected, setSelected] = useState<string | null>(null);
   const [color, setColor] = useState(colors[0]!);
   const [draft, setDraft] = useState<{ x: number; y: number; text: string } | null>(null);
+  const [noteColor, setNoteColor] = useState<string>(NOTE_COLORS[0]);
+  const [noteDraft, setNoteDraftState] = useState<NoteDraft | null>(null);
+  const [drag, setDrag] = useState<NoteDrag | null>(null);
+  const [clearOpen, setClearOpen] = useState(false);
   const [points, setPoints] = useState<[number, number][]>([]);
   const [history, setHistory] = useState<Edit[]>([]),
     [working, setWorking] = useState(false);
@@ -63,6 +91,8 @@ export default function Whiteboard({
   const [fullscreen, setFullscreen] = useState(false);
   const [cursors, setCursors] = useState<Record<string, { x: number; y: number; at: number }>>({});
   const path = useRef<[number, number][]>([]),
+    noteRef = useRef<NoteDraft | null>(null),
+    dragRef = useRef<NoteDrag | null>(null),
     drawing = useRef(false),
     locked = useRef(false),
     alive = useRef(true),
@@ -78,6 +108,16 @@ export default function Whiteboard({
   const readOnly = fixture || !userId || activity.status !== 'connected';
   const busy = activity.busy || working || readOnly;
   const board = activity.room?.whiteboard ?? [];
+  const self = activity.room?.participants.find((person) => person.userId === userId);
+  // Community admins use the same `canControl` rule as closing someone else's poll.
+  const canClear = self?.canControl === true;
+  /** Authors change their own items; admins may also move, edit and delete sticky notes. */
+  const canEdit = (item: BoardElement) =>
+    item.authorId === userId || (item.kind === 'note' && canClear);
+  const setNoteDraft = (value: NoteDraft | null) => {
+    noteRef.current = value;
+    setNoteDraftState(value);
+  };
   const live = realtime.status === 'connected' && realtime.channelId === roomId;
   useEffect(() => {
     let active = true;
@@ -106,8 +146,9 @@ export default function Whiteboard({
   }, [roomId, userId, activity.room?.roomId]);
 
   /** Screen → board coordinates through the SVG's own transform (letterboxing included). */
-  const point = (e: React.PointerEvent<SVGSVGElement>): [number, number] => {
-    const matrix = e.currentTarget.getScreenCTM();
+  const point = (e: React.PointerEvent<SVGElement>): [number, number] => {
+    const svg = e.currentTarget.ownerSVGElement ?? (e.currentTarget as SVGSVGElement);
+    const matrix = svg.getScreenCTM();
     if (!matrix) return [0, 0];
     const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(matrix.inverse());
     return [clamp(Math.round(p.x * 10) / 10, W), clamp(Math.round(p.y * 10) / 10, H)];
@@ -181,7 +222,7 @@ export default function Whiteboard({
     setHistory((h) => [...h.slice(-49), { kind: 'add', element }]);
   }
   const remove = (element: BoardElement) => {
-    if (element.authorId !== userId) {
+    if (!canEdit(element)) {
       setMessage(t('Yalnızca kendi çizimini veya notunu silebilirsin.'));
       return;
     }
@@ -246,6 +287,70 @@ export default function Whiteboard({
       }),
     );
   };
+  /** Saves the note being typed: a new note at its spot, or new text for an existing one. */
+  const commitNote = () => {
+    const current = noteRef.current;
+    setNoteDraft(null);
+    const value = current?.text.trim();
+    if (!current || !value) return;
+    const existing = current.id ? board.find((item) => item.id === current.id) : undefined;
+    if (current.id && (!existing || !canEdit(existing))) return;
+    const element: BoardElement = {
+      id: existing?.id ?? crypto.randomUUID(),
+      kind: 'note',
+      points: existing ? existing.points : [placeNote(current.x, current.y)],
+      text: value.slice(0, NOTE_MAX_CHARS),
+      color: current.color,
+      width: 1,
+      authorId: existing?.authorId ?? userId,
+    };
+    void run(() => (existing ? activity.send(put(element)) : add(element)));
+  };
+  const editNote = (item: BoardElement) => {
+    if (!canEdit(item)) {
+      setMessage(t('Notu yalnızca yazarı veya bir topluluk yöneticisi değiştirebilir.'));
+      return;
+    }
+    setSelected(item.id);
+    setNoteDraft({
+      id: item.id,
+      x: item.points[0]![0],
+      y: item.points[0]![1],
+      text: item.text ?? '',
+      color: item.color,
+    });
+  };
+  const moveNote = (item: BoardElement, x: number, y: number) => {
+    const [nx, ny] = placeNote(x, y);
+    if (nx === item.points[0]![0] && ny === item.points[0]![1]) return;
+    void run(() => activity.send(put({ ...item, points: [[nx, ny]] })));
+  };
+  const recolorNote = (item: BoardElement, value: string) => {
+    if (item.color === value || !canEdit(item)) return;
+    void run(() => activity.send(put({ ...item, color: value })));
+  };
+  const clearBoard = () =>
+    void run(async () => {
+      await activity.send({ type: 'whiteboard.clear' });
+      if (alive.current) {
+        setHistory([]);
+        setSelected(null);
+        setClearOpen(false);
+        setMessage(t('Tahta temizlendi.'));
+      }
+    });
+  const askClear = () => {
+    if (busy) return;
+    if (!canClear) {
+      setMessage(t('Tahtayı yalnızca topluluk yöneticileri temizleyebilir.'));
+      return;
+    }
+    if (!board.length) {
+      setMessage(t('Tahta zaten boş.'));
+      return;
+    }
+    setClearOpen(true);
+  };
   const exportBoard = () =>
     void run(async () => {
       if (!window.rooms?.activity?.exportBoard)
@@ -291,7 +396,8 @@ export default function Whiteboard({
         (target instanceof HTMLElement &&
           (target.isContentEditable ||
             target.closest('input,textarea,select,button,[role=dialog]'))) ||
-        exportOpen
+        exportOpen ||
+        clearOpen
       )
         return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
@@ -312,6 +418,7 @@ export default function Whiteboard({
         r: 'rectangle',
         o: 'ellipse',
         t: 'text',
+        n: 'note',
         e: 'erase',
       };
       if (!busy && keys[event.key.toLowerCase()]) {
@@ -321,9 +428,11 @@ export default function Whiteboard({
     };
     window.addEventListener('keydown', keydown);
     return () => window.removeEventListener('keydown', keydown);
-  }, [busy, exportOpen, history, board]);
+  }, [busy, exportOpen, clearOpen, history, board]);
   useEffect(() => {
     if (busy) {
+      dragRef.current = null;
+      setDrag(null);
       drawing.current = false;
       path.current = [];
       setPoints([]);
@@ -331,18 +440,72 @@ export default function Whiteboard({
   }, [busy]);
   useEffect(() => {
     if (tool !== 'text') setDraft(null);
-    if (tool !== 'select') setSelected(null);
+    if (tool !== 'select' && tool !== 'note') setSelected(null);
+    if (tool !== 'note' && tool !== 'select') commitNote();
   }, [tool]);
 
   const nameOf = (id: string) =>
     realtime.participants.find((person) => person.id === id)?.name ?? t('Katılımcı');
   const others = Object.entries(cursors);
   const selectedItem = selected ? board.find((item) => item.id === selected) : undefined;
+  const noteTarget = selectedItem?.kind === 'note' && canEdit(selectedItem) ? selectedItem : null;
+  const noteProps = (item: BoardElement) => ({
+    tabIndex: 0,
+    role: 'button',
+    'aria-label': t('Yapışkan not: {text}', { text: item.text ?? '' }),
+    onPointerDown: (e: React.PointerEvent<SVGGElement>) => {
+      // Drawing tools keep drawing over notes; only select and note tools grab them.
+      if (e.button !== 0 || (tool !== 'select' && tool !== 'note')) return;
+      e.stopPropagation();
+      setSelected(item.id);
+      if (busy || !canEdit(item)) return;
+      const [px, py] = point(e);
+      const [x, y] = item.points[0]!;
+      const next = { id: item.id, dx: px - x, dy: py - y, ox: x, oy: y, x, y, moved: false };
+      dragRef.current = next;
+      setDrag(next);
+      (e.currentTarget.ownerSVGElement ?? e.currentTarget).setPointerCapture(e.pointerId);
+    },
+    onDoubleClick: () => {
+      if (!busy && (tool === 'select' || tool === 'note')) editNote(item);
+    },
+    onKeyDown: (e: React.KeyboardEvent<SVGGElement>) => {
+      if (e.target !== e.currentTarget || e.altKey || e.metaKey || e.ctrlKey) return;
+      const step = e.shiftKey ? 40 : 10;
+      const [x, y] = item.points[0]!;
+      const arrows: Record<string, [number, number]> = {
+        ArrowLeft: [-step, 0],
+        ArrowRight: [step, 0],
+        ArrowUp: [0, -step],
+        ArrowDown: [0, step],
+      };
+      if (arrows[e.key]) {
+        e.preventDefault();
+        setSelected(item.id);
+        if (busy) return;
+        if (!canEdit(item)) {
+          setMessage(t('Notu yalnızca yazarı veya bir topluluk yöneticisi değiştirebilir.'));
+          return;
+        }
+        moveNote(item, x + arrows[e.key]![0], y + arrows[e.key]![1]);
+      } else if (e.key === 'Enter' || e.key === 'F2') {
+        e.preventDefault();
+        if (!busy) editNote(item);
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        setSelected(item.id);
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && !busy) {
+        e.preventDefault();
+        remove(item);
+      }
+    },
+  });
   const tools = [
     ['pen', t('Kalem (P)'), Pencil],
     ['rectangle', t('Dikdörtgen (R)'), Square],
     ['ellipse', t('Daire (O)'), Circle],
     ['text', t('Metin: tahtaya tıkla ve yaz (T)'), Type],
+    ['note', t('Yapışkan not: tahtaya tıkla ve yaz, sürükleyerek taşı (N)'), StickyNote],
     ['erase', t('Silgi: kendi öğene tıkla (E)'), Eraser],
     ['select', t('Seç (V)'), MousePointer2],
   ] as const;
@@ -383,6 +546,37 @@ export default function Whiteboard({
               {color === c && <Check size={11} />}
             </button>
           ))}
+          {(tool === 'note' || noteTarget || noteDraft) && (
+            <>
+              <span className="wb-divider" />
+              {NOTE_COLORS.map((c) => {
+                const active = noteDraft
+                  ? noteDraft.color === c
+                  : noteTarget
+                    ? noteTarget.color === c
+                    : noteColor === c;
+                return (
+                  <button
+                    className="wb-color wb-note-color"
+                    disabled={busy}
+                    key={c}
+                    aria-label={t('Not rengi {color}', { color: c })}
+                    aria-pressed={active}
+                    style={{ ['--swatch' as string]: c }}
+                    // Keep the note's text field focused so picking a colour does not save it early.
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      setNoteColor(c);
+                      if (noteDraft) setNoteDraft({ ...noteDraft, color: c });
+                      else if (noteTarget) recolorNote(noteTarget, c);
+                    }}
+                  >
+                    {active && <Check size={11} />}
+                  </button>
+                );
+              })}
+            </>
+          )}
           <span className="wb-divider" />
           <button
             disabled={busy || !history.length}
@@ -417,6 +611,21 @@ export default function Whiteboard({
           </button>
         </div>
         <div className="wb-side">
+          <button
+            className="button ghost small wb-clear"
+            aria-disabled={busy || !canClear || !board.length}
+            title={
+              !canClear
+                ? t('Tahtayı yalnızca topluluk yöneticileri temizleyebilir.')
+                : !board.length
+                  ? t('Tahta zaten boş.')
+                  : t('Tahtadaki tüm çizimleri ve notları herkes için sil')
+            }
+            onClick={askClear}
+          >
+            <Trash2 size={15} />
+            {t('Tahtayı temizle')}
+          </button>
           {onPolls && (
             <button className="button ghost small" onClick={onPolls}>
               <Vote size={15} />
@@ -435,6 +644,21 @@ export default function Whiteboard({
             aria-label={t('Ortak çizim tahtası')}
             onPointerDown={(e) => {
               if (busy || e.button !== 0) return;
+              if (tool === 'note') {
+                // Keep focus off the SVG so the new note's text field receives the typing.
+                e.preventDefault();
+                commitNote();
+                const [x, y] = point(e);
+                setNoteDraft({
+                  id: null,
+                  x: placeNote(x - NOTE_WIDTH / 2, y - NOTE_HEIGHT / 2, false)[0],
+                  y: placeNote(x - NOTE_WIDTH / 2, y - NOTE_HEIGHT / 2, false)[1],
+                  text: '',
+                  color: noteColor,
+                });
+                setSelected(null);
+                return;
+              }
               if (tool === 'text') {
                 // Keep focus off the SVG so the new text field receives the typing.
                 e.preventDefault();
@@ -452,6 +676,19 @@ export default function Whiteboard({
             onPointerMove={(e) => {
               const at = point(e);
               shareCursor(at);
+              const dragging = dragRef.current;
+              if (dragging) {
+                const [x, y] = placeNote(at[0] - dragging.dx, at[1] - dragging.dy, false);
+                const next = {
+                  ...dragging,
+                  x,
+                  y,
+                  moved: dragging.moved || Math.hypot(x - dragging.ox, y - dragging.oy) > 3,
+                };
+                dragRef.current = next;
+                setDrag(next);
+                return;
+              }
               if (!drawing.current || path.current.length >= 499) return;
               if (tool === 'pen') path.current.push(at);
               else path.current = [path.current[0]!, at];
@@ -459,6 +696,14 @@ export default function Whiteboard({
             }}
             onPointerLeave={() => shareCursor(null)}
             onPointerUp={(e) => {
+              const dragged = dragRef.current;
+              if (dragged) {
+                dragRef.current = null;
+                setDrag(null);
+                const item = board.find((entry) => entry.id === dragged.id);
+                if (item && dragged.moved) moveNote(item, dragged.x, dragged.y);
+                return;
+              }
               if (!drawing.current) return;
               drawing.current = false;
               const stroke =
@@ -480,6 +725,8 @@ export default function Whiteboard({
               );
             }}
             onPointerCancel={() => {
+              dragRef.current = null;
+              setDrag(null);
               drawing.current = false;
               path.current = [];
               setPoints([]);
@@ -494,13 +741,20 @@ export default function Whiteboard({
             {board.map((item) => (
               <g
                 key={item.id}
-                className={`${tool === 'erase' ? (item.authorId === userId ? 'erasable' : 'locked') : ''} ${selected === item.id ? 'selected' : ''}`}
+                className={`${tool === 'erase' ? (canEdit(item) ? 'erasable' : 'locked') : ''} ${selected === item.id ? 'selected' : ''} ${item.kind === 'note' ? 'wb-note' : ''}`}
                 onClick={() => {
                   if (tool === 'select') setSelected(item.id);
                   if (tool === 'erase' && !busy) remove(item);
                 }}
+                {...(item.kind === 'note' ? noteProps(item) : {})}
               >
-                {item.kind === 'text' ? (
+                {item.kind === 'note' ? (
+                  <StickyNoteShape
+                    item={item}
+                    at={drag?.id === item.id ? [drag.x, drag.y] : item.points[0]!}
+                    dragging={drag?.id === item.id}
+                  />
+                ) : item.kind === 'text' ? (
                   <text
                     x={item.points[0]![0]}
                     y={item.points[0]![1]}
@@ -578,8 +832,36 @@ export default function Whiteboard({
               onBlur={commitDraft}
             />
           )}
+          {noteDraft && (
+            <textarea
+              className="wb-note-input"
+              ref={(input) => {
+                if (input && document.activeElement !== input) input.focus({ preventScroll: true });
+              }}
+              value={noteDraft.text}
+              maxLength={NOTE_MAX_CHARS}
+              aria-label={t('Yapışkan not metni')}
+              placeholder={t('Notunu yaz, Enter’a bas')}
+              style={{
+                background: noteDraft.color,
+                left: `${(noteDraft.x / W) * 100}%`,
+                top: `${(noteDraft.y / H) * 100}%`,
+                width: `${(NOTE_WIDTH / W) * 100}%`,
+                height: `${(NOTE_HEIGHT / H) * 100}%`,
+              }}
+              onChange={(event) => setNoteDraft({ ...noteDraft, text: event.target.value })}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  commitNote();
+                }
+                if (event.key === 'Escape') setNoteDraft(null);
+              }}
+              onBlur={commitNote}
+            />
+          )}
         </div>
-        {!board.length && !draft && (
+        {!board.length && !draft && !noteDraft && (
           <div className="board-empty">
             <Pencil size={26} />
             <span>{t('İlk çizgi senden.')}</span>
@@ -601,11 +883,26 @@ export default function Whiteboard({
         </span>
         {selectedItem && (
           <span className="wb-selection">
+            {selectedItem.kind === 'note' && (
+              <button
+                className="button secondary small"
+                disabled={busy || !canEdit(selectedItem)}
+                title={
+                  canEdit(selectedItem)
+                    ? t('Not metnini düzenle (Enter)')
+                    : t('Notu yalnızca yazarı veya bir topluluk yöneticisi değiştirebilir.')
+                }
+                onClick={() => editNote(selectedItem)}
+              >
+                <Pencil size={14} />
+                {t('Notu düzenle')}
+              </button>
+            )}
             <button
               className="button secondary small"
-              disabled={busy || selectedItem.authorId !== userId}
+              disabled={busy || !canEdit(selectedItem)}
               title={
-                selectedItem.authorId !== userId
+                !canEdit(selectedItem)
                   ? t('Yalnızca kendi öğeni silebilirsin')
                   : t('Seçili öğeyi sil')
               }
@@ -627,18 +924,42 @@ export default function Whiteboard({
       </div>
       <div className="wb-sr">
         {board.map((item, i) => (
-          <button
-            key={item.id}
-            disabled={busy || item.authorId !== userId}
-            onClick={() => remove(item)}
-          >
+          <button key={item.id} disabled={busy || !canEdit(item)} onClick={() => remove(item)}>
             {t('{name} öğesini sil', {
               name:
-                item.kind === 'text' ? (item.text ?? '') : t('Çizim {number}', { number: i + 1 }),
+                item.kind === 'text' || item.kind === 'note'
+                  ? (item.text ?? '')
+                  : t('Çizim {number}', { number: i + 1 }),
             })}
           </button>
         ))}
       </div>
+      {clearOpen && (
+        <Modal
+          title={t('Tahta temizlensin mi?')}
+          className="rt-modal rt-board-clear"
+          onClose={() => setClearOpen(false)}
+        >
+          <div className="rt-modal-body">
+            <p>
+              {t(
+                'Odadaki herkesin çizimleri ve notları ({count} öğe) silinir. Bu işlem geri alınamaz.',
+                { count: board.length },
+              )}
+            </p>
+            {message && <p role="status">{message}</p>}
+          </div>
+          <footer>
+            <button className="button secondary" onClick={() => setClearOpen(false)}>
+              {t('Vazgeç')}
+            </button>
+            <button className="button danger" disabled={busy} onClick={clearBoard}>
+              <Trash2 size={15} />
+              {t('Tahtayı temizle')}
+            </button>
+          </footer>
+        </Modal>
+      )}
       {exportOpen && (
         <Modal
           title={t('Tahtayı PNG olarak indir')}
@@ -706,5 +1027,35 @@ function BoardShape({
       stroke={color}
       strokeWidth={width}
     />
+  );
+}
+
+function StickyNoteShape({
+  item,
+  at,
+  dragging,
+}: {
+  item: BoardElement;
+  at: [number, number];
+  dragging: boolean;
+}) {
+  const lines = wrapNoteText(item.text ?? '');
+  return (
+    <g transform={`translate(${at[0]} ${at[1]})`} className={dragging ? 'is-dragging' : undefined}>
+      <rect
+        className="wb-note-paper"
+        width={NOTE_WIDTH}
+        height={NOTE_HEIGHT}
+        rx="4"
+        fill={item.color}
+      />
+      <text fill={NOTE_INK} fontSize={NOTE_FONT} xmlSpace="preserve">
+        {lines.map((line, index) => (
+          <tspan key={index} x={NOTE_PADDING} y={NOTE_PADDING + NOTE_FONT + index * NOTE_LINE}>
+            {line}
+          </tspan>
+        ))}
+      </text>
+    </g>
   );
 }

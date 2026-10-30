@@ -365,6 +365,59 @@ export function registerMusicGateway(
       }
     },
   );
+  /**
+   * Sinema's YouTube search. Same public-metadata search as the DJ's, but for anyone who can
+   * see and connect to the hall channel: finding a video needs no DJ control. Opening the pick
+   * is still the cinema's own permission and queue rules.
+   */
+  server.post(
+    '/v1/halls/:channelId/youtube-search',
+    {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '1 minute',
+          keyGenerator: (request) =>
+            'hall-youtube-search:' +
+            createHash('sha256')
+              .update(request.headers.authorization ?? request.ip)
+              .digest('hex'),
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const id = channel.parse((request.params as { channelId: string }).channelId),
+          body = z.object({ query: musicSearchQuerySchema }).strict().parse(request.body);
+        const credential = token(request.headers.authorization);
+        const access = await options.authorize(credential, id);
+        if (!configured) throw new Error('MUSIC_NOT_CONFIGURED');
+        const response = await fetch(`${options.url}/v1/search`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${options.secret}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+          redirect: 'error',
+          signal: AbortSignal.timeout(50000),
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok)
+          throw new Error(
+            result?.error === 'MUSIC_SEARCH_BUSY'
+              ? 'MUSIC_SEARCH_BUSY'
+              : 'MUSIC_SEARCH_UNAVAILABLE',
+          );
+        // The member may have lost access while yt-dlp ran.
+        const fresh = await options.authorize(credential, id);
+        if (fresh.userId !== access.userId) throw new Error('MUSIC_PERMISSION_DENIED');
+        return musicSearchResultsSchema.parse(result);
+      } catch (error) {
+        return fail(reply, error);
+      }
+    },
+  );
   server.post('/v1/music/:channelId', { bodyLimit: 65536 }, async (request, reply) => {
     let id: string | undefined;
     try {

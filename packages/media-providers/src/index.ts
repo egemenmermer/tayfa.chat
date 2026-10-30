@@ -5,6 +5,12 @@ export { selectedInputLabel } from './input-device';
 import type { NoiseSuppressionMode, NoiseProcessingState } from './noise-suppression';
 import { SoundboardMixer } from './soundboard';
 import {
+  DEFAULT_MIC_GATE,
+  micGateSettings,
+  type MicGateReport,
+  type MicGateSettings,
+} from './mic-gate';
+import {
   FLAT_EQUALIZER,
   equalizerNodes,
   isFlat,
@@ -20,9 +26,37 @@ import {
   RoomEvent,
   Track,
   LocalAudioTrack,
+  LocalVideoTrack,
+  VideoPreset,
+  VideoQuality,
   createLocalAudioTrack,
   type Participant,
+  type RemoteParticipant,
+  type TrackPublication,
 } from 'livekit-client';
+import {
+  screenPublishPlan,
+  screenSubscriptionQuality,
+  type ScreenLayer,
+  type ScreenShareContent,
+  type ScreenShareQuality,
+  type ScreenViewQuality,
+} from './screen-quality';
+export {
+  screenProfiles,
+  screenPublishPlan,
+  screenQualityChoices,
+  screenQualitySelection,
+  screenSimulcastLayers,
+  screenSubscriptionQuality,
+  screenLayerLines,
+} from './screen-quality';
+export type {
+  ScreenLayer,
+  ScreenShareContent,
+  ScreenShareQuality,
+  ScreenViewQuality,
+} from './screen-quality';
 import type { ConnectionStatus } from '@rooms/contracts';
 import {
   PERSONAL_SOUND_ATTRIBUTES,
@@ -40,6 +74,8 @@ export interface MediaParticipant {
   speaking: boolean;
   camera: boolean;
   screen: boolean;
+  /** This person's screen share carries sound (a screen_share_audio publication exists). */
+  screenAudio?: boolean;
   volume: number;
   screenVolume?: number;
   quality: string;
@@ -57,6 +93,8 @@ export interface MediaTrack {
   muted: boolean;
   /** False for a remote screen share that is only advertised until the listener watches it. */
   subscribed?: boolean;
+  /** Layers a remote screen share offers; one entry when its publisher sends a single quality. */
+  layers?: ScreenLayer[];
 }
 export interface MediaDiagnostics {
   bitrate: number | null;
@@ -78,6 +116,12 @@ export interface MediaSnapshot {
   deafened: boolean;
   camera: boolean;
   sharing: boolean;
+  /** This client's screen share is sending system audio right now. */
+  sharingAudio?: boolean;
+  /** Quality preset this client's screen share was published with; null while not sharing. */
+  sharingQuality?: ScreenShareQuality | null;
+  /** This viewer's screen share quality for the app session; 'auto' until they pick one. */
+  screenQuality?: ScreenViewQuality;
   audioBlocked: boolean;
   inputDeviceFallback?: boolean;
   /** OS name of the microphone the room hears; null or absent while unknown. */
@@ -92,25 +136,20 @@ export interface MediaGrant {
   url: string;
   token: string;
 }
-export type ScreenShareQuality = '720p30' | '1080p30' | '1080p60' | '1440p60' | '4k30';
 export interface ScreenShareOptions {
   quality?: ScreenShareQuality;
   audio?: boolean;
-  content?: 'motion' | 'detail';
+  content?: ScreenShareContent;
 }
-export const screenProfiles = {
-  '720p30': { width: 1280, height: 720, frameRate: 30, bitrate: 3_000_000 },
-  '1080p30': { width: 1920, height: 1080, frameRate: 30, bitrate: 6_000_000 },
-  '1080p60': { width: 1920, height: 1080, frameRate: 60, bitrate: 10_000_000 },
-  '1440p60': { width: 2560, height: 1440, frameRate: 60, bitrate: 16_000_000 },
-  '4k30': { width: 3840, height: 2160, frameRate: 30, bitrate: 24_000_000 },
-} as const;
 export interface RealtimeMediaProvider {
   publishControl?(payload: string, destination: string, reliable: boolean): Promise<void>;
   onControl?(listener: (payload: string, senderId: string) => void): () => void;
   /** Lossy, room-wide pointer positions for shared surfaces such as the whiteboard. */
   publishCursor?(payload: string): Promise<void>;
   onCursor?(listener: (payload: string, senderId: string) => void): () => void;
+  /** Small room-wide visual cues (the soundboard's floating emoji); old clients ignore the topic. */
+  publishReaction?(payload: string): Promise<void>;
+  onReaction?(listener: (payload: string, senderId: string) => void): () => void;
   /** A moderator asked this client to join another voice room (sent by the server only). */
   onMove?(listener: (channelId: string) => void): () => void;
   readonly status: ConnectionStatus;
@@ -119,6 +158,12 @@ export interface RealtimeMediaProvider {
   setNoiseSuppression(value: boolean, mode?: NoiseSuppressionMode): Promise<void>;
   /** Scales what the room hears from this microphone: 1 as captured, 0–2. */
   setInputLevel?(value: number): void;
+  /** Input sensitivity: below it nothing is sent and the speaking ring stays off. */
+  setInputGate?(settings: MicGateSettings): void;
+  /** The leveler after the noise filter ("Ses seviyesini dengele"). */
+  setMicLeveler?(value: boolean): void;
+  /** Live level of the sent microphone and the gate threshold, while the microphone runs. */
+  subscribeInputMeter?(listener: (report: MicGateReport) => void): () => void;
   playSoundboard(buffer: AudioBuffer, volume: number): Promise<void>;
   stopSoundboard(): void;
   publishCamera(enabled: boolean, deviceId?: string): Promise<void>;
@@ -126,6 +171,15 @@ export interface RealtimeMediaProvider {
   selectCamera?(deviceId: string): Promise<void>;
   publishScreen(options?: ScreenShareOptions): Promise<void>;
   stopScreen(): Promise<void>;
+  /**
+   * Swaps the shared screen or window for the one the host just selected, on the live
+   * publication, so viewers stay subscribed. A failure leaves the previous source sharing.
+   */
+  changeScreenSource?(): Promise<void>;
+  /** Moves the running share to another quality preset without stopping it. */
+  changeScreenQuality?(quality: ScreenShareQuality): Promise<void>;
+  /** Turns the share's system sound off, or on again (needs a capture the host just selected). */
+  setScreenSound?(on: boolean): Promise<{ audio: boolean }>;
   subscribe(participantId: string): Promise<MediaStream>;
   attachTrack(trackId: string, element: HTMLMediaElement): () => void;
   deviceSelection(inputId: string, outputId: string): Promise<void>;
@@ -142,12 +196,67 @@ export interface RealtimeMediaProvider {
   setParticipantVolume(participantId: string, volume: number): void;
   setScreenVolume?(participantId: string, volume: number): void;
   watchScreen?(participantId: string | null): void;
+  /** Caps the screen shares this viewer receives ('auto' or lines such as 720) for the session. */
+  setScreenQuality?(quality: ScreenViewQuality): void;
   startAudio(): Promise<void>;
-  disconnect(): Promise<void>;
+  /**
+   * Leaves the room. keepMicrophone (a switch to another room) keeps a live, unmuted, filtered
+   * microphone running so the next room's mute(false) publishes it instead of opening a new one;
+   * a plain disconnect, mute(true) or deafen(true) releases it.
+   */
+  disconnect(options?: { keepMicrophone?: boolean }): Promise<void>;
+  /** Warms DNS/TLS to the media server (e.g. on hovering a voice room); never joins anything. */
+  prepareConnection?(serverUrl: string): void;
   reconnect(): Promise<void>;
 }
 const WATCH_TOPIC = 'rooms-watch-v1';
+const videoQualities = {
+  low: VideoQuality.LOW,
+  medium: VideoQuality.MEDIUM,
+  high: VideoQuality.HIGH,
+} as const;
+// Announced layers carry the protocol enum; LiveKit's client enum uses the same numbers.
+/** Loopback capture of the system sound for a screen share: stereo, untouched, our own voices out. */
+const SCREEN_AUDIO_CAPTURE = {
+  channelCount: 2,
+  noiseSuppression: false,
+  autoGainControl: false,
+  echoCancellation: false,
+  restrictOwnAudio: true,
+};
+/** Publish options of a screen share's picture, from its quality plan. */
+function screenPublishOptions(plan: ReturnType<typeof screenPublishPlan>) {
+  return {
+    videoCodec: 'h264' as const,
+    screenShareEncoding: plan.encoding,
+    simulcast: true,
+    screenShareSimulcastLayers: plan.layers.map(
+      (layer) => new VideoPreset(layer.width, layer.height, layer.bitrate, layer.frameRate),
+    ),
+    degradationPreference: plan.degradationPreference,
+    audioPreset: { maxBitrate: 128000 },
+    forceStereo: true,
+    // Game and video sound is not speech: DTX would cut quiet passages, RED doubles stereo.
+    dtx: false,
+    red: false,
+  };
+}
+const qualityNames: Record<number, ScreenLayer['quality'] | undefined> = {
+  [VideoQuality.LOW]: 'low',
+  [VideoQuality.MEDIUM]: 'medium',
+  [VideoQuality.HIGH]: 'high',
+};
+/** Layers a published screen share announced; rc.34 publishers send q/h, no simulcast sends one. */
+function screenLayers(pub: TrackPublication): ScreenLayer[] {
+  return (pub.trackInfo?.layers ?? []).flatMap((layer) => {
+    const quality = qualityNames[Number(layer.quality)];
+    return quality && layer.width > 0 && layer.height > 0
+      ? [{ quality, width: layer.width, height: layer.height }]
+      : [];
+  });
+}
 const CURSOR_TOPIC = 'rooms-cursor-v1';
+const REACTION_TOPIC = 'rooms-reaction-v1';
 const MOVE_TOPIC = 'rooms-move-v1';
 const isScreenSource = (source: Track.Source) =>
   source === Track.Source.ScreenShare || source === Track.Source.ScreenShareAudio;
@@ -168,6 +277,17 @@ export function parseWatch(payload: Uint8Array): string | null | undefined {
 function listenerGain(id: string, level: number) {
   return id.startsWith('rooms-music-') ? level * level : level;
 }
+/** The loudest a listener can set one person: 200%, i.e. a Web Audio gain of 2. */
+export const MAX_PARTICIPANT_VOLUME = 2;
+/** A stored or requested personal level is a finite number from 0 to 200%. */
+function isParticipantLevel(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= MAX_PARTICIPANT_VOLUME
+  );
+}
 /** Only well-formed ids survive, so a stray attribute can never become a fetch path. */
 function personalSounds(attributes: Readonly<Record<string, string>> | undefined) {
   let sounds: MediaParticipant['sounds'];
@@ -186,16 +306,25 @@ function isMissingDevice(error: unknown) {
       (!failure.constraint || failure.constraint === 'deviceId'))
   );
 }
-/** False only when the system lists devices of this kind by id and the id is not among them. */
-async function deviceListed(kind: MediaDeviceKind, id: string) {
+/** The system's devices, or null when it cannot list them (then every id counts as listed). */
+async function listDevices(): Promise<readonly MediaDeviceInfo[] | null> {
   try {
-    const devices = (await navigator.mediaDevices?.enumerateDevices?.()) ?? [];
-    const ids = devices.filter((d) => d.kind === kind && d.deviceId).map((d) => d.deviceId);
-    return !ids.length || ids.includes(id);
+    return (await navigator.mediaDevices?.enumerateDevices?.()) ?? [];
   } catch {
-    return true;
+    return null;
   }
 }
+/** False only when the system lists devices of this kind by id and the id is not among them. */
+function deviceListed(
+  devices: readonly MediaDeviceInfo[] | null,
+  kind: MediaDeviceKind,
+  id: string,
+) {
+  const ids = (devices ?? []).filter((d) => d.kind === kind && d.deviceId).map((d) => d.deviceId);
+  return !ids.length || ids.includes(id);
+}
+/** How long a prewarmed media server counts as warm before another hover may warm it again. */
+const PREPARE_INTERVAL_MS = 20_000;
 const emptyDiagnostics = (): MediaDiagnostics => ({ bitrate: null, packetLoss: null, rtt: null });
 /** No auth credentials other than the in-memory, short-lived room token enter this adapter. */
 export class LiveKitMediaProvider implements RealtimeMediaProvider {
@@ -212,6 +341,22 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     return () => {
       this.cursorListeners.delete(listener);
     };
+  }
+  private reactionListeners = new Set<(payload: string, senderId: string) => void>();
+  onReaction(listener: (payload: string, senderId: string) => void) {
+    this.reactionListeners.add(listener);
+    return () => {
+      this.reactionListeners.delete(listener);
+    };
+  }
+  async publishReaction(payload: string) {
+    if (new TextEncoder().encode(payload).length > 256) throw Error('Invalid reaction packet.');
+    const room = this.room;
+    if (!room || this.state.status !== 'connected') return;
+    await room.localParticipant.publishData(new TextEncoder().encode(payload), {
+      reliable: true,
+      topic: REACTION_TOPIC,
+    });
   }
   private moveListeners = new Set<(channelId: string) => void>();
   onMove(listener: (channelId: string) => void) {
@@ -245,6 +390,10 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   private audio = new Map<string, HTMLMediaElement>();
   private volumes = new Map<string, number>();
   private watchedScreen: string | null = null;
+  /** What the running screen share was published with; null when this client is not sharing. */
+  private shareOptions: { quality: ScreenShareQuality; content: ScreenShareContent } | null = null;
+  /** The viewer's pick for this app session; null until they choose, so LiveKit stays untouched. */
+  private screenQuality: ScreenViewQuality | null = null;
   /** Announced screen choice of each remote participant, keyed by their LiveKit identity. */
   private watchers = new Map<string, string | null>();
   private screenAudio = new Set<string>();
@@ -269,17 +418,16 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
         for (const [id, level] of Object.entries(value).slice(0, 512))
           if (
             id.length <= 256 &&
-            typeof level === 'number' &&
-            Number.isFinite(level) &&
-            level >= 0 &&
-            level <= 1
+            isParticipantLevel(level) &&
+            // Shared-screen sound keeps the plain element volume, which stops at 100%.
+            (level <= 1 || !id.startsWith('screen:'))
           )
             this.volumes.set(id, level);
     } catch {
       /* Missing or damaged settings do not prevent joining. */
     }
     for (const [id, person] of this.room?.remoteParticipants ?? []) {
-      person.setVolume(listenerGain(id, this.volumes.get(id) ?? 1), Track.Source.Microphone);
+      this.applyPersonVolume(person);
       if (person.getTrackPublication?.(Track.Source.ScreenShareAudio))
         person.setVolume(this.volumes.get(`screen:${id}`) ?? 1, Track.Source.ScreenShareAudio);
     }
@@ -296,6 +444,8 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     deafened: false,
     camera: false,
     sharing: false,
+    sharingAudio: false,
+    screenQuality: 'auto',
     audioBlocked: false,
     participants: [],
     tracks: [],
@@ -314,6 +464,18 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   private soundContext: AudioContext | null = null;
   private epoch = 0;
   private disconnecting: Promise<void> | null = null;
+  /**
+   * The microphone carried from the room just left to the next one (a room switch): still
+   * capturing through its noise filter, published nowhere. Reused only with the same input and
+   * filter settings; anything else stops it.
+   */
+  private parkedMic: {
+    track: LocalAudioTrack;
+    device: string | undefined;
+    noise: boolean;
+    mode: NoiseSuppressionMode;
+  } | null = null;
+  private prepared = new Map<string, number>();
   private microphoneWork: Promise<void> = Promise.resolve();
   private microphoneTask<T>(operation: () => Promise<T>): Promise<T> {
     const task = this.microphoneWork.then(operation);
@@ -322,6 +484,34 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       () => {},
     );
     return task;
+  }
+  private gateSettings: MicGateSettings = DEFAULT_MIC_GATE;
+  private leveler = true;
+  /** The input gate of the current mixer; null when it has none (the meter decides then). */
+  private gateState: { mixer: SoundboardMixer; open: boolean } | null = null;
+  private meterListeners = new Set<(report: MicGateReport) => void>();
+  setInputGate(settings: MicGateSettings) {
+    this.gateSettings = micGateSettings(settings);
+    this.mixer?.setGate(this.gateSettings);
+    this.pendingMixer?.setGate(this.gateSettings);
+  }
+  setMicLeveler(value: boolean) {
+    this.leveler = value;
+    this.mixer?.setLeveler(value);
+    this.pendingMixer?.setLeveler(value);
+  }
+  subscribeInputMeter(listener: (report: MicGateReport) => void) {
+    this.meterListeners.add(listener);
+    return () => {
+      this.meterListeners.delete(listener);
+    };
+  }
+  /** Own speaking state from the gate: lit exactly while voice (or a soundboard clip) is sent. */
+  private localGateSpeaking(): boolean | undefined {
+    const gate = this.gateState,
+      mixer = this.mixer;
+    if (!gate || !mixer || gate.mixer !== mixer) return undefined;
+    return gate.open || !!mixer.playing;
   }
   private inputLevel = 1;
   setInputLevel(value: number) {
@@ -384,27 +574,45 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     this.patch({
       noiseProcessing: { status: this.noiseSuppression ? 'starting' : 'off', mode: this.noiseMode },
     });
-    const mixer = new SoundboardMixer(this.noiseSuppression, this.noiseMode, {
-      error: () => {
-        if (this.mixer !== mixer) return;
-        this.stopSoundboard();
-        this.patch({
-          muted: true,
-          error: t(
-            'Gürültü filtresi durdu. Mikrofon kapatıldı. Filtre modunu değiştirip mikrofonu yeniden aç.',
-          ),
-          noiseProcessing: { status: 'failed', mode: this.noiseMode },
-        });
-        void track
-          .mute()
-          .catch(() => {})
-          .finally(() => track.stop());
+    const mixer = new SoundboardMixer(
+      this.noiseSuppression,
+      this.noiseMode,
+      {
+        gate: (report) => {
+          if (this.mixer !== mixer && this.pendingMixer !== mixer) return;
+          const open = !!report?.open;
+          if (report && this.gateState?.mixer === mixer && this.gateState.open === open) return;
+          this.gateState = report ? { mixer, open } : null;
+          this.sync();
+        },
+        level: (report) => {
+          if (this.mixer === mixer) this.meterListeners.forEach((listener) => listener(report));
+        },
+        playing: () => {
+          if (this.mixer === mixer) this.sync();
+        },
+        error: () => {
+          if (this.mixer !== mixer) return;
+          this.stopSoundboard();
+          this.patch({
+            muted: true,
+            error: t(
+              'Gürültü filtresi durdu. Mikrofon kapatıldı. Filtre modunu değiştirip mikrofonu yeniden aç.',
+            ),
+            noiseProcessing: { status: 'failed', mode: this.noiseMode },
+          });
+          void track
+            .mute()
+            .catch(() => {})
+            .finally(() => track.stop());
+        },
+        stats: (stats) => {
+          if (this.mixer === mixer && this.state.noiseProcessing?.status === 'active')
+            this.patch({ noiseProcessing: { status: 'active', mode: this.noiseMode, stats } });
+        },
       },
-      stats: (stats) => {
-        if (this.mixer === mixer && this.state.noiseProcessing?.status === 'active')
-          this.patch({ noiseProcessing: { status: 'active', mode: this.noiseMode, stats } });
-      },
-    });
+      { gate: this.gateSettings, leveler: this.leveler },
+    );
     mixer.setInputLevel(this.inputLevel);
     this.pendingMixer = mixer;
     try {
@@ -541,6 +749,12 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       muted: !room.localParticipant.isMicrophoneEnabled,
       camera: room.localParticipant.isCameraEnabled,
       sharing: room.localParticipant.isScreenShareEnabled,
+      sharingQuality: room.localParticipant.isScreenShareEnabled
+        ? (this.shareOptions?.quality ?? null)
+        : null,
+      sharingAudio:
+        room.localParticipant.isScreenShareEnabled &&
+        !!room.localParticipant.getTrackPublication?.(Track.Source.ScreenShareAudio)?.track,
       participants: people
         .filter((p) => p.identity)
         .map((p) => ({
@@ -552,12 +766,17 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
             p === room.localParticipant
               ? this.state.deafened
               : p.attributes?.['rooms.deafened'] === '1',
+          // Mute and push-to-talk win: a disabled microphone is never shown as speaking.
           speaking:
             this.status === 'connected' &&
             p.isMicrophoneEnabled &&
-            (this.speakingMeter.speaking(p.identity) ?? p.isSpeaking),
+            ((p === room.localParticipant ? this.localGateSpeaking() : undefined) ??
+              this.speakingMeter.speaking(p.identity) ??
+              p.isSpeaking),
           camera: p.isCameraEnabled,
           screen: p.isScreenShareEnabled,
+          screenAudio:
+            p.isScreenShareEnabled && !!p.getTrackPublication?.(Track.Source.ScreenShareAudio),
           volume: this.volumes.get(p.identity) ?? 1,
           screenVolume: this.volumes.get(`screen:${p.identity}`) ?? 1,
           quality: p.connectionQuality,
@@ -582,6 +801,9 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
             local: p === room.localParticipant,
             muted: pub.isMuted,
             subscribed: !!pub.track,
+            ...(p !== room.localParticipant && pub.source === Track.Source.ScreenShare
+              ? { layers: screenLayers(pub) }
+              : {}),
           })),
       ),
     });
@@ -599,7 +821,8 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     if (parsed.protocol === 'ws:' && !['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname))
       throw new Error('Remote media servers require TLS.');
     if (!roomId || !token) throw new Error('A room membership grant is required.');
-    await this.disconnect();
+    // A microphone carried over from the room just left survives; a live room is left in full.
+    await this.teardown(this.room ? 'release' : 'keep');
     const epoch = ++this.epoch;
     this.grant = { roomId, token, url: parsed.href };
     const room = this.createRoom();
@@ -607,7 +830,9 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     let controlSecond = 0,
       controlCount = 0,
       cursorSecond = 0,
-      cursorCount = 0;
+      cursorCount = 0,
+      reactionSecond = 0,
+      reactionCount = 0;
     room.on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
       if (this.room !== room || this.state.status !== 'connected') return;
       if (!participant) {
@@ -637,6 +862,22 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
           for (const listener of this.cursorListeners) listener(data, participant.identity);
         } catch {
           /* Malformed data is never input. */
+        }
+        return;
+      }
+      if (topic === REACTION_TOPIC) {
+        // A sound spammed by one client must not turn into a flood of floating emoji.
+        const second = Math.floor(Date.now() / 1000);
+        if (second !== reactionSecond) {
+          reactionSecond = second;
+          reactionCount = 0;
+        }
+        if (payload.length > 256 || ++reactionCount > 20) return;
+        try {
+          const data = new TextDecoder('utf-8', { fatal: true }).decode(payload);
+          for (const listener of this.reactionListeners) listener(data, participant.identity);
+        } catch {
+          /* Malformed data is never a reaction. */
         }
         return;
       }
@@ -719,6 +960,8 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
           status: 'error',
           muted: true,
           sharing: false,
+          sharingAudio: false,
+          sharingQuality: null,
           camera: false,
           tracks: [],
           participants: [],
@@ -736,6 +979,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
         publication.setSubscribed(false);
         return;
       }
+      if (publication.source === Track.Source.ScreenShare) this.applyScreenQuality();
       if (track.kind === Track.Kind.Audio && typeof document !== 'undefined') {
         const element = track.attach();
         element.hidden = true;
@@ -745,12 +989,12 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
         if (screen) this.screenAudio.add(publication.trackSid);
         element.muted =
           this.state.deafened || (screen && this.watchedScreen !== participant.identity);
-        participant.setVolume(
-          screen
-            ? (this.volumes.get(`screen:${participant.identity}`) ?? 1)
-            : listenerGain(participant.identity, this.volumes.get(participant.identity) ?? 1),
-          screen ? Track.Source.ScreenShareAudio : Track.Source.Microphone,
-        );
+        if (screen)
+          participant.setVolume(
+            this.volumes.get(`screen:${participant.identity}`) ?? 1,
+            Track.Source.ScreenShareAudio,
+          );
+        else this.applyPersonVolume(participant);
         void element.play().catch(() => this.patch({ audioBlocked: true }));
         if (participant.identity.startsWith('rooms-music-')) this.applyEqualizer();
       }
@@ -766,6 +1010,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       this.audio.delete(publication.trackSid);
       this.screenAudio.delete(publication.trackSid);
       this.equalized.delete(publication.trackSid);
+      this.boosted.delete(publication.trackSid);
       sync();
     });
     room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
@@ -905,7 +1150,10 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
             existing.stop();
           }
           if (this.room !== room || serial !== this.microphoneSerial) return;
-          created = await this.captureMicrophone(room, serial, deviceId);
+          // A room switch carried the microphone over: publish it as it is, already filtered.
+          const carried = deviceId === undefined ? this.claimParkedMic() : null;
+          if (!carried) this.releaseParkedMic();
+          created = carried ?? (await this.captureMicrophone(room, serial, deviceId));
           this.pendingMic = created;
           if (this.room !== room || this.state.deafened || serial !== this.microphoneSerial) {
             created.stop();
@@ -920,6 +1168,13 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
             await created.mute();
             throw new Error('Voice room changed while publishing the microphone.');
           }
+          if (carried)
+            this.patch({
+              noiseProcessing: {
+                status: this.noiseSuppression ? 'active' : 'off',
+                mode: this.noiseMode,
+              },
+            });
         }
         this.patch({ error: null });
         this.sync();
@@ -944,6 +1199,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   async mute(value: boolean) {
     if (!value) return this.publishMic();
     ++this.microphoneSerial;
+    this.releaseParkedMic();
     this.pendingMic?.stop();
     void this.pendingMixer?.destroy();
     this.stopSoundboard();
@@ -995,57 +1251,26 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   }
   async publishScreen(options: ScreenShareOptions = {}) {
     const room = this.requireRoom();
-    const profile = screenProfiles[options.quality ?? '1080p60'];
+    const quality = options.quality ?? '1080p60';
+    const plan = screenPublishPlan(quality, options.content);
     try {
       await room.localParticipant.setScreenShareEnabled(
         true,
         {
-          audio: options.audio
-            ? {
-                channelCount: 2,
-                noiseSuppression: false,
-                autoGainControl: false,
-                echoCancellation: false,
-                restrictOwnAudio: true,
-              }
-            : false,
-          resolution: {
-            width: profile.width,
-            height: profile.height,
-            frameRate: profile.frameRate,
-          },
+          audio: options.audio ? SCREEN_AUDIO_CAPTURE : false,
+          resolution: plan.capture,
+          // Set before publishing so the encoder starts in the right mode.
+          contentHint: plan.contentHint,
         },
-        {
-          videoCodec: 'h264',
-          screenShareEncoding: { maxBitrate: profile.bitrate, maxFramerate: profile.frameRate },
-          audioPreset: { maxBitrate: 128000 },
-          forceStereo: true,
-        },
+        screenPublishOptions(plan),
       );
-      if (
-        options.audio &&
-        !room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio)?.track
-      ) {
-        await this.stopScreen();
-        throw new Error('System audio capture is unavailable.');
-      }
-      const screenTrack = room.localParticipant.getTrackPublication(
-        Track.Source.ScreenShare,
-      )?.track;
-      if (screenTrack)
-        screenTrack.mediaStreamTrack.contentHint =
-          options.content === 'detail' ? 'detail' : 'motion';
-      const capture = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track;
-      capture?.mediaStreamTrack.addEventListener(
-        'ended',
-        () => {
-          if (this.room === room)
-            void room.localParticipant
-              .setScreenShareEnabled(false)
-              .then(() => this.sync())
-              .catch((error) => this.fail(error));
-        },
-        { once: true },
+      // A missing loopback track (no output device, OS refusal) keeps the picture shared; the
+      // caller compares `sharingAudio` with what it asked for and tells the sharer.
+      this.shareOptions = { quality, content: options.content ?? 'motion' };
+      this.patch({ error: null });
+      this.endShareWithCapture(
+        room,
+        room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track,
       );
       this.sync();
     } catch (error) {
@@ -1053,18 +1278,156 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       throw new Error(this.state.error ?? 'Media operation failed.');
     }
   }
+  /** Ends the share when the OS or the shared window closes the capture. */
+  private endShareWithCapture(
+    room: Room,
+    capture: { mediaStreamTrack: MediaStreamTrack } | undefined,
+  ) {
+    capture?.mediaStreamTrack.addEventListener(
+      'ended',
+      () => {
+        if (this.room === room)
+          void room.localParticipant
+            .setScreenShareEnabled(false)
+            .then(() => {
+              this.shareOptions = null;
+              this.sync();
+            })
+            .catch((error) => this.fail(error));
+      },
+      { once: true },
+    );
+  }
+  /** The running share's live picture track, or an error when this client is not sharing. */
+  private runningShare() {
+    const room = this.requireRoom();
+    const video = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track;
+    if (!video || !room.localParticipant.isScreenShareEnabled)
+      throw new Error('Screen is not being shared.');
+    return { room, video: video as LocalVideoTrack };
+  }
+  async changeScreenSource() {
+    const { room, video } = this.runningShare();
+    const shared = this.shareOptions ?? { quality: '1080p60' as const, content: 'motion' as const };
+    const plan = screenPublishPlan(shared.quality, shared.content);
+    // The host selected the new source already. Until replaceTrack succeeds the old capture and
+    // publication are untouched, so any failure below leaves the previous source sharing.
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        width: { ideal: plan.capture.width },
+        height: { ideal: plan.capture.height },
+        frameRate: { ideal: plan.capture.frameRate },
+      },
+      audio: false,
+    });
+    const next = stream.getVideoTracks()[0];
+    if (!next) {
+      stream.getTracks().forEach((track) => track.stop());
+      throw new Error('The selected source gave no picture.');
+    }
+    next.contentHint = plan.contentHint;
+    try {
+      // LiveKit stops the old capture once the sender holds the new one and recomputes the
+      // encodings for the new source's size.
+      await video.replaceTrack(next, { userProvidedTrack: false });
+    } catch (error) {
+      stream.getTracks().forEach((track) => track.stop());
+      throw error;
+    }
+    this.endShareWithCapture(room, video);
+    this.sync();
+  }
+  async changeScreenQuality(quality: ScreenShareQuality) {
+    const { room, video } = this.runningShare();
+    const shared = this.shareOptions ?? { quality: '1080p60' as const, content: 'motion' as const };
+    if (quality === shared.quality) return;
+    const plan = screenPublishPlan(quality, shared.content);
+    const capture = video.mediaStreamTrack;
+    const before = { constraints: capture.getConstraints(), options: video.publishOptions };
+    const sameLayers = video.sender?.getParameters().encodings?.length === plan.layers.length + 1;
+    const resize = () =>
+      capture.applyConstraints({
+        width: { ideal: plan.capture.width },
+        height: { ideal: plan.capture.height },
+        frameRate: { ideal: plan.capture.frameRate },
+      });
+    try {
+      await resize();
+      if (sameLayers) {
+        // Same number of simulcast layers: new caps and sizes go onto the live sender.
+        video.publishOptions = { ...video.publishOptions, ...screenPublishOptions(plan) };
+        video.lastEncodedDimensions = undefined;
+        // The same track again: nothing is swapped, LiveKit only recomputes the encodings.
+        await video.replaceTrack(capture, { userProvidedTrack: false });
+      } else {
+        // A different layer count cannot be renegotiated in place: publish the same capture again.
+        await this.republishScreenCapture(room, video, screenPublishOptions(plan));
+      }
+    } catch (error) {
+      video.publishOptions = before.options;
+      await capture.applyConstraints(before.constraints).catch(() => {});
+      if (!sameLayers && !room.localParticipant.isScreenShareEnabled)
+        await this.republishScreenCapture(room, video, before.options ?? {}).catch(() => {});
+      this.sync();
+      throw error;
+    }
+    this.shareOptions = { ...shared, quality };
+    this.sync();
+  }
+  private async republishScreenCapture(room: Room, video: LocalVideoTrack, options: object) {
+    await room.localParticipant.unpublishTrack(video, false);
+    await room.localParticipant.publishTrack(video, {
+      ...options,
+      source: Track.Source.ScreenShare,
+    });
+  }
+  async setScreenSound(on: boolean) {
+    const { room } = this.runningShare();
+    const local = room.localParticipant;
+    const current = local.getTrackPublication(Track.Source.ScreenShareAudio)?.track;
+    if (!on) {
+      if (current) await local.unpublishTrack(current, true);
+      this.sync();
+      return { audio: false };
+    }
+    if (current) return { audio: true };
+    // The OS loopback comes with a capture; only its sound is kept, the picture of this second
+    // capture is dropped at once and the share keeps its own.
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: true,
+      audio: SCREEN_AUDIO_CAPTURE,
+    });
+    stream.getVideoTracks().forEach((track) => track.stop());
+    const sound = stream.getAudioTracks()[0];
+    if (!sound) return { audio: false };
+    try {
+      await local.publishTrack(new LocalAudioTrack(sound, undefined, false), {
+        source: Track.Source.ScreenShareAudio,
+        audioPreset: { maxBitrate: 128000 },
+        forceStereo: true,
+        dtx: false,
+        red: false,
+      });
+    } catch (error) {
+      sound.stop();
+      throw error;
+    }
+    this.sync();
+    return { audio: true };
+  }
   async stopScreen() {
     const room = this.room;
     if (!room) return;
     room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track?.stop();
     room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio)?.track?.stop();
-    this.patch({ sharing: false });
+    this.shareOptions = null;
+    this.patch({ sharing: false, sharingAudio: false, sharingQuality: null });
     try {
       await room.localParticipant.setScreenShareEnabled(false);
       this.sync();
     } catch (error) {
       this.fail(error);
-      this.patch({ sharing: false });
+      this.patch({ sharing: false, sharingAudio: false, sharingQuality: null });
       throw new Error(
         this.state.error ?? 'Screen publication could not be removed. Capture has stopped.',
       );
@@ -1078,6 +1441,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     this.refreshScreenPlayback();
     if (value) {
       ++this.microphoneSerial;
+      this.releaseParkedMic();
       this.pendingMic?.stop();
       void this.pendingMixer?.destroy();
       this.stopSoundboard();
@@ -1152,9 +1516,54 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       }
     }
   }
+  /**
+   * Plays one person at this listener's level. The element volume of a normal track tops out at 1,
+   * so a person set above 100% is routed through a Web Audio gain instead (the same way the DJ
+   * equalizer takes over a track), which can amplify to 200%. Deafen silences that path through
+   * its gain, because muting the element no longer reaches it.
+   */
+  private applyPersonVolume(person: RemoteParticipant) {
+    const id = person.identity,
+      level = this.volumes.get(id) ?? 1;
+    const music = id.startsWith('rooms-music-');
+    const boost = !music && level > 1 && typeof AudioContext !== 'undefined';
+    let boosted = false;
+    for (const pub of person.trackPublications?.values() ?? []) {
+      if (pub.source !== Track.Source.Microphone) continue;
+      const track = pub.track as
+        (Track & { setAudioContext?(context: AudioContext | undefined): void }) | undefined;
+      const element = this.audio.get(pub.trackSid);
+      if (!track?.setAudioContext || !element) continue;
+      if (boost) {
+        if (!this.boostContext) {
+          this.boostContext = new AudioContext();
+          void (this.boostContext as AudioContext & { setSinkId?(id: string): Promise<void> })
+            .setSinkId?.(this.outputDeviceId)
+            ?.catch(() => {});
+        }
+        if (!this.boosted.has(pub.trackSid)) {
+          element.muted = true;
+          track.setAudioContext(this.boostContext);
+          this.boosted.add(pub.trackSid);
+        }
+        if (this.boostContext.state !== 'running') void this.boostContext.resume().catch(() => {});
+        boosted = true;
+      } else if (this.boosted.delete(pub.trackSid)) {
+        track.setAudioContext(undefined);
+        element.muted = this.state.deafened;
+      }
+    }
+    const gain = listenerGain(id, level);
+    person.setVolume(
+      boosted ? (this.state.deafened ? 0 : gain) : Math.min(1, gain),
+      Track.Source.Microphone,
+    );
+  }
+  private boostContext: AudioContext | null = null;
+  /** Microphone tracks currently played through the 200% Web Audio path. */
+  private boosted = new Set<string>();
   setParticipantVolume(id: string, volume: number) {
-    if (!Number.isFinite(volume) || volume < 0 || volume > 1)
-      throw new Error('Volume must be between 0 and 1.');
+    if (!isParticipantLevel(volume)) throw new Error('Volume must be between 0 and 2.');
     this.volumes.set(id, volume);
     if (this.listenerScope)
       try {
@@ -1165,9 +1574,8 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       } catch {
         /* Playback remains usable when local storage is unavailable. */
       }
-    this.room?.remoteParticipants
-      .get(id)
-      ?.setVolume(listenerGain(id, volume), Track.Source.Microphone);
+    const person = this.room?.remoteParticipants.get(id);
+    if (person) this.applyPersonVolume(person);
     if (id.startsWith('rooms-music-')) this.applyEqualizer();
     this.sync();
   }
@@ -1175,6 +1583,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     const changed = id !== this.watchedScreen;
     this.watchedScreen = id;
     this.applyScreenSubscriptions();
+    this.applyScreenQuality();
     this.refreshScreenPlayback();
     if (changed) {
       this.announceWatch();
@@ -1188,6 +1597,29 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
         if (!isScreenSource(pub.source)) continue;
         const wanted = person.identity === this.watchedScreen;
         if (pub.isDesired !== wanted) pub.setSubscribed(wanted);
+      }
+  }
+  setScreenQuality(quality: ScreenViewQuality) {
+    if (quality !== 'auto' && !(Number.isInteger(quality) && quality > 0))
+      throw Error('Screen quality must be auto or a positive line count.');
+    this.screenQuality = quality;
+    this.applyScreenQuality();
+    this.patch({ screenQuality: quality });
+  }
+  /**
+   * Requests the chosen layer of every screen share this listener receives. LiveKit ignores the
+   * request for a publication that is not subscribed, so watching and every new subscription (a
+   * restarted share is a new publication) apply it again. Under adaptive stream a fixed choice is
+   * a ceiling: a small tile can still receive a smaller layer.
+   */
+  private applyScreenQuality() {
+    const choice = this.screenQuality;
+    if (choice === null) return;
+    for (const person of this.room?.remoteParticipants.values() ?? [])
+      for (const pub of person.trackPublications.values()) {
+        if (pub.source !== Track.Source.ScreenShare || !pub.isDesired) continue;
+        const quality = screenSubscriptionQuality(screenLayers(pub), choice);
+        if (quality) pub.setVideoQuality(videoQualities[quality]);
       }
   }
   /** Tells the room (or one newcomer) which screen this listener watches. */
@@ -1212,9 +1644,15 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     for (const [id, element] of this.audio)
       element.muted =
         this.equalized.has(id) ||
+        this.boosted.has(id) ||
         this.state.deafened ||
         (this.screenAudio.has(id) && !allowed.has(id));
     this.applyEqualizer();
+    // Deafen reaches a boosted person only through its gain, so refresh those.
+    if (this.boosted.size)
+      for (const person of this.room?.remoteParticipants.values() ?? [])
+        if ([...(person.trackPublications?.keys() ?? [])].some((sid) => this.boosted.has(sid)))
+          this.applyPersonVolume(person);
   }
   setScreenVolume(id: string, volume: number) {
     if (!Number.isFinite(volume) || volume < 0 || volume > 1)
@@ -1247,8 +1685,13 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
    * join: the call uses the system default and the saved choice stays for when it returns.
    * Returns the id now in use, '' for the default.
    */
-  private async switchDevice(room: Room, kind: 'audioinput' | 'audiooutput', id: string) {
-    if (id && !(await deviceListed(kind, id))) id = '';
+  private async switchDevice(
+    room: Room,
+    kind: 'audioinput' | 'audiooutput',
+    id: string,
+    devices: readonly MediaDeviceInfo[] | null,
+  ) {
+    if (id && !deviceListed(devices, kind, id)) id = '';
     try {
       if (await room.switchActiveDevice(kind, id || 'default')) return id;
     } catch (error) {
@@ -1260,12 +1703,17 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   async deviceSelection(inputId: string, outputId: string) {
     try {
       const room = this.requireRoom();
-      await this.switchDevice(room, 'audioinput', inputId || '');
-      const output = await this.switchDevice(room, 'audiooutput', outputId || '');
-      for (const context of [this.soundContext, this.equalizerContext])
-        await (
-          context as (AudioContext & { setSinkId?(id: string): Promise<void> }) | null
-        )?.setSinkId?.(output);
+      // One device list serves both checks (each enumeration costs a round trip to the OS).
+      const devices = await listDevices();
+      await this.switchDevice(room, 'audioinput', inputId || '', devices);
+      const output = await this.switchDevice(room, 'audiooutput', outputId || '', devices);
+      await Promise.all(
+        [this.soundContext, this.equalizerContext, this.boostContext].map((context) =>
+          (
+            context as (AudioContext & { setSinkId?(id: string): Promise<void> }) | null
+          )?.setSinkId?.(output),
+        ),
+      );
       this.outputDeviceId = output;
       // Keep the chosen headset: capture asks for it as a preference, so the default opens while it
       // is gone, and followInput moves back to it once it is listed again.
@@ -1395,26 +1843,104 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     });
     this.audio.clear();
     this.equalized.clear();
+    this.boosted.clear();
     this.priorStats = null;
   }
-  disconnect(): Promise<void> {
+  disconnect(options?: { keepMicrophone?: boolean }): Promise<void> {
+    return this.teardown(options?.keepMicrophone ? 'park' : 'release');
+  }
+  /** The live, unmuted, filtered microphone of this room, if it can be carried to the next one. */
+  private carriableMic(room: Room) {
+    const track = room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track;
+    return track instanceof LocalAudioTrack &&
+      this.status === 'connected' &&
+      room.localParticipant.isMicrophoneEnabled &&
+      !track.isMuted &&
+      !this.state.deafened &&
+      track.mediaStreamTrack.readyState === 'live' &&
+      this.mixerTrack === track &&
+      this.mixer?.processedTrack?.readyState === 'live'
+      ? track
+      : null;
+  }
+  /** Takes the carried microphone if it still matches the selected input and filter. */
+  private claimParkedMic() {
+    const parked = this.parkedMic;
+    if (
+      parked &&
+      parked.track.mediaStreamTrack.readyState === 'live' &&
+      this.mixerTrack === parked.track &&
+      this.mixer?.processedTrack?.readyState === 'live' &&
+      parked.device === this.inputDeviceId &&
+      parked.noise === this.noiseSuppression &&
+      parked.mode === this.noiseMode
+    ) {
+      this.parkedMic = null;
+      return parked.track;
+    }
+    this.releaseParkedMic();
+    return null;
+  }
+  /** Stops a carried microphone and its filter (leave, mute, deafen, failed or changed switch). */
+  private releaseParkedMic() {
+    const parked = this.parkedMic;
+    if (!parked) return;
+    this.parkedMic = null;
+    parked.track.stop();
+    if (this.mixerTrack !== parked.track) return;
+    const mixer = this.mixer,
+      context = this.soundContext;
+    this.mixer = null;
+    this.mixerTrack = null;
+    this.soundContext = null;
+    void Promise.resolve()
+      .then(() => mixer?.destroy())
+      .catch(() => {});
+    if (context && context.state !== 'closed')
+      void Promise.resolve()
+        .then(() => context.close())
+        .catch(() => {});
+    this.patch({ noiseProcessing: { status: 'off', mode: this.noiseMode } });
+  }
+  /**
+   * park: leave and carry a live microphone over; keep: leave, keeping a microphone carried
+   * earlier; release: leave and stop every capture.
+   */
+  private teardown(mode: 'park' | 'keep' | 'release'): Promise<void> {
+    if (mode === 'release') this.releaseParkedMic();
     if (this.disconnecting) return this.disconnecting;
+    const room = this.room;
+    const carried = mode === 'park' && room ? this.carriableMic(room) : null;
     ++this.epoch;
     ++this.microphoneSerial;
-    const room = this.room;
     this.room = null;
     this.grant = null;
     this.pendingMic?.stop();
-    this.mixerTrack?.stop();
     void this.pendingMixer?.destroy();
-    void this.mixer?.destroy();
+    if (carried) {
+      this.releaseParkedMic();
+      this.parkedMic = {
+        track: carried,
+        device: this.inputDeviceId,
+        noise: this.noiseSuppression,
+        mode: this.noiseMode,
+      };
+    }
+    // Decided now: the async cleanup below must never close a filter that a carried mic still uses.
+    const keepMixer = !!this.parkedMic && this.mixerTrack === this.parkedMic.track;
+    if (!keepMixer) {
+      this.mixerTrack?.stop();
+      void this.mixer?.destroy();
+    }
     this.stopSoundboard();
     // Stop capture and playback synchronously; network/mixer cleanup must not hold them open.
     for (const publication of room?.localParticipant.trackPublications.values() ?? [])
-      publication.track?.stop();
+      if (publication.track !== carried) publication.track?.stop();
     this.cleanupPlayback();
     this.patch({
-      noiseProcessing: { status: 'off', mode: this.noiseMode },
+      noiseProcessing: keepMixer
+        ? (this.state.noiseProcessing ?? { status: 'off', mode: this.noiseMode })
+        : { status: 'off', mode: this.noiseMode },
       status: 'not-configured',
       roomId: null,
       error: null,
@@ -1422,6 +1948,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       deafened: false,
       camera: false,
       sharing: false,
+      sharingAudio: false,
       audioBlocked: false,
       inputDeviceFallback: false,
       inputDevice: null,
@@ -1429,14 +1956,17 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       tracks: [],
       diagnostics: emptyDiagnostics(),
     });
+    // A carried microphone is unpublished, not stopped (LiveKit stops every local track otherwise).
     const transport = room
-      ? room.disconnect(true).finally(() => room.removeAllListeners())
+      ? room.disconnect(!carried).finally(() => room.removeAllListeners())
       : Promise.resolve();
     // Local audio teardown is best effort: leaving (and signing out) must not fail because a
     // mixer or an already closed AudioContext refuses to close again.
     const cleanup = (async () => {
       await this.soundboardWork;
       await this.microphoneWork;
+      // The carried microphone keeps its filter and context; releaseParkedMic closes them.
+      if (keepMixer) return;
       const mixer = this.mixer,
         context = this.soundContext;
       this.mixer = null;
@@ -1460,6 +1990,29 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       });
     return this.disconnecting;
   }
+  prepareConnection(serverUrl: string) {
+    let url: URL;
+    try {
+      url = new URL(serverUrl);
+    } catch {
+      return;
+    }
+    if (!['wss:', 'ws:'].includes(url.protocol) || url.username || url.password) return;
+    const now = Date.now();
+    if (now - (this.prepared.get(url.href) ?? -Infinity) < PREPARE_INTERVAL_MS) return;
+    this.prepared.set(url.href, now);
+    url.protocol = url.protocol === 'wss:' ? 'https:' : 'http:';
+    url.search = '';
+    url.hash = '';
+    // Only resolves the name and opens TLS ahead of the join; the answer itself is ignored.
+    if (typeof fetch === 'function')
+      void fetch(url.href, {
+        method: 'HEAD',
+        mode: 'no-cors',
+        credentials: 'omit',
+        cache: 'no-store',
+      }).catch(() => {});
+  }
   async reconnect() {
     throw new Error(
       'Obtain a fresh membership grant, then call connectRoom. Automatic transient reconnect is managed by LiveKit.',
@@ -1472,4 +2025,14 @@ export const mediaTransportStatus: ConnectionStatus = 'not-configured';
 export { createRnnoiseNode } from './rnnoise';
 
 export { createNoiseSuppressionNode } from './noise-suppression';
+export { createMicGateNode, type MicGateNode } from './mic-gate-node';
+export {
+  DEFAULT_MIC_GATE,
+  MIC_GATE_DEFAULT_DB,
+  MIC_GATE_MAX_DB,
+  MIC_GATE_MIN_DB,
+  clampMicGateThreshold,
+  micGateSettings,
+} from './mic-gate';
+export type { MicGateReport, MicGateSettings } from './mic-gate';
 export type { NoiseSuppressionMode, NoiseProcessingState } from './noise-suppression';

@@ -92,3 +92,25 @@ it('offers an invite for the new community once its own text channel has loaded'
   await waitFor(() => expect(createInvite).toHaveBeenCalledWith('general'));
   expect(await screen.findByDisplayValue(/code-general/)).toBeTruthy();
 });
+
+it('keeps the finished state when the app opens the new community', async () => {
+  const oldSpace = { id: 'old-space', name: 'Dostlar', ownerId: 'me', icon: null } as never;
+  const onSave = vi.fn(async () => space);
+  const editor = (open: never) => (
+    <CommunityEditor mode="create" space={open} onClose={() => {}} onSave={onSave} />
+  );
+  // The app passes whichever community is open; it switches to the new one after saving.
+  const { rerender } = render(editor(oldSpace));
+  expect((screen.getByRole('textbox', { name: 'Topluluk adı' }) as HTMLInputElement).value).toBe(
+    '',
+  );
+  fireEvent.change(screen.getByRole('textbox', { name: 'Topluluk adı' }), {
+    target: { value: 'Tayfa' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Topluluğu oluştur' }));
+  await screen.findByRole('heading', { name: 'Topluluğun hazır' });
+  rerender(editor(space));
+  expect(screen.getByRole('heading', { name: 'Topluluğun hazır' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Topluluğu oluştur' })).toBeNull();
+  expect(onSave).toHaveBeenCalledOnce();
+});
