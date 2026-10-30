@@ -1243,7 +1243,15 @@ describe('changing a running screen share in place', () => {
   });
   type Capture = ReturnType<typeof capture>;
   async function sharing(layerEncodings = 3, withSound = true) {
-    const ctx = fixture();
+    const base = fixture();
+    // The fixture adds publishTrack/unpublishTrack with Object.assign, so its type omits them.
+    const ctx = {
+      ...base,
+      local: base.local as typeof base.local & {
+        publishTrack: ReturnType<typeof vi.fn>;
+        unpublishTrack: ReturnType<typeof vi.fn>;
+      },
+    };
     await ctx.provider.connectRoom('room', 'token', 'ws://localhost:7880');
     const old = capture('old');
     const video = {
