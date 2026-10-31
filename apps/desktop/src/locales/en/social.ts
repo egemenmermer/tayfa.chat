@@ -424,6 +424,8 @@ export const social: Catalog = {
   'Asistanı etiketle': 'Mention the assistant',
   'Değişiklikleri kaydet': 'Save changes',
   'Mesajı gönder': 'Send message',
+  '{name} için mesaj yaz': 'Message {name}',
+  'Özel mesaj açılamadı. Yeniden dene.': 'Couldn’t open the direct message. Try again.',
   '{names} yazıyor…': {
     one: '{names} is typing…',
     other: '{names} are typing…',

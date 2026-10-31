@@ -845,6 +845,32 @@
   line-height: 1.6;
   white-space: pre-line;
 }
+/* Quick message at the bottom of a friend's profile (ProfileQuickMessage). */
+.ss-profile-message {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 16px;
+}
+.ss-profile-message input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #343945;
+  border-radius: 8px;
+  background: #15171d;
+  color: #e6e8ee;
+  font-size: 13px;
+}
+.ss-profile-message input:focus-visible {
+  outline: 2px solid #6f8cff;
+  outline-offset: 1px;
+}
+.ss-profile-message > :last-child:not(button) {
+  flex-basis: 100%;
+}
 .ss-status-options {
   display: flex;
   flex-direction: column;

@@ -253,3 +253,39 @@ it('friend voice call is hidden without DM calls and rings the friend’s own DM
   await waitFor(() => expect(startDmCall).toHaveBeenCalledWith('dm-ada', 'audio'));
   await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/dm-call'));
 });
+
+it('a friend’s profile sends a quick message in your DM with them and opens it', async () => {
+  let opens = dm('dm-ada', ada, null);
+  const social = {
+    friends: async () => [{ user: ada, relationship: 'friend', status: 'online' }],
+    createDM: vi.fn(async () => opens),
+    send: vi.fn(async () => ({})),
+  };
+  const createDM = vi.fn(async () => {});
+  useCommunity.setState({ createDM, activeChannelId: 'general' });
+  window.rooms = { social } as unknown as DesktopBridge;
+  // Not a friend: no message box.
+  const stranger = inRouter(<UserProfileDialog user={bora} onClose={vi.fn()} />);
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Kapat' })).toBeTruthy());
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(screen.queryByRole('textbox')).toBeNull();
+  stranger.unmount();
+  const onClose = vi.fn();
+  inRouter(<UserProfileDialog user={ada} onClose={onClose} />);
+  const box = await screen.findByRole('textbox', { name: 'Ada için mesaj yaz' });
+  expect(screen.getByRole('button', { name: 'Mesajı gönder' })).toHaveProperty('disabled', true);
+  // A DM that came back for someone else never receives the message.
+  opens = dm('dm-bora', bora, null);
+  fireEvent.change(box, { target: { value: '  selam  ' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Mesajı gönder' }));
+  expect(await screen.findByText('Özel mesaj açılamadı. Yeniden dene.')).toBeTruthy();
+  expect(social.send).not.toHaveBeenCalled();
+  opens = dm('dm-ada', ada, null);
+  fireEvent.submit(box.closest('form')!);
+  await waitFor(() => expect(onClose).toHaveBeenCalled());
+  expect(social.createDM).toHaveBeenLastCalledWith(ada.id);
+  expect(social.send).toHaveBeenCalledWith('dm-ada', 'selam');
+  // The open channel never changed before the message was delivered; then the DM opens.
+  expect(createDM).toHaveBeenCalledWith(ada.id);
+  expect(screen.getByTestId('where').textContent).toBe('/chat');
+});

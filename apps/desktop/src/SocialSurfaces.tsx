@@ -1,5 +1,6 @@
 import { FriendRequestButton } from './FriendRequestButton';
-import { RovingTabs, tabPanelProps } from './FriendsPage';
+import { RovingTabs, tabPanelProps, useFriendList } from './FriendsPage';
+import { MESSAGE_MAX } from './message-limit';
 import './reference-social.css';
 import { dmCallUnavailable, startDmCall, useDmCall } from './dm-call';
 import { useRealtime } from './realtime';
@@ -1334,6 +1335,83 @@ function SharedFilesScope({
   );
 }
 
+/**
+ * Like Discord, a friend's profile ends with a one-line message box. Enter sends it in your direct
+ * message with them and opens that conversation; nothing is sent to whichever channel is open.
+ */
+function ProfileQuickMessage({ person, onSent }: { person: SocialUser; onSent(): void }) {
+  const c = useCommunity(),
+    navigate = useNavigate(),
+    list = useFriendList();
+  const [text, setText] = useState(''),
+    [sending, setSending] = useState(false),
+    [error, setError] = useState('');
+  if (!window.rooms?.social) return null;
+  if (list.friends.find((friend) => friend.user.id === person.id)?.relationship !== 'friend')
+    return null;
+  const content = text.trim();
+  const send = async () => {
+    if (!content || sending) return;
+    if (content.length > MESSAGE_MAX) {
+      setError(
+        t('Mesaj en fazla {max} karakter olabilir; bu {count} karakter.', {
+          max: MESSAGE_MAX,
+          count: content.length,
+        }),
+      );
+      return;
+    }
+    const social = window.rooms?.social;
+    if (!social) return;
+    const account = c.user?.id,
+      server = c.serverUrl;
+    const sameAccount = () =>
+      useCommunity.getState().user?.id === account && useCommunity.getState().serverUrl === server;
+    setSending(true);
+    setError('');
+    try {
+      // Opening the DM first would switch the open channel, which closes this profile; the message
+      // goes to the DM channel itself and the conversation opens once it is delivered.
+      const channel = await social.createDM(person.id);
+      if (!sameAccount()) return;
+      if (!channel.recipients?.some((user) => user.id === person.id))
+        throw new Error(t('Özel mesaj açılamadı. Yeniden dene.'));
+      await social.send(channel.id, content);
+      if (!sameAccount()) return;
+      setText('');
+      onSent();
+      navigate('/chat');
+      await c.createDM(person.id);
+    } catch (failure) {
+      setError(uiError(failure));
+    } finally {
+      setSending(false);
+    }
+  };
+  const name = nameOf(person);
+  return (
+    <form
+      className="ss-profile-message"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void send();
+      }}
+    >
+      <input
+        aria-label={t('{name} için mesaj yaz', { name })}
+        placeholder={t('{name} için mesaj yaz', { name })}
+        value={text}
+        maxLength={MESSAGE_MAX}
+        disabled={sending}
+        onChange={(event) => setText(event.target.value)}
+      />
+      <IconButton type="submit" label={t('Mesajı gönder')} disabled={!content || sending}>
+        <ArrowRight size={16} />
+      </IconButton>
+      {error && <Notice kind="error">{error}</Notice>}
+    </form>
+  );
+}
 interface UserProfileProps {
   user?: SocialUser;
   onClose(): void;
@@ -1541,6 +1619,7 @@ function UserProfileScope({
                 <p>{about}</p>
               </div>
             )}
+            {!own && !fixtureMode && <ProfileQuickMessage person={person} onSent={onClose} />}
           </>
         )}
         {error && <Notice kind="error">{error}</Notice>}
