@@ -47,6 +47,13 @@ export const main: Catalog = {
   'Görsel en fazla {size} MB olabilir.': 'Images can be up to {size} MB.',
   'Görsel okunamadı.': 'Couldn’t read the image.',
   'PNG, JPEG, WebP ya da GIF bir görsel seç.': 'Choose a PNG, JPEG, WebP or GIF image.',
+  '2 MB’tan küçük bir PNG, JPEG ya da WebP fotoğraf seç.':
+    'Choose a PNG, JPEG or WebP photo under 2 MB.',
+  '10 MB’tan küçük bir PNG, JPEG ya da WebP fotoğraf seç.':
+    'Choose a PNG, JPEG or WebP photo under 10 MB.',
+  'PNG, JPEG ya da WebP bir fotoğraf seç.': 'Choose a PNG, JPEG or WebP photo.',
+  'Fotoğraf okunamadı.': 'The photo could not be read.',
+  'Fotoğrafını değiştirmeden önce yeniden giriş yap.': 'Sign in again before changing your photo.',
   'Sunucu ikonu seç': 'Choose a server icon',
   'Sunucu afişi seç': 'Choose a server banner',
   Görseller: 'Images',

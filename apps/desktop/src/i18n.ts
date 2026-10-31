@@ -983,6 +983,13 @@ export const errorMessages: Record<string, string> = {
     'Rol değişikliği kaydedildi ama güncel liste alınamadı. Tekrar rol oluşturmadan önce listeyi yenile.',
   'Role names must contain 1 to 32 characters.': 'Rol adı 1–32 karakter olmalı.',
   'Choose a valid role color.': 'Geçerli bir rol rengi seç.',
+  'Choose a PNG, JPEG or WebP photo under 2 MB.':
+    '2 MB’tan küçük bir PNG, JPEG ya da WebP fotoğraf seç.',
+  'Choose a PNG, JPEG or WebP photo under 10 MB.':
+    '10 MB’tan küçük bir PNG, JPEG ya da WebP fotoğraf seç.',
+  'Choose a PNG, JPEG or WebP photo.': 'PNG, JPEG ya da WebP bir fotoğraf seç.',
+  'The photo could not be read.': 'Fotoğraf okunamadı.',
+  'Sign in again before changing your photo.': 'Fotoğrafını değiştirmeden önce yeniden giriş yap.',
   'This community has reached its role limit.':
     'Bu topluluktaki rol sınırına ulaşıldı. Kullanılmayan bir rolü kaldırıp yeniden dene.',
   unauthorized: 'Oturum doğrulanamadı. Bağlantı ayarlarını kontrol edip yeniden giriş yap.',

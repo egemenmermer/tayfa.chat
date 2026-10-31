@@ -98,3 +98,10 @@ it('falls back to the one-step picker on a desktop without the crop bridge', asy
   expect(await chooseCroppedAvatar()).toBeNull();
   expect(chooseAvatar).toHaveBeenCalledTimes(1);
 });
+
+it('shows the native photo errors in Turkish', async () => {
+  const { uiError } = await import('../apps/desktop/src/i18n');
+  expect(uiError(new Error('Choose a PNG, JPEG or WebP photo under 10 MB.'))).toBe(
+    '10 MB’tan küçük bir PNG, JPEG ya da WebP fotoğraf seç.',
+  );
+});

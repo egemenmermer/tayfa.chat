@@ -25,3 +25,19 @@ it('remembers the viewer stream quality and keeps only valid choices', () => {
   useRooms.getState().setPreferences({ ...useRooms.getState().preferences, screenQuality: 1440 });
   expect(useRooms.getState().preferences.screenQuality).toBe(1440);
 });
+
+it('an rc.35 install without the new keys rehydrates with their defaults', async () => {
+  localStorage.setItem(
+    'rooms-local-v1',
+    JSON.stringify({
+      state: { preferences: { roomEventSounds: false, showFriends: false } },
+      version: 1,
+    }),
+  );
+  await useRooms.persist.rehydrate();
+  const prefs = useRooms.getState().preferences;
+  expect(prefs.roomEventSounds).toBe(false);
+  expect(prefs.voiceCues).toBe(true);
+  expect(prefs.screenQuality).toBe('auto');
+  expect(prefs.memberPanel).toBe(true);
+});
