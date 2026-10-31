@@ -25,6 +25,12 @@ async function fixture(
       req.headers['x-session-token'] as string | undefined,
     );
     res.setHeader('Content-Type', 'application/json');
+    // `{ status, body }` answers with that HTTP status; anything else is a 200 body.
+    if (value && typeof value === 'object' && 'status' in value && 'body' in value) {
+      res.statusCode = Number(value.status);
+      res.end(JSON.stringify(value.body));
+      return;
+    }
     res.end(JSON.stringify(value));
   });
   await new Promise<void>((resolve) => server!.listen(0, '127.0.0.1', resolve));
@@ -708,4 +714,25 @@ describe('community mutation boundaries (isolated protocol fixtures)', () => {
     expect(internal.servers.size).toBe(1);
     expect(internal.channels.size).toBe(1);
   });
+});
+
+it('keeps a channel’s messages when one author’s account was removed', async () => {
+  const url = await fixture((path) => {
+    if (path.startsWith('/api/channels/chan/messages'))
+      return {
+        messages: [
+          { _id: '01M53QA4TKPB72RQVTZ9V071K3', channel: 'chan', author: 'gone', content: 'old' },
+          { _id: '01M53QA4TKPB72RQVTZ9V071K4', channel: 'chan', author: 'here', content: 'new' },
+        ],
+        users: [{ _id: 'here', username: 'here' }],
+      };
+    if (path === '/api/users/gone') return { status: 404, body: { type: 'NotFound' } };
+    return {};
+  });
+  const client = new StoatClient(url, 'fixture-token');
+  const messages = await client.listMessages('chan');
+  expect(messages.map((message) => [message.author.id, message.content])).toEqual([
+    ['here', 'new'],
+    ['gone', 'old'],
+  ]);
 });
