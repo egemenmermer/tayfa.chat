@@ -36,3 +36,25 @@ export function prefetchRoomMembers(
   if (!userId || !spaceId || !window.rooms?.social.members) return;
   void client.prefetchQuery(roomMembersQuery(serverUrl, userId, spaceId));
 }
+
+/**
+ * The full account of a community member (username and tag) from the shared member list.
+ * Voice participants only carry an id and a display name, which is not enough to send a
+ * friend request. Null when the list cannot be read or the id is not a member.
+ */
+export async function memberAccount(
+  serverUrl: string | null | undefined,
+  userId: string | null | undefined,
+  spaceId: string | null | undefined,
+  memberId: string,
+  client: QueryClient = queryClient,
+  load?: (spaceId: string) => Promise<SocialMember[]>,
+) {
+  if (!userId || !spaceId || (!load && !window.rooms?.social.members)) return null;
+  try {
+    const members = await client.fetchQuery(roomMembersQuery(serverUrl, userId, spaceId, load));
+    return members.find((member) => member.user.id === memberId)?.user ?? null;
+  } catch {
+    return null;
+  }
+}

@@ -55,6 +55,7 @@ import { UpdateNotice } from './UpdateNotice';
 import { HallBackground } from './cinema/HallBackground';
 import { HallSidebarRow } from './cinema/HallSidebarRow';
 import { useCommunityCinema } from './cinema/cinema-status';
+import { memberAccount } from './room-members';
 import './sidebar-nav.css';
 import {
   VOICE_MEMBER_DRAG,
@@ -272,6 +273,14 @@ export function MinimalSidebar({
     location = useLocation();
 
   const [person, setPerson] = useState<SocialUser | null>(null);
+  // Voice participants carry only an id and a name; the profile opens at once and then takes
+  // the member's account (username and tag) so "Arkadaş ekle" can send a request.
+  const openPerson = (id: string, name: string) => {
+    setPerson({ id, username: name, displayName: name, avatar: null });
+    void memberAccount(c.serverUrl, c.user?.id, c.activeSpaceId, id).then((account) => {
+      if (account) setPerson((current) => (current?.id === id ? account : current));
+    });
+  };
   const [joining, setJoining] = useState(false);
   const [memberMenu, setMemberMenu] = useState<
       (VoiceMemberTarget & { x: number; y: number }) | null
@@ -492,9 +501,7 @@ export function MinimalSidebar({
                       data-voice-participant-id={p.id}
                       key={p.id}
                       className={`minimal-occupant ${'speaking' in p && p.speaking && !p.muted && !silenced ? 'speaking' : ''}`}
-                      onClick={() =>
-                        setPerson({ id: p.id, username: p.name, displayName: p.name, avatar: null })
-                      }
+                      onClick={() => openPerson(p.id, p.name)}
                       draggable={rights.moveMembers && p.id !== c.user?.id}
                       onDragStart={(event) => {
                         event.dataTransfer.effectAllowed = 'move';
@@ -690,14 +697,7 @@ export function MinimalSidebar({
           rooms={voices}
           rights={rights}
           notify={notify}
-          onProfile={() =>
-            setPerson({
-              id: memberMenu.id,
-              username: memberMenu.name,
-              displayName: memberMenu.name,
-              avatar: null,
-            })
-          }
+          onProfile={() => openPerson(memberMenu.id, memberMenu.name)}
           onClose={() => setMemberMenu(null)}
         />
       )}

@@ -8,6 +8,7 @@ import { RoomMembers } from '../apps/desktop/src/RoomMembers';
 import { useCommunity } from '../apps/desktop/src/community';
 import { queryClient } from '../apps/desktop/src/query-client';
 import {
+  memberAccount,
   prefetchRoomMembers,
   roomMembersKey,
   ROOM_MEMBERS_STALE_MS,
@@ -113,5 +114,38 @@ describe('room members panel', () => {
     render(panel());
     expect(screen.getByText('Ayşe')).toBeTruthy();
     expect(members).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('member account for a voice participant', () => {
+  it('finds the username and tag a friend request needs, or nothing', async () => {
+    const { QueryClient } = await import('@tanstack/react-query');
+    const client = new QueryClient();
+    const load = vi.fn(async () => [
+      {
+        user: {
+          id: 'u2',
+          username: 'sedrado',
+          displayName: 'sedrado',
+          avatar: null,
+          discriminator: '4821',
+        },
+        status: 'online',
+        statusText: null,
+        roles: [],
+      } as SocialMember,
+    ]);
+    expect(await memberAccount('https://s', 'me', 'space', 'u2', client, load)).toMatchObject({
+      username: 'sedrado',
+      discriminator: '4821',
+    });
+    // The list is cached: a second profile does not refetch.
+    expect(await memberAccount('https://s', 'me', 'space', 'nobody', client, load)).toBeNull();
+    expect(load).toHaveBeenCalledTimes(1);
+    const failing = vi.fn(async () => {
+      throw new Error('offline');
+    });
+    expect(await memberAccount('https://s', 'me', 'other', 'u2', client, failing)).toBeNull();
+    expect(await memberAccount('https://s', null, 'space', 'u2', client, load)).toBeNull();
   });
 });
