@@ -486,6 +486,14 @@ export function setupCommunityCinema(options: {
       30_000,
     ),
   );
+  options.handle('rooms:cinema-stremio-catalog', (hallId, key, genre, skip) => {
+    const query = new URLSearchParams({
+      key: z.string().max(700).parse(key),
+      skip: String(z.number().int().min(0).max(5000).parse(skip)),
+    });
+    if (genre !== null) query.set('genre', z.string().min(1).max(60).parse(genre));
+    return api('GET', `${hall(hallId)}/stremio/catalog?${query}`, undefined, 30_000);
+  });
   options.handle('rooms:cinema-stremio-details', (hallId, type, id) =>
     api(
       'GET',

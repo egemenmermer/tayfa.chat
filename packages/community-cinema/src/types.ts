@@ -363,7 +363,35 @@ export type StremioTitle = {
   year: string | null;
   /** Opaque artwork id for `/art/:id`, or null. */
   art: string | null;
+  /** IMDb rating when the catalog has one (`7.4`); older services leave it out. */
+  rating?: string | null;
 };
+
+/** One home row: a catalog of Cinemeta or of an add-on the linked account installed. */
+export type StremioRow = {
+  /** Opaque key for `stremioCatalog` (`cinemeta:movie:top`, `addon:<id>:<type>:<catalog>`). */
+  key: string;
+  type: StremioType;
+  /** The catalog's own name (`Popular`); the desktop names Cinemeta rows itself. */
+  name: string;
+  /** The add-on's name; null for Cinemeta. */
+  addon: string | null;
+  items: StremioTitle[];
+  /** Genres the catalog filters by (`genre=`); empty when it has none. */
+  genres: string[];
+  /** The catalog pages with `skip=`. */
+  paged: boolean;
+};
+
+/** A title for the home's hero: Cinemeta's backdrop, logo and plot. */
+export type StremioFeatured = StremioTitle & {
+  backdrop: string | null;
+  logo: string | null;
+  plot: string | null;
+  genres: string[];
+};
+
+export type StremioCatalogPage = { items: StremioTitle[]; more: boolean };
 
 export type StremioContinueItem = StremioTitle & {
   /** The episode or film being watched (`tt0903747:1:2`), when Stremio knows it. */
@@ -378,7 +406,11 @@ export type StremioContinueItem = StremioTitle & {
 export type StremioHome = {
   continue: StremioContinueItem[];
   library: StremioTitle[];
+  /** Cinemeta's popular films and series; kept for desktops older than `rows`. */
   popular: { movie: StremioTitle[]; series: StremioTitle[] };
+  /** Catalog rows (Cinemeta, then the account's add-ons); older services leave it out. */
+  rows?: StremioRow[];
+  featured?: StremioFeatured[];
 };
 
 export type StremioVideo = {

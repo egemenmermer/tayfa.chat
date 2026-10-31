@@ -23,7 +23,10 @@ import {
   type RmdbWorkDetails,
   type RmdbWorkSummary,
   type StremioStream,
+  type StremioFeatured,
+  type StremioRow,
   type StremioTitle,
+  type StremioType,
 } from '../../../../packages/community-cinema/src/types';
 import type {
   CinemaBridge,
@@ -937,6 +940,68 @@ export function createCommunityCinemaFixtureBridge(
     { type: 'movie', id: 'tt9000001', name: 'DEMO Stremio Filmi', year: '2024', art: null },
     { type: 'series', id: 'tt9000002', name: 'DEMO Stremio Dizisi', year: '2022–', art: null },
   ];
+  // DEMO catalog titles with generated posters, so the rows and the hero have something to show.
+  const demoCatalog = (type: StremioType, prefix: string, count: number, offset = 0) =>
+    Array.from({ length: count }, (_, i): StremioTitle => {
+      const n = i + offset + 1;
+      const name = `DEMO ${prefix} ${n}`;
+      return {
+        type,
+        id: `tt9${type === 'movie' ? 1 : 2}${String(n).padStart(5, '0')}`,
+        name,
+        year: String(2026 - (n % 7)),
+        art: art('poster', name, (n * 47) % 360),
+        rating: (6 + ((n * 7) % 30) / 10).toFixed(1),
+      };
+    });
+  const demoGenres = ['Action', 'Comedy', 'Drama', 'Horror', 'Sci-Fi', 'Thriller', 'Animation'];
+  const demoRows: StremioRow[] = (
+    [
+      {
+        key: 'cinemeta:movie:top',
+        type: 'movie',
+        name: 'top',
+        items: demoCatalog('movie', 'Film', 14),
+      },
+      {
+        key: 'cinemeta:series:top',
+        type: 'series',
+        name: 'top',
+        items: demoCatalog('series', 'Dizi', 14),
+      },
+      {
+        key: 'cinemeta:movie:year',
+        type: 'movie',
+        name: 'year',
+        items: demoCatalog('movie', 'Yeni Film', 10, 30),
+      },
+      {
+        key: 'cinemeta:movie:imdbRating',
+        type: 'movie',
+        name: 'imdbRating',
+        items: demoCatalog('movie', 'Klasik', 12, 60),
+      },
+      {
+        key: 'addon:ZGVtby5hbmltZQ:series:dG9w',
+        type: 'series',
+        name: 'Popüler anime',
+        addon: 'DEMO Anime',
+        items: demoCatalog('series', 'Anime', 10, 90),
+      },
+    ] as (Pick<StremioRow, 'key' | 'type' | 'name' | 'items'> & { addon?: string })[]
+  ).map((row) => ({
+    addon: null,
+    genres: row.name === 'year' || row.addon ? [] : demoGenres,
+    paged: true,
+    ...row,
+  }));
+  const demoFeatured: StremioFeatured[] = demoRows[0]!.items.slice(0, 4).map((title, i) => ({
+    ...title,
+    backdrop: art('backdrop', title.name, (i * 83 + 20) % 360),
+    logo: null,
+    plot: 'DEMO: Gerçek hesapta Cinemeta’nın açıklaması, türleri ve arka plan görseli görünür.',
+    genres: demoGenres.slice(i, i + 2),
+  }));
   const delay = <T>(value: T, ms = 120) =>
     new Promise<T>((resolve) => setTimeout(() => resolve(structuredClone(value)), ms));
   const hall = (hallId: string) => {
@@ -1488,6 +1553,8 @@ export function createCommunityCinemaFixtureBridge(
           ],
           library: demoStremio,
           popular: { movie: demoStremio.filter((t) => t.type === 'movie'), series: [] },
+          rows: demoRows,
+          featured: demoFeatured,
         },
         240,
       );
@@ -1499,8 +1566,20 @@ export function createCommunityCinemaFixtureBridge(
         ),
         200,
       ),
+    stremioCatalog: async (_hallId, key, genre, skip) => {
+      const row = demoRows.find((r) => r.key === key);
+      if (!row) throw new Error('CINEMA_ITEM_NOT_FOUND');
+      // Three DEMO pages of 30, then the end.
+      const prefix = genre
+        ? `${genre} ${row.type === 'movie' ? 'Film' : 'Dizi'}`
+        : row.items[0]!.name.replace(/ \d+$/, '').replace(/^DEMO /, '');
+      const items = skip >= 90 ? [] : demoCatalog(row.type, prefix, 30, skip);
+      return delay({ items, more: items.length > 0 }, 260);
+    },
     stremioDetails: async (_hallId, type, id) => {
-      const title = demoStremio.find((t) => t.id === id && t.type === type);
+      const title = [...demoStremio, ...demoRows.flatMap((r) => r.items)].find(
+        (t) => t.id === id && t.type === type,
+      );
       if (!title) throw new Error('CINEMA_ITEM_NOT_FOUND');
       return delay(
         {

@@ -71,6 +71,41 @@ const subtitlesAddon = {
   },
 };
 
+const animeAddon = {
+  transportUrl: 'https://anime.example/manifest.json',
+  manifest: {
+    id: 'org.anime',
+    name: 'Anime',
+    resources: ['catalog', 'meta'],
+    types: ['series'],
+    idPrefixes: ['kitsu:'],
+    catalogs: [
+      {
+        type: 'series',
+        id: 'top',
+        name: 'Popular anime',
+        extra: [{ name: 'genre', options: ['Action', 'Romance'] }, { name: 'skip' }],
+      },
+      // Needs a search text: never a home row.
+      { type: 'series', id: 'search', extra: [{ name: 'search', isRequired: true }] },
+      { type: 'channel', id: 'tv' },
+    ],
+  },
+};
+
+/** A Cinemeta-shaped meta; the URLs stay on the server, clients get opaque art ids. */
+const meta = (id: string, name: string) => ({
+  id,
+  name,
+  releaseInfo: '2021',
+  poster: `https://images.example/${id}.jpg`,
+  background: `https://images.example/${id}-bg.jpg`,
+  logo: `https://images.example/${id}-logo.png`,
+  description: `${name} plot.`,
+  imdbRating: '8.0',
+  genres: ['Sci-Fi', 'Drama'],
+});
+
 async function setup() {
   const dir = mkdtempSync(join(tmpdir(), 'rooms-stremio-'));
   const files = new SecureFiles(randomBytes(32));
@@ -89,7 +124,7 @@ async function setup() {
       Date.now(),
     );
   const calls: { url: string; body?: unknown }[] = [];
-  const state = { approved: false, sessionValid: true, blocked: false };
+  const state = { approved: false, sessionValid: true, blocked: false, addonsBroken: false };
   const fetch: StremioFetch = async (url, init) => {
     calls.push({ url, body: init?.body });
     if (url === `${STREMIO_LINK_API}create?type=Create`)
@@ -104,8 +139,14 @@ async function setup() {
       if (!state.sessionValid) return { error: { code: 1, message: 'Session does not exist' } };
       const method = url.slice(STREMIO_API.length);
       if (method === 'getUser') return { result: { email: 'owner@example.com' } };
-      if (method === 'addonCollectionGet')
-        return { result: { addons: [torrentio, subtitlesAddon, { transportUrl: 'not a url' }] } };
+      if (method === 'addonCollectionGet') {
+        if (state.addonsBroken) return { error: { code: 9, message: 'Internal error' } };
+        return {
+          result: {
+            addons: [torrentio, subtitlesAddon, animeAddon, { transportUrl: 'not a url' }],
+          },
+        };
+      }
       if (method === 'datastoreGet')
         return {
           result: [
@@ -150,6 +191,28 @@ async function setup() {
         ],
       };
     }
+    if (url === `${CINEMETA}/manifest.json`)
+      return {
+        catalogs: [
+          { type: 'movie', id: 'top', extra: [{ name: 'genre', options: ['Action', 'Comedy'] }] },
+          { type: 'series', id: 'top', extra: [{ name: 'genre', options: ['Drama'] }] },
+        ],
+      };
+    if (url.startsWith(`${CINEMETA}/catalog/`)) {
+      const [, type, path] = /catalog\/(movie|series)\/(.+)\.json$/.exec(url)!;
+      const prefix = type === 'movie' ? 'tt1' : 'tt2';
+      return {
+        metas: [
+          meta(`${prefix}000001`, `${type} ${path} one`),
+          meta(`${prefix}000002`, `${type} ${path} two`),
+          { id: 'bad id with spaces', name: 'Dropped' },
+        ],
+      };
+    }
+    if (url.startsWith('https://anime.example/catalog/series/top'))
+      return {
+        metas: [{ id: 'kitsu:1', name: 'Cowboy Bebop', poster: 'https://images.example/cb.jpg' }],
+      };
     if (url === 'https://subs.example/subtitles/movie/tt1160419.json')
       return {
         subtitles: [
@@ -303,6 +366,130 @@ describe('Stremio in the community cinema', () => {
       ids: [],
       all: true,
     });
+  });
+
+  it('builds the home from Cinemeta’s catalogs and the account’s add-on catalogs', async () => {
+    await s.link();
+    s.calls.length = 0;
+    const home = await s.call('GET', `/v1/halls/${HALL}/stremio/home`, 'member-token');
+    expect(home.status).toBe(200);
+    const year = new Date().getUTCFullYear();
+    expect(home.body.rows.map((row: { key: string }) => row.key)).toEqual([
+      'cinemeta:movie:top',
+      'cinemeta:series:top',
+      'cinemeta:movie:year',
+      'cinemeta:series:year',
+      'cinemeta:movie:imdbRating',
+      'cinemeta:series:imdbRating',
+      `addon:${Buffer.from('org.anime').toString('base64url')}:series:${Buffer.from('top').toString('base64url')}`,
+    ]);
+    const [movies, , newMovies] = home.body.rows;
+    expect(movies).toMatchObject({
+      type: 'movie',
+      addon: null,
+      genres: ['Action', 'Comedy'],
+      paged: true,
+    });
+    expect(movies.items).toEqual([
+      expect.objectContaining({ id: 'tt1000001', rating: '8.0', art: expect.any(String) }),
+      expect.objectContaining({ id: 'tt1000002' }),
+    ]);
+    // "New" is Cinemeta's year catalog: no genre chips, this year asked.
+    expect(newMovies.genres).toEqual([]);
+    expect(s.calls.map((call) => call.url)).toContain(
+      `${CINEMETA}/catalog/movie/year/genre=${year}.json`,
+    );
+    expect(home.body.rows[6]).toMatchObject({
+      name: 'Popular anime',
+      addon: 'Anime',
+      genres: ['Action', 'Romance'],
+      paged: true,
+      items: [expect.objectContaining({ id: 'kitsu:1', name: 'Cowboy Bebop' })],
+    });
+    // Older desktops still read `popular`.
+    expect(home.body.popular.movie.map((title: { id: string }) => title.id)).toEqual([
+      'tt1000001',
+      'tt1000002',
+    ]);
+    // Films and series take turns in the hero; every one has a backdrop.
+    expect(home.body.featured.map((title: { id: string }) => title.id)).toEqual([
+      'tt1000001',
+      'tt2000001',
+      'tt1000002',
+      'tt2000002',
+    ]);
+    expect(home.body.featured[0]).toMatchObject({
+      backdrop: expect.any(String),
+      logo: expect.any(String),
+      plot: 'movie top one plot.',
+      genres: ['Sci-Fi', 'Drama'],
+    });
+    expect(home.raw).not.toContain('images.example');
+    expect(home.raw).not.toContain('anime.example');
+  });
+
+  it('pages a row’s catalog by genre for Cinemeta and installed add-ons only', async () => {
+    await s.link();
+    s.calls.length = 0;
+    const page = await s.call(
+      'GET',
+      `/v1/halls/${HALL}/stremio/catalog?key=cinemeta:movie:top&genre=Action&skip=50`,
+      'member-token',
+    );
+    expect(page.body).toMatchObject({
+      more: true,
+      items: [{ id: 'tt1000001' }, { id: 'tt1000002' }],
+    });
+    expect(s.calls.map((call) => call.url)).toEqual([
+      `${CINEMETA}/catalog/movie/top/genre=Action&skip=50.json`,
+    ]);
+    const anime = `addon:${Buffer.from('org.anime').toString('base64url')}:series:${Buffer.from('top').toString('base64url')}`;
+    const own = await s.call(
+      'GET',
+      `/v1/halls/${HALL}/stremio/catalog?key=${anime}&genre=Romance&skip=20`,
+      'member-token',
+    );
+    expect(own.body.items).toEqual([expect.objectContaining({ id: 'kitsu:1' })]);
+    expect(s.calls.at(-1)?.url).toBe(
+      'https://anime.example/catalog/series/top/genre=Romance&skip=20.json',
+    );
+    // A genre the add-on does not list, a catalog it does not have, an add-on not installed.
+    const refused = [
+      `key=${anime}&genre=Horror`,
+      `key=addon:${Buffer.from('org.anime').toString('base64url')}:series:${Buffer.from('search').toString('base64url')}`,
+      `key=addon:${Buffer.from('evil.addon').toString('base64url')}:movie:${Buffer.from('top').toString('base64url')}`,
+    ];
+    for (const query of refused) {
+      const response = await s.call(
+        'GET',
+        `/v1/halls/${HALL}/stremio/catalog?${query}`,
+        'member-token',
+      );
+      expect(response.body).toEqual({ error: 'CINEMA_ITEM_NOT_FOUND' });
+    }
+    for (const query of [
+      'key=cinemeta:movie:other',
+      'key=https://evil.example/x',
+      'key=cinemeta:movie:top&skip=-1',
+    ])
+      expect(
+        (await s.call('GET', `/v1/halls/${HALL}/stremio/catalog?${query}`, 'member-token')).status,
+      ).toBe(400);
+    expect(s.calls.some((call) => call.url.includes('evil'))).toBe(false);
+  });
+
+  it('opens a film’s details from Cinemeta when the add-on list cannot be read', async () => {
+    await s.link();
+    s.state.addonsBroken = true;
+    const details = await s.call(
+      'GET',
+      `/v1/halls/${HALL}/stremio/details?type=movie&id=tt1160419`,
+      'member-token',
+    );
+    expect(details.body).toMatchObject({ id: 'tt1160419', name: 'Dune', plot: 'Spice.' });
+    // The home still shows Cinemeta's rows.
+    const home = await s.call('GET', `/v1/halls/${HALL}/stremio/home`, 'member-token');
+    expect(home.body.rows.length).toBe(6);
   });
 
   it('plays a picked debrid stream without an IPTV account and never exposes its link', async () => {

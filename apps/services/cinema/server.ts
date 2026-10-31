@@ -10,7 +10,7 @@ import type { CinemaAuthority } from './authority';
 import type { ConfigStore } from './config-store';
 import { CinemaError, safeError } from './importer';
 import type { CinemaService } from './service';
-import { STREMIO_ID, STREMIO_TYPE } from './stremio';
+import { STREMIO_CATALOG_KEY, STREMIO_ID, STREMIO_TYPE } from './stremio';
 import { ingressLimit, TRUSTED_PROXIES } from '../shared/ingress';
 
 const socialId = z.string().regex(SOCIAL_ID_PATTERN);
@@ -269,6 +269,24 @@ export async function createCinemaServer(options: CinemaServerOptions) {
     const identity = await viewer(request, request.params.hallId);
     const { q } = z.object({ q: z.string().max(200) }).parse(request.query);
     return service.stremio.search(identity.communityId, q);
+  });
+
+  /** One page of a home row's catalog ("Tümü"), optionally one genre. */
+  server.get<Hall>('/v1/halls/:hallId/stremio/catalog', async (request) => {
+    const identity = await viewer(request, request.params.hallId);
+    const query = z
+      .object({
+        key: z.string().regex(STREMIO_CATALOG_KEY),
+        genre: z.string().min(1).max(60).optional(),
+        skip: z.coerce.number().int().min(0).max(5000).default(0),
+      })
+      .parse(request.query);
+    return service.stremio.catalogPage(
+      identity.communityId,
+      query.key,
+      query.genre ?? null,
+      query.skip,
+    );
   });
 
   server.get<Hall>('/v1/halls/:hallId/stremio/details', async (request) => {
