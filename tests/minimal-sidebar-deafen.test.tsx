@@ -58,14 +58,16 @@ const mount = () =>
   );
 it('deafen control reflects the deafened state in its icon, class and pressed state', () => {
   mount();
-  const idle = screen.getByRole('button', { name: 'Sağırlaştır' });
+  const idle = screen.getByRole('button', { name: 'Sağırlaştır · kısayol için sağ tıkla' });
   expect(idle.getAttribute('aria-pressed')).toBe('false');
   expect(idle.className).not.toContain('muted-control');
   expect(idle.querySelector('.lucide-headphones')).not.toBeNull();
   cleanup();
   f.snapshot.deafened = true;
   mount();
-  const active = screen.getByRole('button', { name: 'Sağırlaştırmayı kapat' });
+  const active = screen.getByRole('button', {
+    name: 'Sağırlaştırmayı kapat · kısayol için sağ tıkla',
+  });
   expect(active.getAttribute('aria-pressed')).toBe('true');
   expect(active.className).toContain('muted-control');
   expect(active.querySelector('.lucide-headphone-off')).not.toBeNull();

@@ -381,8 +381,8 @@ export const social: Catalog = {
   '{name} 25 MB sınırını aşıyor.': '{name} exceeds the 25 MB limit.',
   'Panoda eklenebilecek bir görsel veya dosya yok.':
     'There’s no image or file on the clipboard to attach.',
-  'Mesaj çok uzun. Biraz kısaltıp yeniden dene.':
-    'The message is too long. Shorten it a bit and try again.',
+  'Mesaj en fazla {max} karakter olabilir; bu {count} karakter.':
+    'A message can be at most {max} characters; this one is {count}.',
   'Mesaj oda hafızasına kaydedildi.': 'Message saved to room memory.',
   Kalp: 'Heart',
   Onay: 'Check',
@@ -424,6 +424,8 @@ export const social: Catalog = {
   'Asistanı etiketle': 'Mention the assistant',
   'Değişiklikleri kaydet': 'Save changes',
   'Mesajı gönder': 'Send message',
+  '{name} için mesaj yaz': 'Message {name}',
+  'Özel mesaj açılamadı. Yeniden dene.': 'Couldn’t open the direct message. Try again.',
   '{names} yazıyor…': {
     one: '{names} is typing…',
     other: '{names} are typing…',

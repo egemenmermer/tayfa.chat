@@ -1,5 +1,6 @@
 import { VoiceAvatar } from './VoiceAvatar';
 import { locale, t, uiError } from './i18n';
+import { chooseCroppedAvatar } from './AvatarCrop';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -302,8 +303,7 @@ export function AccountProfile({ notify }: { notify(message: string): void }) {
           disabled={busy}
           onClick={() => {
             setBusy(true);
-            void window
-              .rooms!.social.chooseAvatar()
+            void chooseCroppedAvatar()
               .then((photo) => {
                 if (photo) notify(t('Fotoğraf güncellendi.'));
               })
@@ -313,7 +313,7 @@ export function AccountProfile({ notify }: { notify(message: string): void }) {
         >
           {t('Fotoğraf değiştir')}
         </button>
-        <small>PNG, JPEG, WebP · 2 MB</small>
+        <small>PNG, JPEG, WebP · 10 MB</small>
       </div>
       <div className="profile-preview">
         <Avatar name={c.user?.displayName || c.user?.username || t('Sen')} size="large" />

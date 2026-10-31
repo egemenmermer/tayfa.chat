@@ -541,6 +541,17 @@
   min-height: 25px;
   font-size: 9px;
 }
+/* Characters left before Stoat's limit; red once the draft is over it. */
+.composer-foot .composer-count {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.composer-foot .composer-count.over {
+  color: var(--color-status-error);
+  font-weight: 600;
+}
 .app.voice-active .chat-page {
   padding-bottom: 0;
 }

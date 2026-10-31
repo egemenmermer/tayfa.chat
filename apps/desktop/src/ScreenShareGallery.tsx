@@ -26,7 +26,7 @@ export function ScreenShareGallery({
 }: {
   onWatch?(participantId: string | null): void;
   onVolume?(participantId: string, volume: number): void;
-  /** This viewer's screen quality for the session; the picker shows it on remote streams. */
+  /** This viewer's remembered screen quality; the picker shows it on remote streams. */
   quality?: ScreenViewQuality;
   onQuality?(quality: ScreenViewQuality): void;
   onClose?(): void;
@@ -237,7 +237,7 @@ export function ScreenQualityPicker({
             onChange(event.target.value === 'auto' ? 'auto' : Number(event.target.value));
         }}
       >
-        {!single && <option value="auto">{t('Otomatik')}</option>}
+        {!single && <option value="auto">{t('Otomatik (en yüksek)')}</option>}
         {choices.map((lines) => (
           <option key={lines} value={String(lines)}>
             {`${lines}p`}

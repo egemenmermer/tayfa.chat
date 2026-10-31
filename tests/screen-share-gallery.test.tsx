@@ -85,7 +85,7 @@ describe('viewer quality picker', () => {
     show({ quality: 'auto', onQuality: (value) => picks.push(value) });
     const picker = screen.getByRole('combobox', { name: 'Görüntü kalitesi' });
     expect([...(picker as HTMLSelectElement).options].map((option) => option.text)).toEqual([
-      'Otomatik',
+      'Otomatik (en yüksek)',
       '1080p',
       '720p',
       '360p',
@@ -159,7 +159,7 @@ describe('viewer quality picker', () => {
     );
     cleanup();
     show({ onQuality: () => {} });
-    expect(screen.getByRole('option', { name: 'Auto' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Auto (highest)' })).toBeTruthy();
   });
 });
 describe('viewer stream sound', () => {

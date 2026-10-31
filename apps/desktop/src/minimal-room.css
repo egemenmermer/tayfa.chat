@@ -157,6 +157,24 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The live badge opens that person's stream (MinimalSidebar). */
+.minimal-occupant > span.minimal-occupant-live {
+  display: inline-flex;
+  flex: none;
+  gap: 3px;
+  align-items: center;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #d93f4c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.minimal-occupant > span.minimal-occupant-live:hover {
+  background: #ec5462;
+}
 .minimal-occupant .avatar,
 .minimal-occupant .voice-photo {
   width: 22px;
@@ -450,6 +468,11 @@
   bottom: 0;
   z-index: 100;
   box-shadow: -12px 0 30px #0003;
+}
+/* Docked beside a channel on wide windows: part of the row, the conversation narrows. */
+.minimal-room-ui.members-docked .room-members-panel {
+  position: static;
+  box-shadow: none;
 }
 .minimal-room-ui .workspace {
   position: relative;

@@ -7,6 +7,31 @@ import type { ChannelNotificationScope, ChannelNotificationInput } from '@rooms/
 import { showWindow } from './window-state';
 import { t } from '@rooms/i18n';
 /** Opt-in, content-free notifications; never disclose messages or account/provider details. */
+/**
+ * Whether an incoming message notifies, and as what. Direct messages and mentions are
+ * "important": they notify by default (rc.36) even with every-message notifications off.
+ * Nothing shows while Tayfa is focused, for a muted channel, or right after another one.
+ */
+export function notifyKind(input: {
+  enabled: boolean;
+  important: boolean;
+  mentioned: boolean;
+  direct: boolean;
+  muted: boolean;
+  focused: boolean;
+  supported: boolean;
+  paused: boolean;
+  now: number;
+  lastMessage: number;
+  lastImportant: number;
+}): 'important' | 'message' | null {
+  const important = input.mentioned || input.direct;
+  if (input.muted || input.focused || !input.supported || input.paused) return null;
+  if (!input.enabled && !(important && input.important)) return null;
+  if (important) return input.now - input.lastImportant < 1500 ? null : 'important';
+  return input.now - input.lastMessage < 5000 ? null : 'message';
+}
+
 export function setupNotifications(
   getWindow: () => BrowserWindow | null,
   assertSender: (event: IpcMainInvokeEvent) => void,
@@ -14,6 +39,8 @@ export function setupNotifications(
 ) {
   const file = join(app.getPath('userData'), 'notifications.json');
   let enabled = false;
+  // Direct messages and mentions notify unless the member turned them off.
+  let important = true;
   let sound = false;
   let pauseDuringVoice = false;
   let voiceActiveUntil = 0;
@@ -27,6 +54,7 @@ export function setupNotifications(
   try {
     const saved = JSON.parse(readFileSync(file, 'utf8'));
     enabled = saved.enabled === true;
+    important = saved.important !== false;
     sound = saved.sound === true;
     pauseDuringVoice = saved.pauseDuringVoice === true;
     if (Array.isArray(saved.mutedChannels))
@@ -40,6 +68,7 @@ export function setupNotifications(
   }
   const status = () => ({
     enabled,
+    important,
     sound,
     pauseDuringVoice,
     supported: Notification.isSupported(),
@@ -48,7 +77,12 @@ export function setupNotifications(
     assertSender(event);
     return status();
   });
-  const save = (next: { enabled: boolean; sound: boolean; pauseDuringVoice: boolean }) => {
+  const save = (next: {
+    enabled: boolean;
+    important: boolean;
+    sound: boolean;
+    pauseDuringVoice: boolean;
+  }) => {
     const temporary = file + '.tmp';
     try {
       writeFileSync(temporary, JSON.stringify({ ...next, mutedChannels: [...mutedKeys] }), {
@@ -59,6 +93,7 @@ export function setupNotifications(
       rmSync(temporary, { force: true });
     }
     enabled = next.enabled;
+    important = next.important;
     sound = next.sound;
     pauseDuringVoice = next.pauseDuringVoice;
     return status();
@@ -66,17 +101,22 @@ export function setupNotifications(
   ipcMain.handle('rooms:notification-opt-in', (event, value) => {
     assertSender(event);
     if (typeof value !== 'boolean') throw new Error('Invalid notification preference.');
-    return save({ enabled: value, sound, pauseDuringVoice });
+    return save({ enabled: value, important, sound, pauseDuringVoice });
+  });
+  ipcMain.handle('rooms:notification-important', (event, value) => {
+    assertSender(event);
+    if (typeof value !== 'boolean') throw new Error('Invalid notification preference.');
+    return save({ enabled, important: value, sound, pauseDuringVoice });
   });
   ipcMain.handle('rooms:notification-sound', (event, value) => {
     assertSender(event);
     if (typeof value !== 'boolean') throw new Error('Invalid notification preference.');
-    return save({ enabled, sound: value, pauseDuringVoice });
+    return save({ enabled, important, sound: value, pauseDuringVoice });
   });
   ipcMain.handle('rooms:notification-pause-voice', (event, value) => {
     assertSender(event);
     if (typeof value !== 'boolean') throw new Error('Invalid notification preference.');
-    return save({ enabled, sound, pauseDuringVoice: value });
+    return save({ enabled, important, sound, pauseDuringVoice: value });
   });
   const checkedChannel = (event: IpcMainInvokeEvent, input: unknown): ChannelNotificationInput => {
     assertSender(event);
@@ -122,7 +162,7 @@ export function setupNotifications(
     } else candidate.delete(key);
     mutedKeys = candidate;
     try {
-      save({ enabled, sound, pauseDuringVoice });
+      save({ enabled, important, sound, pauseDuringVoice });
     } catch (error) {
       mutedKeys = previous;
       throw error;
@@ -211,26 +251,35 @@ export function setupNotifications(
       mentioned = false,
       /** Opens the message's channel when the notification is clicked. */
       open?: () => void,
+      /** A direct message or group conversation. */
+      direct = false,
     ) => {
-      if (scope && channelId && mutedKeys.has(channelKey(scope, channelId))) return;
-      const window = getWindow();
-      // Mentions have their own, shorter throttle: a message just before must not swallow them.
-      const last = mentioned ? lastMention : lastShown;
-      if (
-        !enabled ||
-        (pauseDuringVoice && voiceActiveUntil > Date.now()) ||
-        !Notification.isSupported() ||
-        window?.isFocused() ||
-        Date.now() - last < (mentioned ? 1500 : 5000)
-      )
-        return;
-      if (mentioned) lastMention = Date.now();
-      else lastShown = Date.now();
+      const now = Date.now();
+      // Mentions and DMs have their own, shorter throttle: a message just before must not
+      // swallow them.
+      const kind = notifyKind({
+        enabled,
+        important,
+        mentioned,
+        direct,
+        muted: !!scope && !!channelId && mutedKeys.has(channelKey(scope, channelId)),
+        focused: !!getWindow()?.isFocused(),
+        supported: Notification.isSupported(),
+        paused: pauseDuringVoice && voiceActiveUntil > now,
+        now,
+        lastMessage: lastShown,
+        lastImportant: lastMention,
+      });
+      if (!kind) return;
+      if (kind === 'important') lastMention = now;
+      else lastShown = now;
       const notification = new Notification({
         title: 'Tayfa',
-        body: mentioned
-          ? t('Topluluğunda biri seni etiketledi.')
-          : t('Topluluğunda yeni bir mesaj var.'),
+        body: direct
+          ? t('Yeni bir özel mesajın var.')
+          : mentioned
+            ? t('Topluluğunda biri seni etiketledi.')
+            : t('Topluluğunda yeni bir mesaj var.'),
         silent: !sound,
       });
       notification.on('click', () => {

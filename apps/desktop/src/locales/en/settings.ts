@@ -30,6 +30,13 @@ export const settings: Catalog = {
   'PROFİL ÖNİZLEMESİ': 'PROFILE PREVIEW',
   'Avatar sunucuda güncellendi.': 'Avatar updated on the server.',
   'Avatarı değiştir': 'Change avatar',
+  'Profil fotoğrafını ayarla': 'Adjust profile photo',
+  'Fotoğraf hazırlanamadı. Başka bir fotoğraf dene.':
+    'Couldn’t prepare the photo. Try another one.',
+  'Fotoğraf açılamadı. Başka bir fotoğraf dene.': 'Couldn’t open the photo. Try another one.',
+  'Fotoğraf kırpma alanı': 'Photo crop area',
+  'Fotoğrafı sürükleyerek konumlandır; ok tuşları kaydırır, + ve − yakınlaştırır.':
+    'Drag to position the photo; arrow keys move it, + and − zoom.',
   'Görünmez · yalnızca sen görürsün': 'Invisible · only you can see this',
   'Görünürlük durumu alınamadı': 'Couldn’t load your visibility status',
   'Bu cihaz · {platform}': 'This device · {platform}',
@@ -105,6 +112,9 @@ export const settings: Catalog = {
   'Mikrofonu dene': 'Test microphone',
   'Ses çıkışı': 'Audio output',
   'Oda giriş ve çıkış sesleri': 'Room join and leave sounds',
+  'Mikrofon, sağırlaştırma ve yayın sesleri': 'Microphone, deafen and stream sounds',
+  'Mikrofonunu veya sesini açıp kapattığında ve odanda bir yayın başlayıp bittiğinde kısa bir ses.':
+    'A short sound when you turn your microphone or sound on or off, and when a stream starts or ends in your room.',
   'Yalnızca bulunduğun odadaki hareketler.': 'Only for activity in the room you’re in.',
   'Kişisel giriş sesleri': 'Personal entrance sounds',
   'Kapalıyken herkes için klasik ses çalar.': 'When off, everyone hears the classic sound.',
@@ -189,6 +199,9 @@ export const settings: Catalog = {
   'Sistem bildirimleri bu ortamda kullanılamıyor.':
     'System notifications aren’t available in this environment.',
   'Bildirim sesleri': 'Notification sounds',
+  'Özel mesajlar ve etiketlenmeler': 'Direct messages and mentions',
+  'Biri sana özel mesaj attığında ya da seni etiketlediğinde, diğer mesajlar kapalı olsa da haber verir.':
+    'Tells you when someone sends you a direct message or mentions you, even with other messages off.',
   'Sistem bildirim sesini kullanır.': 'Uses the system notification sound.',
   'Görüşmedeyken bildirimleri duraklat': 'Pause notifications during calls',
   'Ses bağlantısı sürerken masaüstü bildirimlerini göstermez.':
@@ -869,4 +882,6 @@ export const settings: Catalog = {
     'After noise reduction, brings quiet and loud speech closer together.',
   'Gürültü azaltma kapalıyken sistemin otomatik kazancı çalışır; dengeleme kullanılmaz.':
     'With noise reduction off, the system’s automatic gain runs instead; leveling isn’t used.',
+  '{label} ({key})': '{label} ({key})',
+  '{label} · kısayol için sağ tıkla': '{label} · right-click to set a shortcut',
 };

@@ -8,6 +8,7 @@ import {
   ipcMain,
   Menu,
   nativeImage,
+  nativeTheme,
   protocol,
   session,
   Tray,
@@ -24,6 +25,8 @@ import { setupCommunity } from './community';
 import { createStudioHttp } from './studio-http';
 import { studioExportFileName, validateStudioExport } from './studio-export';
 import { setupNotifications } from './notifications';
+import { trayImage, windowsLightTaskbar } from './tray-icon';
+import { WINDOWS_APP_ID } from './windows-app-id';
 import { setupWindowPolicy } from './window-policy';
 import { readWindowState, showRestored, showWindow, trackWindowState } from './window-state';
 import {
@@ -94,6 +97,7 @@ const devUrl =
 // `pnpm dev` serves the renderer from Vite and never builds dist/, so read static images from public/.
 const appImage = (name: string) =>
   nativeImage.createFromPath(join(__dirname, devUrl ? '../apps/desktop/public' : '../dist', name));
+if (process.platform === 'win32') app.setAppUserModelId(WINDOWS_APP_ID);
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'rooms-provider',
@@ -155,6 +159,8 @@ function createWindow() {
     backgroundColor: '#141518',
     show: false,
     title: 'Tayfa',
+    // macOS takes the bundle icon; elsewhere the window would show Electron's.
+    ...(process.platform === 'darwin' ? {} : { icon: appImage('icon.png') }),
     ...windowFrameOptions(process.platform),
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),
@@ -653,11 +659,22 @@ app.whenReady().then(async () => {
   createWindow();
   const dockIcon = appImage('icon.png');
   if (process.platform === 'darwin' && !dockIcon.isEmpty()) app.dock?.setIcon(dockIcon);
-  const icon = appImage('tray.png');
-  icon.setTemplateImage(true);
-  if (!icon.isEmpty()) {
-    tray = new Tray(icon);
+  const glyph = appImage('tray.png');
+  if (!glyph.isEmpty()) {
+    tray = new Tray(trayImage(glyph, process.platform, false));
     tray.setToolTip('Tayfa');
+    // Windows opens a tray app with a click; the right-click menu stays.
+    if (process.platform === 'win32') {
+      const open = () => (win ? showWindow(win) : createWindow());
+      tray.on('click', open);
+      tray.on('double-click', open);
+      const follow = () =>
+        void windowsLightTaskbar().then((light) => {
+          if (tray && !tray.isDestroyed()) tray.setImage(trayImage(glyph, 'win32', light));
+        });
+      follow();
+      nativeTheme.on('updated', follow);
+    }
     applyMenus();
   }
   app.on('activate', () => {

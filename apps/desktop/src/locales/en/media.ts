@@ -178,6 +178,7 @@ export const media: Catalog = {
   'Paylaşımı tam ekran izle': 'Watch the share full screen',
   'Görüntü kalitesi': 'Video quality',
   Otomatik: 'Auto',
+  'Otomatik (en yüksek)': 'Auto (highest)',
   'Bu yayın tek kalitede geliyor; seçilecek başka kalite yok.':
     'This stream comes in a single quality; there is no other quality to choose.',
   'Yayın kalitesi seçimi kullanılamıyor.': 'Stream quality selection is unavailable.',
@@ -800,4 +801,6 @@ export const media: Catalog = {
   'Yayın kesilmeden seçtiğin pencereye veya ekrana geçer; izleyenler yerinde kalır.':
     'Switches to the window or screen you pick without interrupting the stream; viewers stay connected.',
   'Bu kaynağa geç': 'Switch to this source',
+  '{name} sesini yalnız sen dinle': 'Listen to {name} yourself',
+  'Dene: yalnız sen duyarsın': 'Try: only you hear it',
 };

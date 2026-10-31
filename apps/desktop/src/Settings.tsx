@@ -5,6 +5,7 @@ import { mediaProvider } from './runtime-sources';
 import { NoiseComparison } from './NoiseComparison';
 import { createNoiseSuppressionNode, selectedInputLabel } from '@rooms/media';
 import { locale, t, tr, uiError } from './i18n';
+import { chooseCroppedAvatar } from './AvatarCrop';
 import type { DesktopBridge } from '@rooms/contracts';
 import { ChannelNotifications } from './ChannelNotifications';
 import { DesktopWindowSettings } from './DesktopWindowSettings';
@@ -307,7 +308,7 @@ function ReferenceAccount({ notify, onClose }: { notify(message: string): void; 
                     setBusy(true);
                     setError('');
                     try {
-                      const user = await window.rooms!.social.chooseAvatar();
+                      const user = await chooseCroppedAvatar();
                       if (user) {
                         useCommunity.setState({ user });
                         notify(t('Avatar sunucuda güncellendi.'));
@@ -573,7 +574,7 @@ export default function Settings({
     deafen: p.deafenKey === savedPreferences.deafenKey ? registered?.deafen : null,
   };
   // What the draft started from. Other writers change the store while Settings is open
-  // (the microphone keeps microphoneOn, a narrow window keeps showFriends); comparing with
+  // (the microphone keeps microphoneOn, the members panel keeps memberPanel); comparing with
   // this instead of the live store keeps their changes out of "unsaved" and out of Save.
   const baseline = useRef({ ...savedPreferences });
   const setPreference = <K extends keyof typeof p>(key: K, value: (typeof p)[K]) =>
@@ -797,6 +798,7 @@ export default function Settings({
   const [autoStart, setAutoStart] = useState(false);
   const [notifications, setNotifications] = useState<{
     enabled: boolean;
+    important: boolean;
     sound: boolean;
     pauseDuringVoice: boolean;
     supported: boolean;
@@ -1350,8 +1352,8 @@ export default function Settings({
                 >
                   <Toggle
                     label={t('Üye panelini göster')}
-                    value={p.showFriends}
-                    onChange={(v) => setPreference('showFriends', v)}
+                    value={p.memberPanel}
+                    onChange={(v) => setPreference('memberPanel', v)}
                   />
                 </Row>
                 <div className="ref-settings-bottom">
@@ -1491,6 +1493,18 @@ export default function Settings({
                         label={t('Oda giriş ve çıkış sesleri')}
                         value={p.roomEventSounds}
                         onChange={(value) => setPreference('roomEventSounds', value)}
+                      />
+                    </Row>
+                    <Row
+                      title={t('Mikrofon, sağırlaştırma ve yayın sesleri')}
+                      description={t(
+                        'Mikrofonunu veya sesini açıp kapattığında ve odanda bir yayın başlayıp bittiğinde kısa bir ses.',
+                      )}
+                    >
+                      <Toggle
+                        label={t('Mikrofon, sağırlaştırma ve yayın sesleri')}
+                        value={p.voiceCues}
+                        onChange={(value) => setPreference('voiceCues', value)}
                       />
                     </Row>
                     <Row
@@ -1906,6 +1920,28 @@ export default function Settings({
                       />
                     </Row>
                     <Row
+                      title={t('Özel mesajlar ve etiketlenmeler')}
+                      description={t(
+                        'Biri sana özel mesaj attığında ya da seni etiketlediğinde, diğer mesajlar kapalı olsa da haber verir.',
+                      )}
+                    >
+                      <Toggle
+                        label={t('Özel mesajlar ve etiketlenmeler')}
+                        value={notifications?.important ?? true}
+                        disabled={!notifications?.supported || notificationBusy}
+                        onChange={async (value) => {
+                          setNotificationBusy(true);
+                          try {
+                            setNotifications(await notificationApi!.setImportant(value));
+                          } catch (e) {
+                            setError(uiError(e));
+                          } finally {
+                            setNotificationBusy(false);
+                          }
+                        }}
+                      />
+                    </Row>
+                    <Row
                       title={t('Bildirim sesleri')}
                       description={t('Sistem bildirim sesini kullanır.')}
                     >
@@ -1913,7 +1949,9 @@ export default function Settings({
                         label={t('Bildirim sesleri')}
                         value={notifications?.sound ?? false}
                         disabled={
-                          !notifications?.supported || !notifications.enabled || notificationBusy
+                          !notifications?.supported ||
+                          (!notifications.enabled && !notifications.important) ||
+                          notificationBusy
                         }
                         onChange={async (value) => {
                           setNotificationBusy(true);

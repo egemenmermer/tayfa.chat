@@ -102,19 +102,40 @@ export interface DesktopBridge {
     ): Promise<{ muted: boolean }>;
     status(): Promise<{
       enabled: boolean;
+      /** Direct messages and mentions notify even with every-message notifications off. */
+      important: boolean;
       sound: boolean;
       pauseDuringVoice: boolean;
       supported: boolean;
     }>;
-    setOptIn(
-      value: boolean,
-    ): Promise<{ enabled: boolean; sound: boolean; pauseDuringVoice: boolean; supported: boolean }>;
-    setSound(
-      value: boolean,
-    ): Promise<{ enabled: boolean; sound: boolean; pauseDuringVoice: boolean; supported: boolean }>;
-    setPauseDuringVoice(
-      value: boolean,
-    ): Promise<{ enabled: boolean; sound: boolean; pauseDuringVoice: boolean; supported: boolean }>;
+    setOptIn(value: boolean): Promise<{
+      enabled: boolean;
+      important: boolean;
+      sound: boolean;
+      pauseDuringVoice: boolean;
+      supported: boolean;
+    }>;
+    setImportant(value: boolean): Promise<{
+      enabled: boolean;
+      important: boolean;
+      sound: boolean;
+      pauseDuringVoice: boolean;
+      supported: boolean;
+    }>;
+    setSound(value: boolean): Promise<{
+      enabled: boolean;
+      important: boolean;
+      sound: boolean;
+      pauseDuringVoice: boolean;
+      supported: boolean;
+    }>;
+    setPauseDuringVoice(value: boolean): Promise<{
+      enabled: boolean;
+      important: boolean;
+      sound: boolean;
+      pauseDuringVoice: boolean;
+      supported: boolean;
+    }>;
     setVoiceActive(value: boolean): Promise<void>;
     /** A content-free OS notification for an incoming private call (not while focused). */
     incomingCall?(): Promise<void>;
@@ -376,6 +397,13 @@ export interface SocialBridge {
   downloadAttachment(channelId: string, messageId: string, fileId: string): Promise<boolean>;
   avatar(userId: string): Promise<string | null>;
   chooseAvatar(): Promise<import('@rooms/social').SocialUser | null>;
+  /** Opens the photo picker and returns the chosen image (PNG, JPEG or WebP up to 10 MB) to crop. */
+  pickAvatarFile?(): Promise<{ name: string; mime: string; bytes: Uint8Array } | null>;
+  /** Uploads a cropped avatar (PNG, JPEG or WebP up to 2 MB) and returns the updated account. */
+  uploadAvatar?(
+    bytes: Uint8Array,
+    mime: string,
+  ): Promise<import('@rooms/social').SocialUser | null>;
   channelPermissions(channelId: string): Promise<import('@rooms/social').SocialChannelPermissions>;
   setChannelPermissions(
     change: import('@rooms/social').SocialChannelPermissionChange,

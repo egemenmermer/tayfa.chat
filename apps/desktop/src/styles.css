@@ -7027,8 +7027,30 @@ body,
   transition: opacity 0.12s;
 }
 .soundboard-grid .sb-tile:hover .sb-actions,
-.soundboard-grid .sb-tile:focus-within .sb-actions {
+.soundboard-grid .sb-tile:focus-within .sb-actions,
+.soundboard-grid .sb-tile:hover .sb-preview,
+.soundboard-grid .sb-tile:focus-within .sb-preview {
   opacity: 1;
+}
+/* "Dene": hear a sound yourself first; top-left, the tile's own actions are top-right. */
+.soundboard-grid .sb-preview {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 6px;
+  background: #14161ccc;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.soundboard-grid .sb-preview:hover:not(:disabled) {
+  background: #2a2e38;
+  color: var(--text);
 }
 .soundboard-grid .sb-actions button {
   display: grid;

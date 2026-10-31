@@ -17,6 +17,7 @@ import {
   UserProfileDialog,
 } from './SocialSurfaces';
 import { RoomMembers } from './RoomMembers';
+import { memberPanel } from './member-panel';
 import { prefetchRoomMembers } from './room-members';
 import { FriendsPage } from './FriendsPage';
 import { FriendRequiredDialog } from './FriendRequiredDialog';
@@ -244,19 +245,11 @@ export default function App() {
   const localFixture = import.meta.env.DEV
     ? (document.documentElement.dataset.referenceFixture ?? '')
     : '';
-  const contextVisible = contextDrawerOpen;
   useEffect(() => {
     const show = () => setOverlay('launcher');
     window.addEventListener('rooms:open-activity-launcher', show);
     return () => window.removeEventListener('rooms:open-activity-launcher', show);
   }, []);
-  const toggleContext = useCallback(() => {
-    setContextDrawerOpen((value) => !value);
-  }, []);
-  const closeContext = useCallback(() => {
-    setContextDrawerOpen(false);
-    if (!narrowContext) setPreference('showFriends', false);
-  }, [narrowContext, setPreference]);
   useEffect(() => {
     const query = matchMedia('(max-width:1279px)');
     const resize = () => {
@@ -345,6 +338,23 @@ export default function App() {
   const dmView =
     ['/chat', '/dm'].includes(visiblePath) &&
     community.dms.some((dm) => dm.id === community.activeChannelId);
+  const members = memberPanel({
+    narrow: narrowContext,
+    channel: (visiblePath === '/chat' && !dmView) || voiceView,
+    settings: settingsPage,
+    docked: p.memberPanel,
+    drawerOpen: contextDrawerOpen,
+  });
+  const membersDocked = members.docked;
+  const contextVisible = members.visible;
+  const toggleContext = useCallback(() => {
+    if (members.toggles === 'drawer') setContextDrawerOpen((value) => !value);
+    else setPreference('memberPanel', !p.memberPanel);
+  }, [members.toggles, p.memberPanel, setPreference]);
+  const closeContext = useCallback(() => {
+    if (contextDrawerOpen) setContextDrawerOpen(false);
+    else setPreference('memberPanel', false);
+  }, [contextDrawerOpen, setPreference]);
   const warmMembers = () => {
     if (!dmView)
       prefetchRoomMembers(community.serverUrl, community.user?.id, community.activeSpaceId);
@@ -584,7 +594,7 @@ export default function App() {
     );
   return (
     <div
-      className={`app minimal-room-ui ${hallView ? 'hall-mode' : ''} ${voiceView ? 'voice-mode' : ''} ${mediaView ? 'personal-media-mode' : ''} ${communityView ? 'community-mode' : ''} ${visiblePath === '/chat' || visiblePath === '/dm' ? 'chat-mode' : ''} ${realtime.channelId ? 'voice-active' : ''} ${channelNavOpen ? 'channel-nav-open' : ''} ${contextDrawerOpen ? 'context-drawer-open' : ''}`}
+      className={`app minimal-room-ui ${hallView ? 'hall-mode' : ''} ${voiceView ? 'voice-mode' : ''} ${mediaView ? 'personal-media-mode' : ''} ${communityView ? 'community-mode' : ''} ${visiblePath === '/chat' || visiblePath === '/dm' ? 'chat-mode' : ''} ${realtime.channelId ? 'voice-active' : ''} ${channelNavOpen ? 'channel-nav-open' : ''} ${contextDrawerOpen ? 'context-drawer-open' : ''} ${membersDocked ? 'members-docked' : ''}`}
     >
       {<PushToTalk notify={notify} />}
       <GlobalShortcuts notify={notify} />

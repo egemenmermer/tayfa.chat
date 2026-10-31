@@ -22,6 +22,7 @@ import { VoiceAvatar } from './VoiceAvatar';
 import { useCommunity } from './community';
 import { useRooms } from './store';
 import { t, uiError } from './i18n';
+import { chooseCroppedAvatar } from './AvatarCrop';
 import './reference-onboarding.css';
 
 export type ReferenceOnboardingMode =
@@ -529,7 +530,7 @@ export function ReferenceOnboarding({ mode, onNavigate, onComplete }: ReferenceO
     setError('');
     try {
       // Null means the picker was cancelled.
-      const user = await window.rooms!.social.chooseAvatar();
+      const user = await chooseCroppedAvatar();
       if (user && epoch === request.current) useCommunity.setState({ user });
     } catch (e) {
       if (epoch === request.current) setError(uiError(e));

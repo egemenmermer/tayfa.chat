@@ -31,6 +31,7 @@ describe('isolated S67 development fixtures', () => {
     await fixture.notifications.setSound(false);
     expect(await fixture.notifications.status()).toEqual({
       enabled: true,
+      important: true,
       sound: false,
       pauseDuringVoice: true,
       supported: true,

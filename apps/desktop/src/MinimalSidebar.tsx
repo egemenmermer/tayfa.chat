@@ -1,6 +1,6 @@
 import { SoundboardButton } from './Soundboard';
 import { CinemaReminders } from './cinema/CinemaReminders';
-import { useEffect, useId, useState, type DragEvent, type ReactNode } from 'react';
+import { useEffect, useId, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   HeadphoneOff,
@@ -55,6 +55,17 @@ import { UpdateNotice } from './UpdateNotice';
 import { HallBackground } from './cinema/HallBackground';
 import { HallSidebarRow } from './cinema/HallSidebarRow';
 import { useCommunityCinema } from './cinema/cinema-status';
+import { memberAccount } from './room-members';
+import { useRooms } from './store';
+import { formatPushToTalkKey, parsePushToTalkKey } from './push-to-talk-key';
+
+/** A control's name with its keyboard shortcut, or how to set one. */
+function withShortcut(label: string, key: string) {
+  const parsed = parsePushToTalkKey(key);
+  return parsed
+    ? t('{label} ({key})', { label, key: formatPushToTalkKey(parsed) })
+    : t('{label} · kısayol için sağ tıkla', { label });
+}
 import './sidebar-nav.css';
 import {
   VOICE_MEMBER_DRAG,
@@ -269,9 +280,23 @@ export function MinimalSidebar({
   const c = useCommunity(),
     r = useRealtime(),
     navigate = useNavigate(),
-    location = useLocation();
+    location = useLocation(),
+    prefs = useRooms((state) => state.preferences);
+  // Right-click on the microphone or deafen button leads to their shortcuts.
+  const openShortcuts = (event: MouseEvent) => {
+    event.preventDefault();
+    navigate('/settings?tab=audio');
+  };
 
   const [person, setPerson] = useState<SocialUser | null>(null);
+  // Voice participants carry only an id and a name; the profile opens at once and then takes
+  // the member's account (username and tag) so "Arkadaş ekle" can send a request.
+  const openPerson = (id: string, name: string) => {
+    setPerson({ id, username: name, displayName: name, avatar: null });
+    void memberAccount(c.serverUrl, c.user?.id, c.activeSpaceId, id).then((account) => {
+      if (account) setPerson((current) => (current?.id === id ? account : current));
+    });
+  };
   const [joining, setJoining] = useState(false);
   const [memberMenu, setMemberMenu] = useState<
       (VoiceMemberTarget & { x: number; y: number }) | null
@@ -319,6 +344,42 @@ export function MinimalSidebar({
     run(c.openChannel(id));
     run(joinVoice(id, name));
   };
+  // The live badge on a member opens their stream, like Discord. Outside that room it joins first
+  // and opens the stream as soon as the room lists it.
+  const [pendingStream, setPendingStream] = useState<{ room: string; person: string } | null>(null);
+  const streamOf = (person: string) =>
+    r.tracks.find(
+      (track) =>
+        track.participantId === person && track.source === 'screen_share' && track.kind === 'video',
+    );
+  const watchUrl = (trackId: string) => `/voice?view=share&screen=${encodeURIComponent(trackId)}`;
+  const openStream = (room: string, roomName: string, person: string) => {
+    const track = r.channelId === room && r.status === 'connected' ? streamOf(person) : undefined;
+    if (track) {
+      navigate(watchUrl(track.id));
+      return;
+    }
+    setPendingStream({ room, person });
+    if (r.channelId === room) navigate('/voice');
+    else enter(room, roomName);
+  };
+  useEffect(() => {
+    if (!pendingStream) return;
+    const track =
+      r.channelId === pendingStream.room && r.status === 'connected'
+        ? streamOf(pendingStream.person)
+        : undefined;
+    if (track) {
+      setPendingStream(null);
+      navigate(watchUrl(track.id));
+    } else if (r.error) setPendingStream(null);
+  });
+  useEffect(() => {
+    if (!pendingStream) return;
+    // A stream that ended while joining leaves the listener in the room, on the voice page.
+    const timer = setTimeout(() => setPendingStream(null), 15000);
+    return () => clearTimeout(timer);
+  }, [pendingStream]);
   return (
     <ChannelTools>
       <aside id="rooms-navigation" className="minimal-sidebar" aria-label={t('Odalar ve gezinme')}>
@@ -492,9 +553,12 @@ export function MinimalSidebar({
                       data-voice-participant-id={p.id}
                       key={p.id}
                       className={`minimal-occupant ${'speaking' in p && p.speaking && !p.muted && !silenced ? 'speaking' : ''}`}
-                      onClick={() =>
-                        setPerson({ id: p.id, username: p.name, displayName: p.name, avatar: null })
-                      }
+                      onClick={(event) => {
+                        const live = 'screen' in p && p.screen === true;
+                        if (live && (event.target as Element).closest('[data-live-badge]'))
+                          openStream(ch.id, ch.name, p.id);
+                        else openPerson(p.id, p.name);
+                      }}
                       draggable={rights.moveMembers && p.id !== c.user?.id}
                       onDragStart={(event) => {
                         event.dataTransfer.effectAllowed = 'move';
@@ -540,7 +604,14 @@ export function MinimalSidebar({
                       <VoiceAvatar id={p.id} name={p.name} />
                       <span title={p.name}>{p.name}</span>
                       {'screen' in p && p.screen === true && (
-                        <MonitorUp size={13} aria-label={t('Ekran paylaşıyor')} />
+                        <span
+                          className="minimal-occupant-live"
+                          data-live-badge=""
+                          title={t('Yayını izle')}
+                        >
+                          <MonitorUp size={11} aria-hidden="true" />
+                          {t('CANLI')}
+                        </span>
                       )}
                       {silenced && (
                         <VolumeX size={12} aria-label={t('Sesini kapattın, yalnızca sende')} />
@@ -653,7 +724,11 @@ export function MinimalSidebar({
           {(r.channelId || r.busy) && (
             <div className="minimal-voice-controls">
               <IconButton
-                label={r.muted ? t('Mikrofonu aç') : t('Mikrofonu kapat')}
+                label={withShortcut(
+                  r.muted ? t('Mikrofonu aç') : t('Mikrofonu kapat'),
+                  prefs.muteKey,
+                )}
+                onContextMenu={openShortcuts}
                 // While reconnecting the microphone can still be muted (not unmuted).
                 disabled={
                   (r.status !== 'connected' && !(r.status === 'reconnecting' && !r.muted)) || r.busy
@@ -663,7 +738,11 @@ export function MinimalSidebar({
                 {r.muted ? <MicOff size={17} /> : <Mic size={17} />}
               </IconButton>
               <IconButton
-                label={r.deafened ? t('Sağırlaştırmayı kapat') : t('Sağırlaştır')}
+                label={withShortcut(
+                  r.deafened ? t('Sağırlaştırmayı kapat') : t('Sağırlaştır'),
+                  prefs.deafenKey,
+                )}
+                onContextMenu={openShortcuts}
                 aria-pressed={r.deafened}
                 className={r.deafened ? 'muted-control' : ''}
                 disabled={r.status !== 'connected' || r.busy}
@@ -690,14 +769,7 @@ export function MinimalSidebar({
           rooms={voices}
           rights={rights}
           notify={notify}
-          onProfile={() =>
-            setPerson({
-              id: memberMenu.id,
-              username: memberMenu.name,
-              displayName: memberMenu.name,
-              avatar: null,
-            })
-          }
+          onProfile={() => openPerson(memberMenu.id, memberMenu.name)}
           onClose={() => setMemberMenu(null)}
         />
       )}

@@ -61,6 +61,8 @@ export interface CommunityState {
   send(content: string, attachments?: SocialAttachment[]): Promise<void>;
   reactMessage(id: string, emoji: string): Promise<void>;
   retryMessage(id: string): Promise<void>;
+  /** Drops a message that failed to send; it never reached the server. */
+  discardMessage(id: string): void;
   editMessage(id: string, content: string): Promise<void>;
   deleteMessage(id: string): Promise<void>;
   loadOlder(): Promise<void>;
@@ -482,6 +484,17 @@ export const useCommunity = create<CommunityState>((set, get) => ({
     } catch (error) {
       if (current()) throw error;
     }
+  },
+  discardMessage: (id) => {
+    const message = get().messages.find((m) => m.id === id && m.delivery === 'failed');
+    if (!message) return;
+    set((state) => ({ messages: state.messages.filter((m) => m.id !== id) }));
+    const cached = conversations.get(message.channelId);
+    if (cached)
+      conversations.put(message.channelId, {
+        ...cached,
+        messages: cached.messages.filter((m) => m.id !== id),
+      });
   },
   retryMessage: async (id) => {
     const message = get().messages.find((m) => m.id === id && m.delivery === 'failed');

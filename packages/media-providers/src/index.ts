@@ -64,6 +64,22 @@ import {
   isPersonalSoundId,
 } from '../../shared-contracts/src/personal-sounds';
 
+/**
+ * Adaptive stream sizes a remote video to its element at 1x density, so a watched screen in a
+ * normal window (or on a 150% scaled Windows display) came in at 540p or 720p. A screen share asks
+ * for four times its element size instead: Otomatik gets the top layer and the server steps down
+ * only when the network cannot carry it, while a hidden share still pauses. Cameras are unchanged.
+ */
+const SCREEN_PIXEL_DENSITY = 4;
+function fullSizeScreen(track: unknown) {
+  if (!track || typeof track !== 'object' || !('adaptiveStreamSettings' in track)) return;
+  const video = track as { adaptiveStreamSettings?: object };
+  if (video.adaptiveStreamSettings)
+    video.adaptiveStreamSettings = {
+      ...video.adaptiveStreamSettings,
+      pixelDensity: SCREEN_PIXEL_DENSITY,
+    };
+}
 export interface MediaParticipant {
   id: string;
   name: string;
@@ -120,7 +136,7 @@ export interface MediaSnapshot {
   sharingAudio?: boolean;
   /** Quality preset this client's screen share was published with; null while not sharing. */
   sharingQuality?: ScreenShareQuality | null;
-  /** This viewer's screen share quality for the app session; 'auto' until they pick one. */
+  /** This viewer's screen share quality; 'auto' until they pick one (the desktop remembers it). */
   screenQuality?: ScreenViewQuality;
   audioBlocked: boolean;
   inputDeviceFallback?: boolean;
@@ -979,7 +995,10 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
         publication.setSubscribed(false);
         return;
       }
-      if (publication.source === Track.Source.ScreenShare) this.applyScreenQuality();
+      if (publication.source === Track.Source.ScreenShare) {
+        fullSizeScreen(track);
+        this.applyScreenQuality();
+      }
       if (track.kind === Track.Kind.Audio && typeof document !== 'undefined') {
         const element = track.attach();
         element.hidden = true;

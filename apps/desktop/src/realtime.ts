@@ -6,6 +6,7 @@ import { useSyncExternalStore } from 'react';
 import { type NoiseSuppressionMode, type MediaSnapshot, type MusicEqualizer } from '@rooms/media';
 import { mediaProvider, mediaBridge } from './runtime-sources';
 import { useRooms } from './store';
+import { playVoiceCue } from './voice-cues';
 export const useVoiceContext = create<{
   channelId: string | null;
   roomName: string | null;
@@ -428,6 +429,8 @@ export function joinVoice(channelId: string, roomName: string): Promise<void> {
         throw new Error(t('Önce özel görüşmeyi bitir.'));
       activeChannel = channelId;
       await mediaProvider().connectRoom(grant.roomName, grant.token, grant.serverUrl);
+      // The viewer's stream quality is remembered across rooms and restarts.
+      mediaProvider().setScreenQuality?.(useRooms.getState().preferences.screenQuality);
       if (keepDeafened && current()) {
         await mediaProvider().deafen(true);
         announceDeafen(channelId, true);
@@ -509,6 +512,7 @@ export async function toggleMic() {
     const muted = !mediaProvider().snapshot().muted;
     await mediaProvider().mute(muted);
     desiredMuted = muted;
+    playVoiceCue(muted ? 'mic-off' : 'mic-on');
     useRooms.getState().setPreference('microphoneOn', !muted);
     if (mediaProvider().snapshot().inputDeviceFallback)
       useRooms.getState().setPreference('inputId', '');
@@ -525,6 +529,7 @@ export async function toggleDeafen() {
   await run(async () => {
     const deafened = !mediaProvider().snapshot().deafened;
     await mediaProvider().deafen(deafened);
+    playVoiceCue(deafened ? 'deafen-on' : 'deafen-off');
     announceDeafen(activeChannel, deafened);
   });
 }
@@ -653,11 +658,12 @@ export function setScreenVolume(id: string, volume: number) {
   if (!provider.setScreenVolume) throw Error(t('Yayın sesi kontrolü kullanılamıyor.'));
   provider.setScreenVolume(id, volume);
 }
-/** Caps the screen shares this viewer receives for the app session ('auto' or lines, e.g. 720). */
+/** Caps the screen shares this viewer receives ('auto' or lines, e.g. 720) and remembers it. */
 export function setScreenQuality(quality: import('@rooms/media').ScreenViewQuality) {
   const provider = mediaProvider();
   if (!provider.setScreenQuality) throw Error(t('Yayın kalitesi seçimi kullanılamıyor.'));
   provider.setScreenQuality(quality);
+  useRooms.getState().setPreference('screenQuality', quality);
 }
 export const startRoomAudio = () => run(() => mediaProvider().startAudio());
 /** This listener's own DJ bass/mid/treble; null where the media provider cannot equalize. */
