@@ -97,6 +97,7 @@ export async function setupCommunity(
     channelId: string,
     mentioned?: boolean,
     open?: () => void,
+    direct?: boolean,
   ) => void = () => {},
   onServerAlert: (message: string, open: () => void) => void = () => {},
 ) {
@@ -269,6 +270,7 @@ export async function setupCommunity(
             () => {
               if (client === next) emit({ type: 'OPEN_CHANNEL', data: { channelId } });
             },
+            next.isDirectMessage(channelId),
           );
         }
       }

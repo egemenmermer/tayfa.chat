@@ -189,6 +189,9 @@ export const settings: Catalog = {
   'Sistem bildirimleri bu ortamda kullanılamıyor.':
     'System notifications aren’t available in this environment.',
   'Bildirim sesleri': 'Notification sounds',
+  'Özel mesajlar ve etiketlenmeler': 'Direct messages and mentions',
+  'Biri sana özel mesaj attığında ya da seni etiketlediğinde, diğer mesajlar kapalı olsa da haber verir.':
+    'Tells you when someone sends you a direct message or mentions you, even with other messages off.',
   'Sistem bildirim sesini kullanır.': 'Uses the system notification sound.',
   'Görüşmedeyken bildirimleri duraklat': 'Pause notifications during calls',
   'Ses bağlantısı sürerken masaüstü bildirimlerini göstermez.':

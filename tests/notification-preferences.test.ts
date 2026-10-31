@@ -136,6 +136,7 @@ describe('native notification preferences', () => {
     expect(mock.shown).toHaveLength(1);
     expect(JSON.parse(mock.saved)).toEqual({
       enabled: true,
+      important: true,
       sound: false,
       pauseDuringVoice: true,
       mutedChannels: [],
@@ -166,6 +167,7 @@ describe('native notification preferences', () => {
     service.message();
     expect(invoke('status')).toEqual({
       enabled: true,
+      important: true,
       sound: true,
       pauseDuringVoice: false,
       supported: true,
@@ -201,17 +203,47 @@ describe('native notification preferences', () => {
 });
 it('uses content-free mention copy while preserving opt-out and channel mute preferences', () => {
   const service = setup();
-  service.message(scope, 'chat', true);
+  // Every-message notifications start off, and a plain message stays quiet.
+  service.message(scope, 'chat');
   expect(mock.shown).toHaveLength(0);
-  invoke('opt-in', true);
   invoke('channel-mute', { ...scope, channelId: 'chat', muted: true });
   service.message(scope, 'chat', true);
   expect(mock.shown).toHaveLength(0);
   invoke('channel-mute', { ...scope, channelId: 'chat', muted: false });
+  // A mention notifies by default, without its contents.
   service.message(scope, 'chat', true);
   expect(mock.shown).toEqual([
     { title: 'Tayfa', body: 'Topluluğunda biri seni etiketledi.', silent: true },
   ]);
+});
+
+it('notifies direct messages and mentions by default until the member turns them off', () => {
+  const service = setup();
+  vi.useFakeTimers();
+  try {
+    service.message(scope, 'dm-1', false, undefined, true);
+    expect(mock.shown.at(-1)).toEqual({
+      title: 'Tayfa',
+      body: 'Yeni bir özel mesajın var.',
+      silent: true,
+    });
+    // Not while Tayfa is in front, and not twice within 1.5 s.
+    mock.focused = true;
+    vi.advanceTimersByTime(2000);
+    service.message(scope, 'dm-1', false, undefined, true);
+    mock.focused = false;
+    service.message(scope, 'dm-1', false, undefined, true);
+    service.message(scope, 'dm-1', false, undefined, true);
+    expect(mock.shown).toHaveLength(2);
+    expect(invoke('important', false)).toMatchObject({ important: false });
+    vi.advanceTimersByTime(2000);
+    service.message(scope, 'dm-1', false, undefined, true);
+    service.message(scope, 'chat', true);
+    expect(mock.shown).toHaveLength(2);
+    expect(JSON.parse(mock.saved)).toMatchObject({ important: false });
+  } finally {
+    vi.useRealTimers();
+  }
 });
 describe('notification delivery', () => {
   it('shows a server alert for admins even with chat notifications off', () => {

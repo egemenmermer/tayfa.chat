@@ -1988,6 +1988,11 @@ export class StoatClient {
       );
     }
   }
+  /** A direct message or group conversation (not a community channel), from the known list. */
+  isDirectMessage(channelId: string) {
+    const type = this.channels.get(channelId)?.channel_type;
+    return type === 'DirectMessage' || type === 'Group';
+  }
   async listMessages(channelId: string, before?: string) {
     const result = await this.request<Raw | Raw[]>(
       `/channels/${checked(channelId)}/messages?limit=50&include_users=true${before ? `&before=${checked(before)}` : ''}`,

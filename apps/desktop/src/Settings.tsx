@@ -797,6 +797,7 @@ export default function Settings({
   const [autoStart, setAutoStart] = useState(false);
   const [notifications, setNotifications] = useState<{
     enabled: boolean;
+    important: boolean;
     sound: boolean;
     pauseDuringVoice: boolean;
     supported: boolean;
@@ -1906,6 +1907,28 @@ export default function Settings({
                       />
                     </Row>
                     <Row
+                      title={t('Özel mesajlar ve etiketlenmeler')}
+                      description={t(
+                        'Biri sana özel mesaj attığında ya da seni etiketlediğinde, diğer mesajlar kapalı olsa da haber verir.',
+                      )}
+                    >
+                      <Toggle
+                        label={t('Özel mesajlar ve etiketlenmeler')}
+                        value={notifications?.important ?? true}
+                        disabled={!notifications?.supported || notificationBusy}
+                        onChange={async (value) => {
+                          setNotificationBusy(true);
+                          try {
+                            setNotifications(await notificationApi!.setImportant(value));
+                          } catch (e) {
+                            setError(uiError(e));
+                          } finally {
+                            setNotificationBusy(false);
+                          }
+                        }}
+                      />
+                    </Row>
+                    <Row
                       title={t('Bildirim sesleri')}
                       description={t('Sistem bildirim sesini kullanır.')}
                     >
@@ -1913,7 +1936,9 @@ export default function Settings({
                         label={t('Bildirim sesleri')}
                         value={notifications?.sound ?? false}
                         disabled={
-                          !notifications?.supported || !notifications.enabled || notificationBusy
+                          !notifications?.supported ||
+                          (!notifications.enabled && !notifications.important) ||
+                          notificationBusy
                         }
                         onChange={async (value) => {
                           setNotificationBusy(true);

@@ -102,19 +102,40 @@ export interface DesktopBridge {
     ): Promise<{ muted: boolean }>;
     status(): Promise<{
       enabled: boolean;
+      /** Direct messages and mentions notify even with every-message notifications off. */
+      important: boolean;
       sound: boolean;
       pauseDuringVoice: boolean;
       supported: boolean;
     }>;
-    setOptIn(
-      value: boolean,
-    ): Promise<{ enabled: boolean; sound: boolean; pauseDuringVoice: boolean; supported: boolean }>;
-    setSound(
-      value: boolean,
-    ): Promise<{ enabled: boolean; sound: boolean; pauseDuringVoice: boolean; supported: boolean }>;
-    setPauseDuringVoice(
-      value: boolean,
-    ): Promise<{ enabled: boolean; sound: boolean; pauseDuringVoice: boolean; supported: boolean }>;
+    setOptIn(value: boolean): Promise<{
+      enabled: boolean;
+      important: boolean;
+      sound: boolean;
+      pauseDuringVoice: boolean;
+      supported: boolean;
+    }>;
+    setImportant(value: boolean): Promise<{
+      enabled: boolean;
+      important: boolean;
+      sound: boolean;
+      pauseDuringVoice: boolean;
+      supported: boolean;
+    }>;
+    setSound(value: boolean): Promise<{
+      enabled: boolean;
+      important: boolean;
+      sound: boolean;
+      pauseDuringVoice: boolean;
+      supported: boolean;
+    }>;
+    setPauseDuringVoice(value: boolean): Promise<{
+      enabled: boolean;
+      important: boolean;
+      sound: boolean;
+      pauseDuringVoice: boolean;
+      supported: boolean;
+    }>;
     setVoiceActive(value: boolean): Promise<void>;
     /** A content-free OS notification for an incoming private call (not while focused). */
     incomingCall?(): Promise<void>;

@@ -15,6 +15,7 @@ export const main: Catalog = {
 
   // Notifications
   'Topluluğunda biri seni etiketledi.': 'Someone mentioned you in your community.',
+  'Yeni bir özel mesajın var.': 'You have a new direct message.',
   'Topluluğunda yeni bir mesaj var.': 'There’s a new message in your community.',
 
   // Session and account

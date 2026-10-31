@@ -244,6 +244,7 @@ const bridge: DesktopBridge = {
     setChannelMuted: (input) => ipcRenderer.invoke('rooms:notification-channel-mute', input),
     status: () => ipcRenderer.invoke('rooms:notification-status'),
     setOptIn: (value) => ipcRenderer.invoke('rooms:notification-opt-in', value),
+    setImportant: (value) => ipcRenderer.invoke('rooms:notification-important', value),
     setSound: (value) => ipcRenderer.invoke('rooms:notification-sound', value),
     setPauseDuringVoice: (value) => ipcRenderer.invoke('rooms:notification-pause-voice', value),
     setVoiceActive: (value) => ipcRenderer.invoke('rooms:notification-voice-active', value),

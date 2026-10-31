@@ -6,6 +6,7 @@ export function createNotificationFixture(variant: string) {
     throw new Error(`Unsupported S67 variant: ${variant}`);
   let state = {
     enabled: true,
+    important: true,
     sound: true,
     pauseDuringVoice: true,
     supported: variant !== 'system_permission',
@@ -15,6 +16,7 @@ export function createNotificationFixture(variant: string) {
   const notifications: DesktopBridge['notifications'] = {
     status: async () => ({ ...state }),
     setOptIn: async (value) => ({ ...(state = { ...state, enabled: value }) }),
+    setImportant: async (value) => ({ ...(state = { ...state, important: value }) }),
     setSound: async (value) => ({ ...(state = { ...state, sound: value }) }),
     setPauseDuringVoice: async (value) => ({ ...(state = { ...state, pauseDuringVoice: value }) }),
     setVoiceActive: async () => {},
