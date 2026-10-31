@@ -6,6 +6,7 @@ import { useSyncExternalStore } from 'react';
 import { type NoiseSuppressionMode, type MediaSnapshot, type MusicEqualizer } from '@rooms/media';
 import { mediaProvider, mediaBridge } from './runtime-sources';
 import { useRooms } from './store';
+import { playVoiceCue } from './voice-cues';
 export const useVoiceContext = create<{
   channelId: string | null;
   roomName: string | null;
@@ -509,6 +510,7 @@ export async function toggleMic() {
     const muted = !mediaProvider().snapshot().muted;
     await mediaProvider().mute(muted);
     desiredMuted = muted;
+    playVoiceCue(muted ? 'mic-off' : 'mic-on');
     useRooms.getState().setPreference('microphoneOn', !muted);
     if (mediaProvider().snapshot().inputDeviceFallback)
       useRooms.getState().setPreference('inputId', '');
@@ -525,6 +527,7 @@ export async function toggleDeafen() {
   await run(async () => {
     const deafened = !mediaProvider().snapshot().deafened;
     await mediaProvider().deafen(deafened);
+    playVoiceCue(deafened ? 'deafen-on' : 'deafen-off');
     announceDeafen(activeChannel, deafened);
   });
 }
