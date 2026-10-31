@@ -872,4 +872,6 @@ export const settings: Catalog = {
     'After noise reduction, brings quiet and loud speech closer together.',
   'Gürültü azaltma kapalıyken sistemin otomatik kazancı çalışır; dengeleme kullanılmaz.':
     'With noise reduction off, the system’s automatic gain runs instead; leveling isn’t used.',
+  '{label} ({key})': '{label} ({key})',
+  '{label} · kısayol için sağ tıkla': '{label} · right-click to set a shortcut',
 };

@@ -277,7 +277,10 @@ it('keeps one set of voice controls with tooltips during a call', async () => {
     await mount('/voice');
     for (const name of ['Kamerayı aç', 'Ekran paylaş', 'Etkinlikler', 'Soundboard', 'Ses ayarları'])
       expect(screen.getByRole('button', { name }).title).toBe(name);
-    expect(screen.getByRole('button', { name: 'Sağırlaştır' })).toBeTruthy();
+    // Microphone and deafen name their shortcut, or how to set one (right-click).
+    expect(
+      screen.getByRole('button', { name: 'Sağırlaştır · kısayol için sağ tıkla' }),
+    ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Sesten ayrıl' })).toBeTruthy();
     // The old "Ses işlemleri" menu repeated the icon row.
     expect(screen.queryByLabelText('Ses işlemleri')).toBeNull();
