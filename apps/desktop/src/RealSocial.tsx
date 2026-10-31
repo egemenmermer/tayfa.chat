@@ -22,6 +22,10 @@ import { ReferenceIcon } from './ReferenceIcon';
 import { mediaBridge } from './runtime-sources';
 import { SoundboardButton } from './Soundboard';
 import { locale, t, tr, uiError } from './i18n';
+import { MESSAGE_MAX, messageLength } from './message-limit';
+
+const tooLong = (count: number) =>
+  t('Mesaj en fazla {max} karakter olabilir; bu {count} karakter.', { max: MESSAGE_MAX, count });
 import { places } from './dev/sample';
 import { directMessageFailed } from './FriendRequiredDialog';
 import { VoiceAvatar } from './VoiceAvatar';
@@ -341,8 +345,8 @@ export function CommunityChat({
   const saveEdit = async () => {
     const content = mentionInput.serialize().trim();
     if (!editing || !content || actionBusy) return;
-    if (content.length > 4000) {
-      notify(t('Mesaj çok uzun. Biraz kısaltıp yeniden dene.'));
+    if (content.length > MESSAGE_MAX) {
+      notify(tooLong(content.length));
       return;
     }
     setActionBusy(true);
@@ -495,6 +499,12 @@ export function CommunityChat({
     if (nearBottom.current && log.current) log.current.scrollTop = log.current.scrollHeight;
     else setUnseen(true);
   }, [c.activeChannelId, c.messages.length, c.messages.at(-1)?.id]);
+  // The length Stoat will see: mentions serialized and a reply quoted, as `send` builds it.
+  const draftText = (() => {
+    const text = draft.trim() ? mentionInput.serialize().trim() : '';
+    return reply && !editing ? quoteReply(reply, text) : text;
+  })();
+  const draftLength = messageLength(draft.trim() ? draftText.length : 0);
   const send = () => {
     if (editing) {
       void saveEdit();
@@ -503,8 +513,8 @@ export function CommunityChat({
     if (!draft.trim() && !attachments.length) return;
     const text = mentionInput.serialize().trim();
     const content = reply ? quoteReply(reply, text) : text;
-    if (content.length > 4000) {
-      notify(t('Mesaj çok uzun. Biraz kısaltıp yeniden dene.'));
+    if (content.length > MESSAGE_MAX) {
+      notify(tooLong(content.length));
       return;
     }
     report(
@@ -896,10 +906,15 @@ export function CommunityChat({
                   {m.delivery === 'failed' && (
                     <span className="message-state failed">
                       <AlertCircle size={13} />
-                      {t('Mesaj gönderilemedi')}{' '}
-                      <button onClick={() => report(c.retryMessage(m.id), notify)}>
-                        {t('Yeniden dene')}
-                      </button>
+                      {m.content.length > MESSAGE_MAX
+                        ? tooLong(m.content.length)
+                        : t('Mesaj gönderilemedi')}{' '}
+                      {m.content.length <= MESSAGE_MAX && (
+                        <button onClick={() => report(c.retryMessage(m.id), notify)}>
+                          {t('Yeniden dene')}
+                        </button>
+                      )}
+                      <button onClick={() => c.discardMessage(m.id)}>{t('Sil')}</button>
                     </span>
                   )}
                 </div>
@@ -1175,15 +1190,26 @@ export function CommunityChat({
               className="send-button"
               aria-label={editing ? t('Değişiklikleri kaydet') : t('Mesajı gönder')}
               disabled={
-                editing
+                draftLength.over ||
+                (editing
                   ? actionBusy || !draft.trim()
-                  : (!draft.trim() && !attachments.length) || !c.activeChannelId || uploading
+                  : (!draft.trim() && !attachments.length) || !c.activeChannelId || uploading)
               }
             >
               <Send size={20} />
             </button>
           </form>
           <div className="composer-foot">
+            {draftLength.show && (
+              <span
+                className={`composer-count ${draftLength.over ? 'over' : ''}`}
+                role={draftLength.over ? 'alert' : 'status'}
+              >
+                {draftLength.over
+                  ? tooLong(draftText.length)
+                  : t('{count} karakter kaldı', { count: draftLength.left })}
+              </span>
+            )}
             {typingUsers.length > 0 && (
               <span className="chat-typing" role="status">
                 <span aria-hidden="true">
