@@ -362,7 +362,7 @@ export async function installReferenceFixture(id: string, value: string): Promis
   const metadata = getReferenceFixtureMetadata(id, value);
   const { screenId, variant, dataScope } = metadata;
   const previousState = useCommunity.getState();
-  const previousShowFriends = useRooms.getState().preferences.showFriends;
+  const previousMemberPanel = useRooms.getState().preferences.memberPanel;
   const previousFixtureTag = document.documentElement.getAttribute('data-demofixture');
   const socialSample = dataScope === 'community-sample';
   const homeEmpty = screenId === 'S08' && variant === 'empty';
@@ -501,6 +501,12 @@ export async function installReferenceFixture(id: string, value: string): Promis
         );
     },
     reactMessage: async () => rejectExternalAction(),
+    discardMessage: (messageId) =>
+      useCommunity.setState((state) => ({
+        messages: state.messages.filter(
+          (item) => !(item.id === messageId && item.delivery === 'failed'),
+        ),
+      })),
     retryMessage: async (messageId) => {
       const current = useCommunity.getState();
       const message = current.messages.find(
@@ -572,13 +578,13 @@ export async function installReferenceFixture(id: string, value: string): Promis
   };
 
   useRooms.setState((state) => ({
-    preferences: { ...state.preferences, showFriends: hasCommunityShell },
+    preferences: { ...state.preferences, memberPanel: hasCommunityShell },
   }));
   useCommunity.setState(initialState, true);
   return () => {
     useCommunity.setState(previousState, true);
     useRooms.setState((state) => ({
-      preferences: { ...state.preferences, showFriends: previousShowFriends },
+      preferences: { ...state.preferences, memberPanel: previousMemberPanel },
     }));
     if (previousFixtureTag === null) delete document.documentElement.dataset.demofixture;
     else document.documentElement.setAttribute('data-demofixture', previousFixtureTag);
