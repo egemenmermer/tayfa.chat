@@ -677,7 +677,7 @@ it('caps watched screen video at the viewer choice, for a restarted share too', 
   };
   room.remoteParticipants.set('bob', bob);
   provider.watchScreen('bob');
-  // Until the viewer picks, LiveKit's adaptive stream stays in charge.
+  // Until the viewer picks, LiveKit's default (the top layer the network carries) applies.
   expect(video.setVideoQuality).not.toHaveBeenCalled();
   expect(provider.snapshot().screenQuality).toBe('auto');
   expect(provider.snapshot().tracks).toContainEqual(
@@ -1408,4 +1408,34 @@ describe('changing a running screen share in place', () => {
     await expect(provider.setScreenSound(false)).rejects.toThrow('not being shared');
     await provider.disconnect();
   });
+});
+it('asks for a watched screen at four times its size; cameras keep 1x', async () => {
+  const { provider, room, emit } = fixture();
+  await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+  const video = Object.assign(screenPublication('screen-video', Track.Source.ScreenShare), {
+    trackInfo: { layers: [] },
+    setVideoQuality: vi.fn(),
+  });
+  const bob = {
+    identity: 'bob',
+    name: 'Bob',
+    setVolume: vi.fn(),
+    trackPublications: new Map<string, object>([['video', video]]),
+  };
+  room.remoteParticipants.set('bob', bob);
+  provider.watchScreen('bob');
+  const screenTrack = { kind: 'video', adaptiveStreamSettings: { pauseVideoInBackground: true } };
+  emit(RoomEvent.TrackSubscribed, screenTrack, video, bob);
+  // Hidden shares still pause: adaptive stream stays on, only the density changes.
+  expect(screenTrack.adaptiveStreamSettings).toEqual({
+    pauseVideoInBackground: true,
+    pixelDensity: 4,
+  });
+  const camera = Object.assign(screenPublication('camera', Track.Source.Camera), {
+    setVideoQuality: vi.fn(),
+  });
+  const cameraTrack = { kind: 'video', adaptiveStreamSettings: {} };
+  emit(RoomEvent.TrackSubscribed, cameraTrack, camera, bob);
+  expect(cameraTrack.adaptiveStreamSettings).toEqual({});
+  await provider.disconnect();
 });

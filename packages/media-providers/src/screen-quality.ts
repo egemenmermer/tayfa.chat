@@ -65,7 +65,7 @@ export interface ScreenLayer {
   width: number;
   height: number;
 }
-/** 'auto' lets the stream adapt to the tile and the network; a number caps it at that many lines. */
+/** 'auto' takes the top layer the network carries; a number caps it at that many lines. */
 export type ScreenViewQuality = 'auto' | number;
 const rank = { low: 0, medium: 1, high: 2 } as const;
 /** Lines of a layer as people name them (1080p), also for a portrait window. */
@@ -80,8 +80,8 @@ export function screenQualityChoices(layers: readonly ScreenLayer[]): number[] {
 }
 /**
  * The layer to subscribe to for a choice: the largest one not above the cap, or the smallest one
- * when every layer is above it. 'auto' asks for the stream's own top layer, which leaves LiveKit's
- * adaptive stream (tile size) and the server's bandwidth estimate in charge. A publisher whose
+ * when every layer is above it. 'auto' asks for the stream's own top layer, which leaves the
+ * server's bandwidth estimate in charge (screen shares ask adaptive stream for 4x). A publisher whose
  * layers are q/h only (rc.34) has no 'high' layer, so the answer is always a layer it really sends.
  */
 export function screenSubscriptionQuality(

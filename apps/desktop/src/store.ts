@@ -11,6 +11,8 @@ export interface Preferences {
   roomEventSounds: boolean;
   /** Short cues for this listener's microphone and deafen toggles and for streams in their room. */
   voiceCues: boolean;
+  /** This viewer's screen share quality: 'auto' (the top layer the network carries) or a line cap. */
+  screenQuality: 'auto' | number;
   /** Other people's chosen entrance and leave sounds; off plays the classic cue for everyone. */
   personalSounds: boolean;
   /** Listener-side level for room cues and personal sounds, 0–1. */
@@ -51,6 +53,7 @@ export interface Preferences {
 const defaults: Preferences = {
   roomEventSounds: true,
   voiceCues: true,
+  screenQuality: 'auto',
   personalSounds: true,
   soundEffectsLevel: 1,
   followSystemAccessibility: true,
@@ -81,6 +84,12 @@ interface RoomsState {
   preferences: Preferences;
   setPreferences(value: Preferences): void;
   setPreference<K extends keyof Preferences>(key: K, value: Preferences[K]): void;
+}
+/** 'auto' or a whole line count up to 8K; anything else falls back to 'auto'. */
+export function normalizeScreenQuality(value: unknown): 'auto' | number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 4320
+    ? value
+    : 'auto';
 }
 export function normalizeSoundEffectsLevel(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 1;
@@ -137,6 +146,10 @@ function preferencesFrom(value: unknown): Preferences {
       result.chatFontSize = normalizeChatFontSize(previous[key]);
       continue;
     }
+    if (key === 'screenQuality') {
+      result.screenQuality = normalizeScreenQuality(previous[key]);
+      continue;
+    }
     if (key === 'soundEffectsLevel') {
       result.soundEffectsLevel = normalizeSoundEffectsLevel(previous[key]);
       continue;
@@ -169,13 +182,15 @@ export const useRooms = create<RoomsState>()(
             [key]:
               key === 'chatFontSize'
                 ? normalizeChatFontSize(value)
-                : key === 'soundEffectsLevel'
-                  ? normalizeSoundEffectsLevel(value)
-                  : key === 'inputLevels'
-                    ? normalizeInputLevels(value)
-                    : key === 'inputSensitivity'
-                      ? clampMicGateThreshold(value)
-                      : value,
+                : key === 'screenQuality'
+                  ? normalizeScreenQuality(value)
+                  : key === 'soundEffectsLevel'
+                    ? normalizeSoundEffectsLevel(value)
+                    : key === 'inputLevels'
+                      ? normalizeInputLevels(value)
+                      : key === 'inputSensitivity'
+                        ? clampMicGateThreshold(value)
+                        : value,
           },
         })),
     }),

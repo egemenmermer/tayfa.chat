@@ -429,6 +429,8 @@ export function joinVoice(channelId: string, roomName: string): Promise<void> {
         throw new Error(t('Önce özel görüşmeyi bitir.'));
       activeChannel = channelId;
       await mediaProvider().connectRoom(grant.roomName, grant.token, grant.serverUrl);
+      // The viewer's stream quality is remembered across rooms and restarts.
+      mediaProvider().setScreenQuality?.(useRooms.getState().preferences.screenQuality);
       if (keepDeafened && current()) {
         await mediaProvider().deafen(true);
         announceDeafen(channelId, true);
@@ -656,11 +658,12 @@ export function setScreenVolume(id: string, volume: number) {
   if (!provider.setScreenVolume) throw Error(t('Yayın sesi kontrolü kullanılamıyor.'));
   provider.setScreenVolume(id, volume);
 }
-/** Caps the screen shares this viewer receives for the app session ('auto' or lines, e.g. 720). */
+/** Caps the screen shares this viewer receives ('auto' or lines, e.g. 720) and remembers it. */
 export function setScreenQuality(quality: import('@rooms/media').ScreenViewQuality) {
   const provider = mediaProvider();
   if (!provider.setScreenQuality) throw Error(t('Yayın kalitesi seçimi kullanılamıyor.'));
   provider.setScreenQuality(quality);
+  useRooms.getState().setPreference('screenQuality', quality);
 }
 export const startRoomAudio = () => run(() => mediaProvider().startAudio());
 /** This listener's own DJ bass/mid/treble; null where the media provider cannot equalize. */
