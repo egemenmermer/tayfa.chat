@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Clapperboard,
   ListPlus,
   Play,
@@ -13,14 +15,16 @@ import {
 import type {
   StremioContinueItem,
   StremioDetails,
+  StremioFeatured,
   StremioHome,
+  StremioRow,
   StremioStream,
   StremioStreams,
   StremioTitle,
   StremioType,
   StremioVideo,
 } from '../../../../packages/community-cinema/src/types';
-import { cinemaErrorCode, cinemaErrorText, getCinemaBridge } from './cinema-bridge';
+import { cinemaArt, cinemaErrorCode, cinemaErrorText, getCinemaBridge } from './cinema-bridge';
 import { CinemaArt } from './CinemaArt';
 import { useBridgeRead } from './catalog-cache';
 import { useHall } from './use-hall';
@@ -29,12 +33,29 @@ import { t } from '../i18n';
 
 export type StremioView =
   | { mode: 'home'; query: string }
-  | { mode: 'details'; type: StremioType; id: string; videoId: string | null };
+  | {
+      mode: 'grid';
+      /** `StremioRow.key`; genre browsing uses Cinemeta's popular catalog. */
+      key: string;
+      title: string;
+      type: StremioType;
+      genre: string | null;
+      genres: string[];
+    }
+  | {
+      mode: 'details';
+      type: StremioType;
+      id: string;
+      videoId: string | null;
+      /** Where "back" returns: the grid it was opened from, or the home. */
+      back?: StremioView;
+    };
 
 /**
- * Stremio: what the owner's linked account watches and has saved, Cinemeta search, and per
- * film or episode the streams its add-ons (Torrentio with a debrid service…) offer. A picked
- * stream plays in the hall through the server, like a catalog film.
+ * Stremio: what the owner's linked account watches and has saved, Cinemeta's and the
+ * account's add-on catalogs, search, and per film or episode the streams its add-ons
+ * (Torrentio with a debrid service…) offer. A picked stream plays in the hall through the
+ * server, like a catalog film.
  */
 export function StremioTab({
   view,
@@ -52,9 +73,12 @@ export function StremioTab({
         type={view.type}
         id={view.id}
         videoId={view.videoId}
-        onBack={() => onView({ mode: 'home', query: '' })}
+        backLabel={view.back?.mode === 'grid' ? view.back.title : 'Stremio'}
+        onBack={() => onView(view.back ?? { mode: 'home', query: '' })}
       />
     );
+  if (view.mode === 'grid')
+    return <StremioGridView key={`${view.key}:${view.genre ?? ''}`} view={view} onView={onView} />;
   return <StremioHomeView query={view.query} onView={onView} />;
 }
 
@@ -84,10 +108,68 @@ function NotLinked() {
   );
 }
 
+/** Cinemeta's genre values are English; the desktop names them. Unknown ones stay as sent. */
+function genreName(genre: string) {
+  const names: Record<string, string> = {
+    Action: t('Aksiyon'),
+    Adventure: t('Macera'),
+    Animation: t('Animasyon'),
+    Biography: t('Biyografi'),
+    Comedy: t('Komedi'),
+    Crime: t('Suç'),
+    Documentary: t('Belgesel'),
+    Drama: t('Dram'),
+    Family: t('Aile'),
+    Fantasy: t('Fantastik'),
+    'Game-Show': t('Yarışma'),
+    History: t('Tarih'),
+    Horror: t('Korku'),
+    Music: t('Müzik'),
+    Musical: t('Müzikal'),
+    Mystery: t('Gizem'),
+    News: t('Haber'),
+    'Reality-TV': t('Reality'),
+    Romance: t('Romantik'),
+    'Sci-Fi': t('Bilim kurgu'),
+    Sport: t('Spor'),
+    'Talk-Show': t('Talk show'),
+    Thriller: t('Gerilim'),
+    War: t('Savaş'),
+    Western: t('Western'),
+  };
+  return names[genre] ?? genre;
+}
+
+function rowTitle(row: StremioRow) {
+  const names: Record<string, string> = {
+    'cinemeta:movie:top': t('Popüler filmler'),
+    'cinemeta:series:top': t('Popüler diziler'),
+    'cinemeta:movie:year': t('Bu yılın filmleri'),
+    'cinemeta:series:year': t('Bu yılın dizileri'),
+    'cinemeta:movie:imdbRating': t('Öne çıkan filmler'),
+    'cinemeta:series:imdbRating': t('Öne çıkan diziler'),
+  };
+  return names[row.key] ?? (row.addon ? `${row.name} · ${row.addon}` : row.name);
+}
+
+/** Rows for services older than `rows`: Cinemeta's popular films and series only. */
+function legacyRows(home: StremioHome): StremioRow[] {
+  return (['movie', 'series'] as const).map((type) => ({
+    key: `cinemeta:${type}:top`,
+    type,
+    name: 'top',
+    addon: null,
+    items: home.popular[type],
+    genres: [],
+    paged: false,
+  }));
+}
+
 function StremioHomeView({ query, onView }: { query: string; onView(view: StremioView): void }) {
   const hall = useHall();
   const [text, setText] = useState(query);
   const [searched, setSearched] = useState(query.trim());
+  const [genreType, setGenreType] = useState<StremioType>('movie');
   // Search once typing pauses.
   useEffect(() => {
     const timer = setTimeout(() => setSearched(text.trim()), 350);
@@ -102,6 +184,20 @@ function StremioHomeView({ query, onView }: { query: string; onView(view: Stremi
   );
   const open = (title: StremioTitle, videoId: string | null = null) =>
     onView({ mode: 'details', type: title.type, id: title.id, videoId });
+  // An older service has no catalog pages: its rows cannot open "Tümünü gör".
+  const browsable = !!home.data?.rows;
+  const rows = home.data ? (home.data.rows ?? legacyRows(home.data)) : [];
+  const browse = (row: StremioRow, genre: string | null = null) =>
+    onView({
+      mode: 'grid',
+      key: row.key,
+      title: genre ? genreName(genre) : rowTitle(row),
+      type: row.type,
+      genre,
+      genres: row.genres,
+    });
+  // Genre chips browse Cinemeta's popular catalog of the chosen type.
+  const genreRow = rows.find((row) => row.key === `cinemeta:${genreType}:top`);
   return (
     <div className="hall-vod stremio-home">
       <div className="stremio-search">
@@ -140,6 +236,37 @@ function StremioHomeView({ query, onView }: { query: string; onView(view: Stremi
         <p className="hall-empty-note">{home.error}</p>
       ) : (
         <>
+          {!!home.data?.featured?.length && (
+            <StremioHero items={home.data.featured} onOpen={(title) => open(title)} />
+          )}
+          {!!genreRow?.genres.length && (
+            <section className="stremio-genres" aria-label={t('Türler')}>
+              <div className="stremio-segment" role="radiogroup" aria-label={t('Tür')}>
+                {(['movie', 'series'] as const).map((type) => (
+                  <button
+                    key={type}
+                    role="radio"
+                    aria-checked={genreType === type}
+                    className={genreType === type ? 'selected' : ''}
+                    onClick={() => setGenreType(type)}
+                  >
+                    {type === 'movie' ? t('Filmler') : t('Diziler')}
+                  </button>
+                ))}
+              </div>
+              <div className="stremio-chips">
+                {genreRow.genres.map((genre) => (
+                  <button
+                    key={genre}
+                    className="stremio-chip"
+                    onClick={() => browse(genreRow, genre)}
+                  >
+                    {genreName(genre)}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
           {(home.loading || !!home.data?.continue.length) && (
             <HallRow title={t('İzlemeye devam et')} loading={!home.data}>
               {home.data?.continue.map((item) => (
@@ -162,17 +289,268 @@ function StremioHomeView({ query, onView }: { query: string; onView(view: Stremi
               ))}
             </HallRow>
           )}
-          <HallRow title={t('Popüler filmler')} loading={!home.data}>
-            {home.data?.popular.movie.map((title) => (
-              <TitleCard key={title.id} title={title} onOpen={() => open(title)} />
-            ))}
-          </HallRow>
-          <HallRow title={t('Popüler diziler')} loading={!home.data}>
-            {home.data?.popular.series.map((title) => (
-              <TitleCard key={title.id} title={title} onOpen={() => open(title)} />
-            ))}
-          </HallRow>
+          {!home.data && <HallRow title={t('Popüler filmler')} loading />}
+          {rows.map((row) => (
+            <HallRow
+              key={row.key}
+              title={rowTitle(row)}
+              onAll={
+                browsable && (row.paged || row.items.length > 12) ? () => browse(row) : undefined
+              }
+            >
+              {row.items.map((title) => (
+                <TitleCard
+                  key={`${title.type}:${title.id}`}
+                  title={title}
+                  onOpen={() => open(title)}
+                />
+              ))}
+            </HallRow>
+          ))}
+          {home.data && !rows.length && (
+            <p className="hall-empty-note">
+              {t('Cinemeta şu an yanıt vermiyor; arama yine de çalışabilir.')}
+            </p>
+          )}
         </>
+      )}
+    </div>
+  );
+}
+
+/** The home's hero: Cinemeta's popular titles with their backdrop, turning every 9 s. */
+function StremioHero({
+  items,
+  onOpen,
+}: {
+  items: StremioFeatured[];
+  onOpen(title: StremioTitle): void;
+}) {
+  const hall = useHall();
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [logoFailed, setLogoFailed] = useState<string | null>(null);
+  const item = items[index % items.length]!;
+  useEffect(() => {
+    if (paused || items.length < 2 || document.documentElement.dataset.motion === 'reduce') return;
+    const timer = setTimeout(() => setIndex((value) => (value + 1) % items.length), 9000);
+    return () => clearTimeout(timer);
+  }, [index, paused, items.length]);
+  const backdrop = cinemaArt(hall.hallId, item.backdrop);
+  const logo = item.logo && logoFailed !== item.logo ? cinemaArt(hall.hallId, item.logo) : null;
+  const step = (by: number) => setIndex((value) => (value + by + items.length) % items.length);
+  return (
+    <section
+      className="hall-hero stremio-hero"
+      aria-label={t('Öne çıkanlar')}
+      aria-roledescription="carousel"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+    >
+      {backdrop && (
+        <img
+          key={backdrop}
+          className="hall-hero-backdrop"
+          src={backdrop}
+          alt=""
+          draggable={false}
+        />
+      )}
+      <div className="hall-hero-shade" />
+      <div className="hall-hero-text" aria-live={paused ? 'polite' : 'off'}>
+        <span className="hall-eyebrow">
+          {item.type === 'movie' ? t('Popüler film') : t('Popüler dizi')}
+        </span>
+        {logo ? (
+          <img
+            className="stremio-hero-logo"
+            src={logo}
+            alt={item.name}
+            draggable={false}
+            onError={() => setLogoFailed(item.logo)}
+          />
+        ) : (
+          <h2>{item.name}</h2>
+        )}
+        <p className="hall-meta">
+          {item.rating && (
+            <span className="hall-rating">
+              <Star size={13} />
+              {item.rating}
+            </span>
+          )}
+          {[item.year, item.genres.map(genreName).join(', ')].filter(Boolean).map((part) => (
+            <span key={part}>{part}</span>
+          ))}
+        </p>
+        {item.plot && <p>{item.plot}</p>}
+        <div className="hall-detail-actions">
+          <button className="button primary" onClick={() => onOpen(item)}>
+            <Play size={16} />
+            {t('Kaynak seç')}
+          </button>
+        </div>
+      </div>
+      {items.length > 1 && (
+        <div className="stremio-hero-nav">
+          <button className="stremio-hero-arrow" aria-label={t('Önceki')} onClick={() => step(-1)}>
+            <ChevronLeft size={18} />
+          </button>
+          <div className="stremio-hero-dots">
+            {items.map((entry, i) => (
+              <button
+                key={`${entry.type}:${entry.id}`}
+                className={i === index % items.length ? 'selected' : ''}
+                aria-label={entry.name}
+                aria-current={i === index % items.length}
+                onClick={() => setIndex(i)}
+              />
+            ))}
+          </div>
+          <button className="stremio-hero-arrow" aria-label={t('Sonraki')} onClick={() => step(1)}>
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** "Tümü" and genres: one catalog as a poster grid that loads the next page near its end. */
+function StremioGridView({
+  view,
+  onView,
+}: {
+  view: Extract<StremioView, { mode: 'grid' }>;
+  onView(view: StremioView): void;
+}) {
+  const hall = useHall();
+  const [items, setItems] = useState<StremioTitle[]>([]);
+  const [state, setState] = useState<{ loading: boolean; more: boolean; error: string | null }>({
+    loading: true,
+    more: true,
+    error: null,
+  });
+  const skip = useRef(0);
+  const seen = useRef(new Set<string>());
+  const busy = useRef(false);
+  const sentinel = useRef<HTMLDivElement>(null);
+  const load = async () => {
+    const bridge = getCinemaBridge();
+    if (!bridge || busy.current) return;
+    busy.current = true;
+    setState((value) => ({ ...value, loading: true, error: null }));
+    try {
+      const page = await bridge.stremioCatalog(hall.hallId, view.key, view.genre, skip.current);
+      skip.current += page.items.length;
+      const fresh = page.items.filter((title) => !seen.current.has(title.id));
+      for (const title of fresh) seen.current.add(title.id);
+      setItems((current) => [...current, ...fresh]);
+      // A page with nothing new ends the list too: some add-ons ignore `skip`.
+      setState({ loading: false, more: page.more && fresh.length > 0, error: null });
+    } catch (error) {
+      setState({ loading: false, more: true, error: cinemaErrorText(error) });
+    } finally {
+      busy.current = false;
+    }
+  };
+  useEffect(() => {
+    void load();
+    // The view is keyed by catalog and genre; it loads its first page once.
+  }, []);
+  useEffect(() => {
+    const element = sentinel.current;
+    if (!element || !state.more || state.loading || state.error) return;
+    const observer = new IntersectionObserver(
+      (entries) => entries.some((entry) => entry.isIntersecting) && void load(),
+      { rootMargin: '600px' },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [state.more, state.loading, state.error, items.length]);
+  const choose = (genre: string | null) =>
+    onView({ ...view, genre, title: genre ? genreName(genre) : view.title });
+  return (
+    <div className="hall-vod stremio-grid-view">
+      <button
+        className="hall-text-button hall-back"
+        onClick={() => onView({ mode: 'home', query: '' })}
+      >
+        <ArrowLeft size={15} />
+        Stremio
+      </button>
+      <header className="hall-grid-head">
+        <h2>
+          {view.genre
+            ? t('{genre} · {type}', {
+                genre: genreName(view.genre),
+                type: view.type === 'movie' ? t('Filmler') : t('Diziler'),
+              })
+            : view.title}
+          {items.length > 0 && <small>{items.length}</small>}
+        </h2>
+      </header>
+      {view.genres.length > 0 && (
+        <div className="stremio-chips" role="radiogroup" aria-label={t('Tür')}>
+          <button
+            role="radio"
+            aria-checked={!view.genre}
+            className={`stremio-chip ${!view.genre ? 'selected' : ''}`}
+            onClick={() => choose(null)}
+          >
+            {t('Tümü')}
+          </button>
+          {view.genres.map((genre) => (
+            <button
+              key={genre}
+              role="radio"
+              aria-checked={view.genre === genre}
+              className={`stremio-chip ${view.genre === genre ? 'selected' : ''}`}
+              onClick={() => choose(genre)}
+            >
+              {genreName(genre)}
+            </button>
+          ))}
+        </div>
+      )}
+      {items.length > 0 && (
+        <div className="hall-poster-grid">
+          {items.map((title) => (
+            <TitleCard
+              key={`${title.type}:${title.id}`}
+              title={title}
+              onOpen={() =>
+                onView({
+                  mode: 'details',
+                  type: title.type,
+                  id: title.id,
+                  videoId: null,
+                  back: view,
+                })
+              }
+            />
+          ))}
+        </div>
+      )}
+      {state.loading && !items.length && <VodSkeleton />}
+      {state.error && (
+        <p className="hall-empty-note">
+          {state.error}{' '}
+          <button className="hall-text-button" onClick={() => void load()}>
+            {t('Yeniden dene')}
+          </button>
+        </p>
+      )}
+      {!state.loading && !state.error && !items.length && (
+        <p className="hall-empty-note">{t('Bu katalogda bir şey yok.')}</p>
+      )}
+      {state.more && !state.error && <div ref={sentinel} className="stremio-grid-sentinel" />}
+      {state.loading && items.length > 0 && (
+        <p className="hall-empty-note" role="status">
+          {t('Daha fazlası yükleniyor…')}
+        </p>
       )}
     </div>
   );
@@ -189,7 +567,17 @@ function TitleCard({ title, onOpen }: { title: StremioTitle; onOpen(): void }) {
         .filter(Boolean)
         .join(' · ')}
       onOpen={onOpen}
-    />
+    >
+      {title.rating && (
+        <span
+          className="stremio-card-rating"
+          aria-label={t('IMDb puanı {rating}', { rating: title.rating })}
+        >
+          <Star size={11} />
+          {title.rating}
+        </span>
+      )}
+    </PosterCard>
   );
 }
 
@@ -222,11 +610,13 @@ function StremioDetailsView({
   type,
   id,
   videoId,
+  backLabel,
   onBack,
 }: {
   type: StremioType;
   id: string;
   videoId: string | null;
+  backLabel: string;
   onBack(): void;
 }) {
   const hall = useHall();
@@ -252,7 +642,7 @@ function StremioDetailsView({
     <div className="hall-vod details-view">
       <button className="hall-text-button hall-back" onClick={onBack}>
         <ArrowLeft size={15} />
-        Stremio
+        {backLabel}
       </button>
       {details.loading && !data ? (
         <VodSkeleton />

@@ -587,6 +587,13 @@ function RowTrack({ children }: { children?: ReactNode }) {
           const state = drag.current;
           const element = track.current;
           if (!state || !element) return;
+          // Released outside the track (over an arrow, off the window): hovering must not drag
+          // the row or swallow the next click.
+          if ((event.buttons & 1) === 0) {
+            element.classList.remove('dragging');
+            drag.current = null;
+            return;
+          }
           const dx = event.clientX - state.x;
           if (!state.moved && Math.abs(dx) < 6) return;
           if (!state.moved) {

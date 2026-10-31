@@ -335,6 +335,8 @@ const bridge: DesktopBridge = {
     stremioHome: (hallId) => ipcRenderer.invoke('rooms:cinema-stremio-home', hallId),
     stremioSearch: (hallId, text) =>
       ipcRenderer.invoke('rooms:cinema-stremio-search', hallId, text),
+    stremioCatalog: (hallId, key, genre, skip) =>
+      ipcRenderer.invoke('rooms:cinema-stremio-catalog', hallId, key, genre, skip),
     stremioDetails: (hallId, type, id) =>
       ipcRenderer.invoke('rooms:cinema-stremio-details', hallId, type, id),
     stremioStreams: (hallId, type, id, videoId) =>

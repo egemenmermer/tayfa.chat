@@ -742,7 +742,13 @@ export class StoatClient {
     const epoch = this.aclEpoch;
     let author = m.user ?? this.users.get(m.author);
     if (!author) {
-      author = await this.request<Raw>(`/users/${checked(String(m.author))}`);
+      try {
+        author = await this.request<Raw>(`/users/${checked(String(m.author))}`);
+      } catch (error) {
+        // A removed account must not take the whole page of messages down with it.
+        if (!(error instanceof StoatError && error.status === 404)) throw error;
+        author = { _id: String(m.author), username: String(m.author) };
+      }
       this.users.set(author._id, author);
     }
     if (this.invalidChannels.has(m.channel) || epoch !== this.aclEpoch)

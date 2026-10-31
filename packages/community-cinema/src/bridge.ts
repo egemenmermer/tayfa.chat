@@ -24,6 +24,7 @@ import type {
   StremioLinkCode,
   StremioPicked,
   StremioStream,
+  StremioCatalogPage,
   StremioStreams,
   StremioTitle,
   StremioType,
@@ -215,6 +216,13 @@ export interface CinemaBridge {
   stremioUnlink(communityId: string): Promise<CinemaStatus>;
   stremioHome(hallId: string): Promise<StremioHome>;
   stremioSearch(hallId: string, text: string): Promise<StremioTitle[]>;
+  /** One page of a home row's catalog (`StremioRow.key`), optionally one genre. */
+  stremioCatalog(
+    hallId: string,
+    key: string,
+    genre: string | null,
+    skip: number,
+  ): Promise<StremioCatalogPage>;
   stremioDetails(hallId: string, type: StremioType, id: string): Promise<StremioDetails>;
   /** The streams the account's add-ons offer for a film (`videoId` = its id) or an episode. */
   stremioStreams(

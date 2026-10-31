@@ -167,4 +167,64 @@ describe('Stremio in the cinema hall', { timeout: 30_000 }, () => {
     expect(screen.queryByText(/IPTV hesabı yok/)).toBeNull();
     expect(screen.queryByText('Sahip henüz bir kaynak bağlamadı')).toBeNull();
   });
+
+  it('shows the hero, genres and catalog rows, and browses a row and a genre', async () => {
+    mount('stremio');
+    const catalog = vi.spyOn(bridge, 'stremioCatalog');
+    fireEvent.click(within(await hallTabs()).getByRole('tab', { name: 'Stremio' }));
+    const hero = await screen.findByRole('region', { name: 'Öne çıkanlar' });
+    expect(within(hero).getByRole('heading', { name: 'DEMO Film 1' })).toBeTruthy();
+    fireEvent.click(within(hero).getByRole('button', { name: 'Sonraki' }));
+    expect(await within(hero).findByRole('heading', { name: 'DEMO Film 2' })).toBeTruthy();
+    // Rows: Cinemeta's catalogs named by the desktop, an add-on's with its own name.
+    for (const name of [
+      'Popüler filmler',
+      'Popüler diziler',
+      'Bu yılın filmleri',
+      'Öne çıkan filmler',
+    ])
+      expect(screen.getByRole('region', { name })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Popüler anime · DEMO Anime' })).toBeTruthy();
+    expect(screen.getAllByLabelText('IMDb puanı 6.7').length).toBeGreaterThan(0);
+    // "Tümünü gör" opens the whole catalog as a grid.
+    const popular = screen.getByRole('region', { name: 'Popüler filmler' });
+    fireEvent.click(within(popular).getByRole('button', { name: /Tümünü gör/ }));
+    expect(await screen.findByRole('heading', { name: /Popüler filmler/ })).toBeTruthy();
+    await waitFor(() =>
+      expect(catalog).toHaveBeenCalledWith(FIXTURE_HALL_ID, 'cinemeta:movie:top', null, 0),
+    );
+    // A genre chip narrows it; Cinemeta's genre value is sent, the chip reads Turkish.
+    fireEvent.click(await screen.findByRole('radio', { name: 'Korku' }));
+    await waitFor(() =>
+      expect(catalog).toHaveBeenCalledWith(FIXTURE_HALL_ID, 'cinemeta:movie:top', 'Horror', 0),
+    );
+    expect(await screen.findByRole('heading', { name: /Korku · Filmler/ })).toBeTruthy();
+    // A title opened from the grid comes back to it.
+    fireEvent.click(await screen.findByRole('button', { name: /DEMO Horror Film 3 \d{4}/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Korku' }));
+    expect(await screen.findByRole('heading', { name: /Korku · Filmler/ })).toBeTruthy();
+    // The genre switch on the home browses series too.
+    fireEvent.click(screen.getByRole('button', { name: 'Stremio' }));
+    fireEvent.click(await screen.findByRole('radio', { name: 'Diziler' }));
+    fireEvent.click(
+      within(screen.getByRole('region', { name: 'Türler' })).getByRole('button', { name: 'Dram' }),
+    );
+    await waitFor(() =>
+      expect(catalog).toHaveBeenCalledWith(FIXTURE_HALL_ID, 'cinemeta:series:top', 'Drama', 0),
+    );
+  });
+
+  it('falls back to the popular rows on a service without catalog rows', async () => {
+    mount('stremio');
+    const home = bridge.stremioHome.bind(bridge);
+    vi.spyOn(bridge, 'stremioHome').mockImplementation(async (hallId) => {
+      const { rows: _rows, featured: _featured, ...older } = await home(hallId);
+      return older;
+    });
+    fireEvent.click(within(await hallTabs()).getByRole('tab', { name: 'Stremio' }));
+    const popular = await screen.findByRole('region', { name: 'Popüler filmler' });
+    expect(within(popular).queryByRole('button', { name: /Tümünü gör/ })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Öne çıkanlar' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Türler' })).toBeNull();
+  });
 });

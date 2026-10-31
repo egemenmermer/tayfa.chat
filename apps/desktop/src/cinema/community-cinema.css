@@ -4279,6 +4279,163 @@ html[data-motion='reduce'] .hall-screen-host {
   height: 40px;
   margin: 0;
 }
+/* Home hero: Cinemeta's popular titles with backdrop and logo, dots and arrows bottom right. */
+.stremio-hero {
+  height: clamp(300px, 48vh, 480px);
+}
+.stremio-hero .hall-hero-backdrop {
+  animation: stremio-hero-in 420ms var(--motion-ease-out);
+}
+html[data-motion='reduce'] .stremio-hero .hall-hero-backdrop {
+  animation: none;
+}
+@keyframes stremio-hero-in {
+  from {
+    opacity: 0.35;
+  }
+}
+.stremio-hero-logo {
+  display: block;
+  max-width: min(360px, 100%);
+  max-height: 110px;
+  object-fit: contain;
+  object-position: left bottom;
+  filter: drop-shadow(0 2px 12px rgb(0 0 0 / 0.5));
+}
+.stremio-hero-nav {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.stremio-hero-arrow {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgb(255 255 255 / 0.16);
+  border-radius: 50%;
+  background: rgb(23 24 29 / 0.55);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+.stremio-hero-arrow:hover {
+  background: rgb(23 24 29 / 0.8);
+}
+.stremio-hero-dots {
+  display: flex;
+  gap: 6px;
+}
+.stremio-hero-dots button {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 0.35);
+  cursor: pointer;
+  transition:
+    width 200ms var(--motion-ease-out),
+    background 200ms var(--motion-ease-out);
+}
+.stremio-hero-dots button.selected {
+  width: 22px;
+  background: var(--color-text-primary);
+}
+.stremio-hero-arrow:focus-visible,
+.stremio-hero-dots button:focus-visible,
+.stremio-chip:focus-visible,
+.stremio-segment button:focus-visible {
+  outline: 2px solid var(--color-action-focus);
+  outline-offset: 2px;
+}
+/* Genres: a films/series switch and one chip per Cinemeta genre. */
+.stremio-genres {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 26px;
+  min-width: 0;
+}
+.stremio-segment {
+  display: inline-flex;
+  flex: none;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--color-background-raised);
+}
+.stremio-segment button {
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: 600 var(--font-size-ui) var(--font-family);
+  cursor: pointer;
+}
+.stremio-segment button.selected {
+  background: var(--color-background-hover);
+  color: var(--color-text-primary);
+}
+.stremio-chips {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  padding: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.stremio-chips::-webkit-scrollbar {
+  display: none;
+}
+.stremio-grid-view .stremio-chips {
+  flex-wrap: wrap;
+  margin: 0 0 22px;
+  overflow: visible;
+}
+.stremio-chip {
+  flex: none;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 16px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: 500 var(--font-size-ui) var(--font-family);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.stremio-chip:hover {
+  border-color: var(--color-text-muted);
+  color: var(--color-text-primary);
+}
+.stremio-chip.selected {
+  border-color: var(--color-action-primary);
+  background: var(--color-action-primary);
+  color: #fff;
+}
+/* IMDb rating on a poster's top-left corner. */
+.stremio-card-rating {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgb(15 16 20 / 0.78);
+  color: var(--color-status-warning);
+  font: 650 11px / 16px var(--font-family);
+  backdrop-filter: blur(6px);
+}
+.stremio-grid-sentinel {
+  height: 1px;
+}
 .hall-episodes li.stremio-open {
   flex-wrap: wrap;
 }

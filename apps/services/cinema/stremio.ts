@@ -9,10 +9,13 @@ import {
 import type {
   CinemaDetails,
   CinemaExternalSubtitles,
+  StremioCatalogPage,
   StremioDetails,
+  StremioFeatured,
   StremioHome,
   StremioLinkCode,
   StremioPicked,
+  StremioRow,
   StremioStreams,
   StremioTitle,
   StremioType,
@@ -101,6 +104,72 @@ const descriptor = z
   })
   .passthrough();
 type Addon = z.infer<typeof descriptor>;
+
+/** A manifest catalog (`{type, id, name, extra}`); anything else about it is ignored. */
+const catalogEntry = z.object({
+  type: z.string(),
+  id: z.string().min(1).max(200),
+  name: z.string().max(200).optional(),
+  extra: z
+    .array(
+      z.object({
+        name: z.string(),
+        isRequired: z.boolean().optional(),
+        options: z.array(z.string().max(80)).max(400).nullish(),
+      }),
+    )
+    .catch([]),
+  extraRequired: z.array(z.string()).catch([]),
+});
+type CatalogEntry = z.infer<typeof catalogEntry>;
+const catalogsOf = (addon: Addon): CatalogEntry[] =>
+  (Array.isArray(addon.manifest.catalogs) ? addon.manifest.catalogs : []).flatMap((raw) => {
+    const entry = catalogEntry.safeParse(raw);
+    return entry.success ? [entry.data] : [];
+  });
+
+const CINEMETA_ID = 'com.linvo.cinemeta';
+/** Cinemeta's catalogs on the home, in order. `year` is filtered by this year. */
+const CINEMETA_ROWS: { type: StremioType; id: 'top' | 'year' | 'imdbRating' }[] = [
+  { type: 'movie', id: 'top' },
+  { type: 'series', id: 'top' },
+  { type: 'movie', id: 'year' },
+  { type: 'series', id: 'year' },
+  { type: 'movie', id: 'imdbRating' },
+  { type: 'series', id: 'imdbRating' },
+];
+/** Cinemeta's genres when its manifest cannot be read. */
+const CINEMETA_GENRES = [
+  'Action',
+  'Adventure',
+  'Animation',
+  'Biography',
+  'Comedy',
+  'Crime',
+  'Documentary',
+  'Drama',
+  'Family',
+  'Fantasy',
+  'History',
+  'Horror',
+  'Mystery',
+  'Romance',
+  'Sci-Fi',
+  'Sport',
+  'Thriller',
+  'War',
+  'Western',
+];
+const ROWS_MS = 10 * 60_000;
+const MAX_ADDON_ROWS = 10;
+const ROW_ITEMS = 40;
+/** `cinemeta:<type>:<catalog>` or `addon:<manifest id>:<type>:<catalog>`, ids base64url. */
+export const STREMIO_CATALOG_KEY =
+  /^(?:cinemeta:(?:movie|series):(?:top|year|imdbRating)|addon:[A-Za-z0-9_-]{1,300}:(?:movie|series):[A-Za-z0-9_-]{1,300})$/;
+const b64 = (value: string) => Buffer.from(value, 'utf8').toString('base64url');
+const unb64 = (value: string) => Buffer.from(value, 'base64url').toString('utf8');
+/** A genre value as add-ons send it: letters, digits, spaces and a little punctuation. */
+const GENRE = /^[\p{L}\p{N} &'.,+/-]{1,60}$/u;
 
 const text = (value: unknown, max = 2000) =>
   typeof value === 'string' && value.trim() ? value.trim().slice(0, max) : null;
@@ -209,6 +278,7 @@ export class StremioCinema {
     { communityId: string; at: number; pick: Omit<StremioPick, 'ref' | 'at'> }
   >();
   private readonly art = new Map<string, string>();
+  private readonly rowCache = new Map<string, { at: number; value: Promise<unknown> }>();
   /** `communityId\naddon id` → when Cloudflare last refused the server for that add-on. */
   private readonly blocked = new Map<string, number>();
   private readonly subtitleLists = new Map<
@@ -305,6 +375,7 @@ export class StremioCinema {
   unlink(communityId: string) {
     this.pending.delete(communityId);
     this.addons.delete(communityId);
+    this.rowCache.delete(`addons:${communityId}`);
     for (const [id, offer] of this.offers)
       if (offer.communityId === communityId) this.offers.delete(id);
     for (const key of this.subtitleLists.keys())
@@ -368,22 +439,220 @@ export class StremioCinema {
       name,
       year: text(meta.releaseInfo, 20) ?? (yearOf(meta.year) ? String(yearOf(meta.year)) : null),
       art: this.artId(meta.poster),
+      rating: text(meta.imdbRating, 10),
     };
   }
 
-  private async catalog(type: StremioType, path: string) {
-    const value = (await this.options.fetch(`${CINEMETA}/catalog/${type}/${path}.json`)) as {
-      metas?: unknown;
-    };
-    return (Array.isArray(value?.metas) ? value.metas : [])
+  /** The metas of one catalog page (`<base>/catalog/<type>/<id>[/<extra>].json`). */
+  private async metas(base: string, type: StremioType, path: string, timeoutMs?: number) {
+    const value = (await this.options.fetch(`${base}/catalog/${type}/${path}.json`, {
+      timeoutMs,
+    })) as { metas?: unknown };
+    return (Array.isArray(value?.metas) ? value.metas : []).filter(
+      (meta): meta is Record<string, unknown> => !!meta && typeof meta === 'object',
+    );
+  }
+
+  private titles(metas: Record<string, unknown>[], type: StremioType, max = 60) {
+    const seen = new Set<string>();
+    return metas
       .flatMap((meta) => {
-        const title =
-          meta && typeof meta === 'object'
-            ? this.title(meta as Record<string, unknown>, type)
-            : null;
-        return title ? [title] : [];
+        const title = this.title(meta, type);
+        if (!title || seen.has(title.id)) return [];
+        seen.add(title.id);
+        return [title];
       })
-      .slice(0, 60);
+      .slice(0, max);
+  }
+
+  private async catalog(type: StremioType, path: string) {
+    return this.titles(await this.metas(CINEMETA, type, path), type);
+  }
+
+  /** Cinemeta's genre options per type, from its manifest (cached with the rows). */
+  private cinemetaGenres() {
+    return this.cached('cinemeta:genres', async () => {
+      const manifest = (await this.options.fetch(`${CINEMETA}/manifest.json`)) as {
+        catalogs?: unknown;
+      };
+      const out: Record<StremioType, string[]> = { movie: [], series: [] };
+      for (const raw of Array.isArray(manifest?.catalogs) ? manifest.catalogs : []) {
+        const entry = catalogEntry.safeParse(raw);
+        if (!entry.success || entry.data.id !== 'top') continue;
+        const type = STREMIO_TYPE.safeParse(entry.data.type);
+        const genre = entry.data.extra.find((extra) => extra.name === 'genre');
+        if (type.success && genre?.options)
+          out[type.data] = genre.options.filter((option) => GENRE.test(option));
+      }
+      return out;
+    }).catch(() => ({ movie: CINEMETA_GENRES, series: CINEMETA_GENRES }));
+  }
+
+  /** One shared load per key for ROWS_MS; a failed load is not kept. */
+  private cached<T>(key: string, load: () => Promise<T>): Promise<T> {
+    const hit = this.rowCache.get(key);
+    if (hit && this.now() - hit.at < ROWS_MS) return hit.value as Promise<T>;
+    const value = load();
+    value.catch(() => this.rowCache.delete(key));
+    this.rowCache.set(key, { at: this.now(), value });
+    for (const [old, entry] of this.rowCache)
+      if (this.now() - entry.at >= ROWS_MS) this.rowCache.delete(old);
+    return value;
+  }
+
+  private cinemetaPath(id: 'top' | 'year' | 'imdbRating', genre: string | null, skip: number) {
+    // Cinemeta's "New" catalog needs a year as its genre.
+    const year = id === 'year' ? String(new Date(this.now()).getUTCFullYear()) : genre;
+    const extra = [
+      ...(year ? [`genre=${encodeURIComponent(year)}`] : []),
+      ...(skip ? [`skip=${skip}`] : []),
+    ].join('&');
+    return extra ? `${id}/${extra}` : id;
+  }
+
+  /** Cinemeta's rows and, from its popular films and series, the hero's titles. */
+  private cinemetaHome() {
+    return this.cached('cinemeta:home', async () => {
+      const [genres, ...pages] = await Promise.all([
+        this.cinemetaGenres(),
+        ...CINEMETA_ROWS.map((row) =>
+          this.metas(CINEMETA, row.type, this.cinemetaPath(row.id, null, 0)).catch(() => []),
+        ),
+      ]);
+      const rows: StremioRow[] = CINEMETA_ROWS.map((row, index) => ({
+        key: `cinemeta:${row.type}:${row.id}`,
+        type: row.type,
+        name: row.id,
+        addon: null,
+        items: this.titles(pages[index]!, row.type, ROW_ITEMS),
+        genres: row.id === 'year' ? [] : genres[row.type],
+        paged: true,
+      })).filter((row) => row.items.length);
+      const hero = (metas: Record<string, unknown>[], type: StremioType): StremioFeatured[] =>
+        metas.slice(0, 12).flatMap((meta) => {
+          const title = this.title(meta, type);
+          const backdrop = this.artId(meta.background);
+          if (!title || !backdrop) return [];
+          return [
+            {
+              ...title,
+              backdrop,
+              logo: this.artId(meta.logo),
+              plot: text(meta.description, 400),
+              genres: list(meta.genres ?? meta.genre).slice(0, 3),
+            },
+          ];
+        });
+      const films = hero(pages[0]!, 'movie');
+      const series = hero(pages[1]!, 'series');
+      // Films and series take turns.
+      const featured = Array.from({ length: Math.max(films.length, series.length) }, (_, i) => [
+        films[i],
+        series[i],
+      ])
+        .flat()
+        .filter((item): item is StremioFeatured => !!item)
+        .slice(0, 8);
+      return { rows, featured };
+    });
+  }
+
+  /** Catalogs of the account's own add-ons that need no input (no search, no required genre). */
+  private addonCatalogs(addons: Addon[]) {
+    return addons
+      .filter((addon) => addon.manifest.id !== CINEMETA_ID)
+      .flatMap((addon) =>
+        catalogsOf(addon).flatMap((entry) => {
+          const type = STREMIO_TYPE.safeParse(entry.type);
+          const required =
+            entry.extraRequired.length > 0 || entry.extra.some((extra) => extra.isRequired);
+          return type.success && !required ? [{ addon, entry, type: type.data }] : [];
+        }),
+      );
+  }
+
+  private addonRows(communityId: string) {
+    return this.cached(`addons:${communityId}`, async () => {
+      // A failed add-on list is not cached: the home shows Cinemeta and asks again next time.
+      const catalogs = this.addonCatalogs(await this.collection(communityId)).slice(
+        0,
+        MAX_ADDON_ROWS,
+      );
+      const pages = await Promise.all(
+        catalogs.map(({ addon, entry, type }) =>
+          this.metas(addonBase(addon.transportUrl)!, type, encodeURIComponent(entry.id), 8000)
+            .then((metas) => this.titles(metas, type, ROW_ITEMS))
+            .catch(() => []),
+        ),
+      );
+      return catalogs.flatMap(({ addon, entry, type }, index): StremioRow[] =>
+        pages[index]!.length
+          ? [
+              {
+                key: `addon:${b64(addon.manifest.id)}:${type}:${b64(entry.id)}`,
+                type,
+                name: text(entry.name, 200) ?? entry.id,
+                addon: addon.manifest.name,
+                items: pages[index]!,
+                genres: (entry.extra.find((extra) => extra.name === 'genre')?.options ?? [])
+                  .filter((option) => GENRE.test(option))
+                  .slice(0, 60),
+                paged: entry.extra.some((extra) => extra.name === 'skip'),
+              },
+            ]
+          : [],
+      );
+    });
+  }
+
+  /**
+   * One page of a home row's catalog, for "Tümü": optionally one genre, `skip` titles in.
+   * Only Cinemeta and the add-ons the linked account installed are asked.
+   */
+  async catalogPage(
+    communityId: string,
+    key: string,
+    genre: string | null,
+    skip: number,
+  ): Promise<StremioCatalogPage> {
+    this.session(communityId);
+    if (!STREMIO_CATALOG_KEY.test(key)) fail('CINEMA_ITEM_NOT_FOUND');
+    if (genre !== null && !GENRE.test(genre)) fail('CINEMA_ITEM_NOT_FOUND');
+    const parts = key.split(':');
+    if (parts[0] === 'cinemeta') {
+      const type = parts[1] as StremioType;
+      const id = parts[2] as 'top' | 'year' | 'imdbRating';
+      const metas = await this.metas(CINEMETA, type, this.cinemetaPath(id, genre, skip));
+      const items = this.titles(metas, type, 100);
+      return { items, more: items.length > 0 };
+    }
+    const manifestId = unb64(parts[1]!);
+    const type = parts[2] as StremioType;
+    const catalogId = unb64(parts[3]!);
+    const addons = await this.collection(communityId);
+    const found = this.addonCatalogs(addons).find(
+      (entry) =>
+        entry.addon.manifest.id === manifestId &&
+        entry.type === type &&
+        entry.entry.id === catalogId,
+    );
+    if (!found) return fail('CINEMA_ITEM_NOT_FOUND');
+    const supportsGenre = found.entry.extra.find((extra) => extra.name === 'genre');
+    const paged = found.entry.extra.some((extra) => extra.name === 'skip');
+    if (
+      genre &&
+      (!supportsGenre || (supportsGenre.options && !supportsGenre.options.includes(genre)))
+    )
+      fail('CINEMA_ITEM_NOT_FOUND');
+    if (skip && !paged) return { items: [], more: false };
+    const extra = [
+      ...(genre ? [`genre=${encodeURIComponent(genre)}`] : []),
+      ...(skip ? [`skip=${skip}`] : []),
+    ].join('&');
+    const path = `${encodeURIComponent(catalogId)}${extra ? `/${extra}` : ''}`;
+    const metas = await this.metas(addonBase(found.addon.transportUrl)!, type, path, 10_000);
+    const items = this.titles(metas, type, 100);
+    return { items, more: paged && items.length > 0 };
   }
 
   /** Continue watching and the library of the linked account, and what is popular now. */
@@ -394,7 +663,7 @@ export class StremioCinema {
   async home(communityId: string, viewerId?: string): Promise<StremioHome> {
     const { authKey, linkedBy } = this.session(communityId);
     const own = !!viewerId && viewerId === linkedBy;
-    const [library, movie, series] = await Promise.all([
+    const [library, cinemeta, addonRows] = await Promise.all([
       (own
         ? this.api('datastoreGet', { authKey, collection: 'libraryItem', ids: [], all: true })
         : Promise.resolve([])
@@ -403,9 +672,12 @@ export class StremioCinema {
           throw error;
         return [];
       }),
-      this.catalog('movie', 'top').catch(() => []),
-      this.catalog('series', 'top').catch(() => []),
+      this.cinemetaHome().catch(() => ({ rows: [] as StremioRow[], featured: [] })),
+      this.addonRows(communityId).catch(() => [] as StremioRow[]),
     ]);
+    const rowOf = (key: string) => cinemeta.rows.find((row) => row.key === key)?.items ?? [];
+    const movie = rowOf('cinemeta:movie:top');
+    const series = rowOf('cinemeta:series:top');
     type Item = {
       _id?: unknown;
       name?: unknown;
@@ -465,7 +737,13 @@ export class StremioCinema {
         );
         return title ? [title] : [];
       });
-    return { continue: continueRow, library: saved, popular: { movie, series } };
+    return {
+      continue: continueRow,
+      library: saved,
+      popular: { movie, series },
+      rows: [...cinemeta.rows, ...addonRows],
+      featured: cinemeta.featured,
+    };
   }
 
   async search(communityId: string, query: string): Promise<StremioTitle[]> {
@@ -480,13 +758,22 @@ export class StremioCinema {
   }
 
   private async metaOf(communityId: string, type: StremioType, id: string) {
-    const addons = await this.collection(communityId);
-    const bases = [
-      ...(id.startsWith('tt') ? [CINEMETA] : []),
-      ...addons
+    const fromAddons = async () =>
+      (await this.collection(communityId).catch(() => [] as Addon[]))
         .filter((addon) => supports(addon, 'meta', type, id))
-        .map((addon) => addonBase(addon.transportUrl)!),
-    ];
+        .map((addon) => addonBase(addon.transportUrl)!);
+    // IMDb ids ask Cinemeta first: the page opens even when the add-on list cannot be read.
+    if (id.startsWith('tt')) {
+      try {
+        const value = (await this.options.fetch(
+          `${CINEMETA}/meta/${type}/${encodeURIComponent(id)}.json`,
+        )) as { meta?: Record<string, unknown> };
+        if (value?.meta && typeof value.meta === 'object') return value.meta;
+      } catch {
+        // An add-on may still know it.
+      }
+    }
+    const bases = (await fromAddons()).filter((base) => base !== CINEMETA);
     for (const base of [...new Set(bases)]) {
       try {
         const value = (await this.options.fetch(
