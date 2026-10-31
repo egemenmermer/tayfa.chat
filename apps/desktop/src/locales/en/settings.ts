@@ -30,6 +30,13 @@ export const settings: Catalog = {
   'PROFİL ÖNİZLEMESİ': 'PROFILE PREVIEW',
   'Avatar sunucuda güncellendi.': 'Avatar updated on the server.',
   'Avatarı değiştir': 'Change avatar',
+  'Profil fotoğrafını ayarla': 'Adjust profile photo',
+  'Fotoğraf hazırlanamadı. Başka bir fotoğraf dene.':
+    'Couldn’t prepare the photo. Try another one.',
+  'Fotoğraf açılamadı. Başka bir fotoğraf dene.': 'Couldn’t open the photo. Try another one.',
+  'Fotoğraf kırpma alanı': 'Photo crop area',
+  'Fotoğrafı sürükleyerek konumlandır; ok tuşları kaydırır, + ve − yakınlaştırır.':
+    'Drag to position the photo; arrow keys move it, + and − zoom.',
   'Görünmez · yalnızca sen görürsün': 'Invisible · only you can see this',
   'Görünürlük durumu alınamadı': 'Couldn’t load your visibility status',
   'Bu cihaz · {platform}': 'This device · {platform}',

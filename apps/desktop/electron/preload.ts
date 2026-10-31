@@ -137,6 +137,8 @@ const bridge: DesktopBridge = {
       ipcRenderer.invoke('rooms:social-download-attachment', channel, message, file),
     avatar: (userId) => ipcRenderer.invoke('rooms:social-avatar', userId),
     chooseAvatar: () => ipcRenderer.invoke('rooms:social-choose-avatar'),
+    pickAvatarFile: () => ipcRenderer.invoke('rooms:social-pick-avatar'),
+    uploadAvatar: (bytes, mime) => ipcRenderer.invoke('rooms:social-upload-avatar', bytes, mime),
     readStates: () => ipcRenderer.invoke('rooms:social-read-states'),
     members: (spaceId) => ipcRenderer.invoke('rooms:social-members', spaceId),
     friends: () => ipcRenderer.invoke('rooms:social-friends'),

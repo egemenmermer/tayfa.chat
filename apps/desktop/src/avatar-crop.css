@@ -1,0 +1,52 @@
+/* AvatarCropDialog: the photo moves under a fixed circle; outside the circle is dimmed. */
+.avatar-crop .avatar-crop-stage {
+  position: relative;
+  margin: 4px auto 0;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #0d0f14;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.avatar-crop .avatar-crop-stage:active {
+  cursor: grabbing;
+}
+.avatar-crop .avatar-crop-stage:focus-visible {
+  outline: 2px solid #6f8cff;
+  outline-offset: 2px;
+}
+.avatar-crop .avatar-crop-stage img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  pointer-events: none;
+  transform-origin: 0 0;
+}
+.avatar-crop .avatar-crop-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid #ffffffd9;
+  border-radius: 50%;
+  box-shadow: 0 0 0 999px #000000a6;
+  pointer-events: none;
+}
+.avatar-crop .avatar-crop-zoom {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 280px;
+  margin: 16px auto 0;
+  font-size: 12px;
+  color: #9aa1b0;
+}
+.avatar-crop .avatar-crop-zoom input {
+  flex: 1;
+}
+.avatar-crop .avatar-crop-error {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: #ff8a8a;
+}

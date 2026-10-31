@@ -6,6 +6,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import './styles.css';
 import './reference-tokens.css';
 import App from './App';
+import { AvatarCropHost } from './AvatarCrop';
 import './reference-shell.css';
 import './design-components.css';
 import './interaction-quality.css';
@@ -152,6 +153,7 @@ async function bootstrap() {
         <QueryClientProvider client={client}>
           <HashRouter>
             <App />
+            <AvatarCropHost />
           </HashRouter>
         </QueryClientProvider>
       </Boundary>

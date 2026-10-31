@@ -88,6 +88,16 @@ class SocialInputError extends Error {}
 /** Approved sign-up created the account, but its session could not start. */
 class AccountCreatedError extends SocialInputError {}
 
+/** PNG, JPEG or WebP by magic bytes; anything else is null. */
+export function photoType(bytes: Uint8Array): 'image/png' | 'image/jpeg' | 'image/webp' | null {
+  const data = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (data.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])))
+    return 'image/png';
+  if (data[0] === 255 && data[1] === 216 && data[2] === 255) return 'image/jpeg';
+  if (data.toString('ascii', 0, 4) === 'RIFF' && data.toString('ascii', 8, 12) === 'WEBP')
+    return 'image/webp';
+  return null;
+}
 export async function setupCommunity(
   getWindow: () => BrowserWindow | null,
   assertSender: (event: IpcMainInvokeEvent) => void,
@@ -981,10 +991,9 @@ export async function setupCommunity(
     }
     return pending;
   });
-  handle('rooms:social-choose-avatar', async () => {
-    const current = requireClient(),
-      owner = user!.id,
-      window = getWindow();
+  /** Reads the photo the user picks; the type comes from the bytes, never the file name. */
+  const pickPhoto = async (maxBytes: number) => {
+    const window = getWindow();
     if (!window) return null;
     const choice = await dialog.showOpenDialog(window, {
       title: 'Choose profile photo',
@@ -992,34 +1001,64 @@ export async function setupCommunity(
       filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }],
     });
     if (choice.canceled || !choice.filePaths[0]) return null;
-    if (client !== current || user?.id !== owner)
-      throw new SocialInputError('Sign in again before changing your photo.');
     const file = openSync(choice.filePaths[0], 'r');
     let bytes: Buffer;
     try {
       const stat = fstatSync(file);
-      if (!stat.isFile() || stat.size > 2_000_000 || stat.size < 12)
-        throw new SocialInputError('Choose a PNG, JPEG or WebP photo under 2 MB.');
+      if (!stat.isFile() || stat.size > maxBytes || stat.size < 12)
+        throw new SocialInputError(
+          `Choose a PNG, JPEG or WebP photo under ${Math.round(maxBytes / 1_000_000)} MB.`,
+        );
       bytes = Buffer.alloc(stat.size);
       if (readSync(file, bytes, 0, bytes.length, 0) !== bytes.length)
         throw new SocialInputError('The photo could not be read.');
     } finally {
       closeSync(file);
     }
-    const mime = bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
-      ? 'image/png'
-      : bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
-        ? 'image/jpeg'
-        : bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP'
-          ? 'image/webp'
-          : null;
+    const mime = photoType(bytes);
     if (!mime) throw new SocialInputError('Choose a PNG, JPEG or WebP photo.');
-    const updated = await current.uploadAvatar(bytes, basename(choice.filePaths[0]), mime);
+    return { name: basename(choice.filePaths[0]), mime, bytes };
+  };
+  const setAvatar = async (
+    current: ReturnType<typeof requireClient>,
+    owner: string,
+    bytes: Buffer,
+    name: string,
+    mime: string,
+  ) => {
+    const updated = await current.uploadAvatar(bytes, name, mime);
     if (client !== current || user?.id !== owner) return null;
     user = updated;
     avatarRequests.clear();
     emit({ type: 'PROFILE_UPDATE', data: user });
     return user;
+  };
+  /* Older renderers: pick and upload the file as it is. */
+  handle('rooms:social-choose-avatar', async () => {
+    const current = requireClient(),
+      owner = user!.id;
+    const photo = await pickPhoto(2_000_000);
+    if (!photo) return null;
+    if (client !== current || user?.id !== owner)
+      throw new SocialInputError('Sign in again before changing your photo.');
+    return setAvatar(current, owner, photo.bytes, photo.name, photo.mime);
+  });
+  /* The renderer crops the picked photo (AvatarCropDialog) and sends back the result. */
+  handle('rooms:social-pick-avatar', async () => {
+    requireClient();
+    const photo = await pickPhoto(10_000_000);
+    return photo && { name: photo.name, mime: photo.mime, bytes: new Uint8Array(photo.bytes) };
+  });
+  handle('rooms:social-upload-avatar', async (bytes, mime) => {
+    const current = requireClient(),
+      owner = user!.id;
+    if (!(bytes instanceof Uint8Array) || bytes.length < 12 || bytes.length > 2_000_000)
+      throw new SocialInputError('Choose a PNG, JPEG or WebP photo under 2 MB.');
+    const data = Buffer.from(bytes);
+    const type = photoType(data);
+    if (!type || type !== mime) throw new SocialInputError('Choose a PNG, JPEG or WebP photo.');
+    const name = `avatar.${type === 'image/jpeg' ? 'jpg' : type.slice(6)}`;
+    return setAvatar(current, owner, data, name, type);
   });
   handle('rooms:social-profile', async (input) => {
     const body = z

@@ -5,6 +5,7 @@ import { mediaProvider } from './runtime-sources';
 import { NoiseComparison } from './NoiseComparison';
 import { createNoiseSuppressionNode, selectedInputLabel } from '@rooms/media';
 import { locale, t, tr, uiError } from './i18n';
+import { chooseCroppedAvatar } from './AvatarCrop';
 import type { DesktopBridge } from '@rooms/contracts';
 import { ChannelNotifications } from './ChannelNotifications';
 import { DesktopWindowSettings } from './DesktopWindowSettings';
@@ -307,7 +308,7 @@ function ReferenceAccount({ notify, onClose }: { notify(message: string): void; 
                     setBusy(true);
                     setError('');
                     try {
-                      const user = await window.rooms!.social.chooseAvatar();
+                      const user = await chooseCroppedAvatar();
                       if (user) {
                         useCommunity.setState({ user });
                         notify(t('Avatar sunucuda güncellendi.'));
