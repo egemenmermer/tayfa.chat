@@ -19,11 +19,14 @@ import {
   Square,
   Trash2,
   Upload,
+  Headphones,
 } from 'lucide-react';
 import { useCommunity } from './community';
 import { useRealtime, playSoundboard, publishReaction, stopSoundboard } from './realtime';
 import { EmojiPicker } from './ComposerPickers';
 import { SoundboardTrimmer } from './SoundboardTrimmer';
+import { previewSound, soundboardLevel, SOUNDBOARD_DEFAULT_LEVEL } from './soundboard-preview';
+import { useRooms } from './store';
 import {
   initialSelection,
   isTrimmed,
@@ -58,7 +61,7 @@ export function announceSound(name: string) {
 const useClips = create<{ owner: string; clips: Clip[]; volume: number }>(() => ({
   owner: '',
   clips: [],
-  volume: 0.5,
+  volume: SOUNDBOARD_DEFAULT_LEVEL,
 }));
 let sessionGeneration = 0;
 const sessionKey = () => {
@@ -71,16 +74,9 @@ function syncSession() {
   if (useClips.getState().owner !== owner) {
     ++sessionGeneration;
     stopSoundboard();
-    let volume = 0.5;
+    let volume = SOUNDBOARD_DEFAULT_LEVEL;
     try {
-      const saved = Number(localStorage.getItem(`rooms-soundboard-level-v1:${owner}`));
-      if (
-        localStorage.getItem(`rooms-soundboard-level-v1:${owner}`) !== null &&
-        Number.isFinite(saved) &&
-        saved >= 0 &&
-        saved <= 1
-      )
-        volume = saved;
+      volume = soundboardLevel(localStorage.getItem(`rooms-soundboard-level-v1:${owner}`));
     } catch {
       /* Keep playback available without storage. */
     }
@@ -98,6 +94,7 @@ export function SoundboardButton({ showTrigger = true }: { showTrigger?: boolean
     [draft, setDraft] = useState<Draft | null>(null),
     [picking, setPicking] = useState(false);
   const { clips, volume } = useClips(),
+    outputId = useRooms((state) => state.preferences.outputId),
     r = useRealtime(),
     picker = useRef<HTMLInputElement>(null);
   const channelId = r.channelId,
@@ -148,7 +145,7 @@ export function SoundboardButton({ showTrigger = true }: { showTrigger?: boolean
     await shared.upload(channelId, { name, audio: encodeSoundboard(buffer, range) });
     await refresh();
   };
-  const playShared = async (id: string, name: string) => {
+  const playShared = async (id: string, name: string, preview = false) => {
     if (!shared || !channelId) return;
     const captured = scope;
     setBusy(true);
@@ -159,8 +156,11 @@ export function SoundboardButton({ showTrigger = true }: { showTrigger?: boolean
       context = new AudioContext({ sampleRate: 48000 });
       const buffer = await context.decodeAudioData(soundboardBytes(audio));
       if (current.current === captured) {
-        await playSoundboard(buffer, volume);
-        announceSound(name);
+        if (preview) await previewSound(buffer, volume, outputId);
+        else {
+          await playSoundboard(buffer, volume);
+          announceSound(name);
+        }
       }
     } catch (e) {
       if (current.current === captured) setError(uiError(e));
@@ -450,6 +450,15 @@ export function SoundboardButton({ showTrigger = true }: { showTrigger?: boolean
                       <strong>{label || clip.name}</strong>
                       <small>{t('{seconds} sn', { seconds: clip.durationSec.toFixed(1) })}</small>
                     </button>
+                    <button
+                      className="sb-preview"
+                      aria-label={t('{name} sesini yalnız sen dinle', { name: clip.name })}
+                      title={t('Dene: yalnız sen duyarsın')}
+                      disabled={busy || !shared || !channelId}
+                      onClick={() => void playShared(clip.id, clip.name, true)}
+                    >
+                      <Headphones size={13} />
+                    </button>
                     {manage(clip.ownerId) && (
                       <span className="sb-actions">
                         <button
@@ -520,6 +529,18 @@ export function SoundboardButton({ showTrigger = true }: { showTrigger?: boolean
                       <small>
                         {t('{seconds} sn', { seconds: clip.buffer.duration.toFixed(1) })}
                       </small>
+                    </button>
+                    <button
+                      className="sb-preview"
+                      aria-label={t('{name} sesini yalnız sen dinle', { name: clip.name })}
+                      title={t('Dene: yalnız sen duyarsın')}
+                      onClick={() =>
+                        void previewSound(clip.buffer, volume, outputId).catch((e) =>
+                          setError(uiError(e)),
+                        )
+                      }
+                    >
+                      <Headphones size={13} />
                     </button>
                     <span className="sb-actions">
                       <button

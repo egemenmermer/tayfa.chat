@@ -800,4 +800,6 @@ export const media: Catalog = {
   'Yayın kesilmeden seçtiğin pencereye veya ekrana geçer; izleyenler yerinde kalır.':
     'Switches to the window or screen you pick without interrupting the stream; viewers stay connected.',
   'Bu kaynağa geç': 'Switch to this source',
+  '{name} sesini yalnız sen dinle': 'Listen to {name} yourself',
+  'Dene: yalnız sen duyarsın': 'Try: only you hear it',
 };
