@@ -105,6 +105,9 @@ export const settings: Catalog = {
   'Mikrofonu dene': 'Test microphone',
   'Ses çıkışı': 'Audio output',
   'Oda giriş ve çıkış sesleri': 'Room join and leave sounds',
+  'Mikrofon, sağırlaştırma ve yayın sesleri': 'Microphone, deafen and stream sounds',
+  'Mikrofonunu veya sesini açıp kapattığında ve odanda bir yayın başlayıp bittiğinde kısa bir ses.':
+    'A short sound when you turn your microphone or sound on or off, and when a stream starts or ends in your room.',
   'Yalnızca bulunduğun odadaki hareketler.': 'Only for activity in the room you’re in.',
   'Kişisel giriş sesleri': 'Personal entrance sounds',
   'Kapalıyken herkes için klasik ses çalar.': 'When off, everyone hears the classic sound.',

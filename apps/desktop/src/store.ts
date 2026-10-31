@@ -9,6 +9,8 @@ import {
 
 export interface Preferences {
   roomEventSounds: boolean;
+  /** Short cues for this listener's microphone and deafen toggles and for streams in their room. */
+  voiceCues: boolean;
   /** Other people's chosen entrance and leave sounds; off plays the classic cue for everyone. */
   personalSounds: boolean;
   /** Listener-side level for room cues and personal sounds, 0–1. */
@@ -48,6 +50,7 @@ export interface Preferences {
 }
 const defaults: Preferences = {
   roomEventSounds: true,
+  voiceCues: true,
   personalSounds: true,
   soundEffectsLevel: 1,
   followSystemAccessibility: true,

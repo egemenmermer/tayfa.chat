@@ -446,3 +446,32 @@ it('a classic stand-in and a classic cue inside the coalescing window play once'
   await roster([self, { id: 'friend' }, ada, { id: 'bo' }, { id: 'cy' }]);
   expect(played()).toEqual([0.55, 0.55, 0.55]);
 });
+
+it('plays the stream cue when someone in the room starts or stops sharing, on its own switch', async () => {
+  const { voiceCueSource } = await import('../apps/desktop/src/voice-cues');
+  render(<RoomEventSounds />);
+  await connect();
+  await waitFor(() => expect(f.play).toHaveBeenCalledTimes(1));
+  const share = async (screen: boolean) =>
+    act(async () => {
+      f.snapshot = {
+        ...f.snapshot,
+        participants: [
+          { id: 'self', local: true },
+          { id: 'friend', local: false, screen },
+        ],
+      };
+      for (const fn of f.listeners) fn();
+    });
+  // Room join and leave sounds off: streams keep their own switch.
+  useRooms.setState({
+    preferences: { ...useRooms.getState().preferences, roomEventSounds: false },
+  });
+  await share(true);
+  await waitFor(() => expect(f.play).toHaveBeenCalledTimes(2));
+  expect(f.audios.at(-1)?.src).toBe(voiceCueSource('stream-start'));
+  useRooms.setState({ preferences: { ...useRooms.getState().preferences, voiceCues: false } });
+  await share(false);
+  await act(async () => {});
+  expect(f.play).toHaveBeenCalledTimes(2);
+});

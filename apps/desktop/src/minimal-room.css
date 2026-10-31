@@ -157,6 +157,24 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The live badge opens that person's stream (MinimalSidebar). */
+.minimal-occupant > span.minimal-occupant-live {
+  display: inline-flex;
+  flex: none;
+  gap: 3px;
+  align-items: center;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #d93f4c;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.minimal-occupant > span.minimal-occupant-live:hover {
+  background: #ec5462;
+}
 .minimal-occupant .avatar,
 .minimal-occupant .voice-photo {
   width: 22px;

@@ -215,7 +215,7 @@ export const shell: Catalog = {
   Ekran: 'Screen',
   'Ekran paylaş': 'Share screen',
   'Ekran paylaşımı': 'Screen share',
-  'Ekran paylaşıyor': 'Sharing screen',
+  CANLI: 'LIVE',
   'Ekran seçimine dön': 'Back to screen selection',
   'Elini açarken atmak için bir taş bırakmalısın.':
     'You must keep one tile to discard when you open your hand.',

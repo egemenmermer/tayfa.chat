@@ -12,6 +12,7 @@ import {
   type RosterCue,
 } from '../../../packages/shared-contracts/src/personal-sound-policy';
 import type { MediaSnapshot } from '@rooms/media';
+import { StreamCueTracker, playVoiceCue } from './voice-cues';
 export type RoomCue = 'enter' | 'leave';
 type CueState = {
   scope: string;
@@ -127,6 +128,7 @@ export function roomCueSource(kind: RoomCue): string {
 }
 export function RoomEventSounds() {
   const tracker = useRef(new RoomCueTracker());
+  const streams = useRef(new StreamCueTracker());
   useEffect(() => {
     const provider = mediaProvider(),
       policy = new PersonalCuePolicy(),
@@ -279,6 +281,12 @@ export function RoomEventSounds() {
         status,
         participants: snapshot.participants,
       });
+      // Streams have their own switch, so they are compared even while room cues are off.
+      const streamCue = streams.current.update(
+        status === 'connected' && snapshot.roomId ? JSON.stringify([scope, snapshot.roomId]) : null,
+        snapshot.participants,
+      )[0];
+      if (streamCue) playVoiceCue(streamCue.kind);
       // A disconnect (kick or loss) keeps the room id but ends the room for this listener. A
       // reconnect inside the room keeps the policy, so held departures and cooldowns survive it.
       const nextRoom = JSON.stringify([

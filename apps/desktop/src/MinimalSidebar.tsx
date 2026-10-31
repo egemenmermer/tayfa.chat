@@ -344,6 +344,42 @@ export function MinimalSidebar({
     run(c.openChannel(id));
     run(joinVoice(id, name));
   };
+  // The live badge on a member opens their stream, like Discord. Outside that room it joins first
+  // and opens the stream as soon as the room lists it.
+  const [pendingStream, setPendingStream] = useState<{ room: string; person: string } | null>(null);
+  const streamOf = (person: string) =>
+    r.tracks.find(
+      (track) =>
+        track.participantId === person && track.source === 'screen_share' && track.kind === 'video',
+    );
+  const watchUrl = (trackId: string) => `/voice?view=share&screen=${encodeURIComponent(trackId)}`;
+  const openStream = (room: string, roomName: string, person: string) => {
+    const track = r.channelId === room && r.status === 'connected' ? streamOf(person) : undefined;
+    if (track) {
+      navigate(watchUrl(track.id));
+      return;
+    }
+    setPendingStream({ room, person });
+    if (r.channelId === room) navigate('/voice');
+    else enter(room, roomName);
+  };
+  useEffect(() => {
+    if (!pendingStream) return;
+    const track =
+      r.channelId === pendingStream.room && r.status === 'connected'
+        ? streamOf(pendingStream.person)
+        : undefined;
+    if (track) {
+      setPendingStream(null);
+      navigate(watchUrl(track.id));
+    } else if (r.error) setPendingStream(null);
+  });
+  useEffect(() => {
+    if (!pendingStream) return;
+    // A stream that ended while joining leaves the listener in the room, on the voice page.
+    const timer = setTimeout(() => setPendingStream(null), 15000);
+    return () => clearTimeout(timer);
+  }, [pendingStream]);
   return (
     <ChannelTools>
       <aside id="rooms-navigation" className="minimal-sidebar" aria-label={t('Odalar ve gezinme')}>
@@ -517,7 +553,12 @@ export function MinimalSidebar({
                       data-voice-participant-id={p.id}
                       key={p.id}
                       className={`minimal-occupant ${'speaking' in p && p.speaking && !p.muted && !silenced ? 'speaking' : ''}`}
-                      onClick={() => openPerson(p.id, p.name)}
+                      onClick={(event) => {
+                        const live = 'screen' in p && p.screen === true;
+                        if (live && (event.target as Element).closest('[data-live-badge]'))
+                          openStream(ch.id, ch.name, p.id);
+                        else openPerson(p.id, p.name);
+                      }}
                       draggable={rights.moveMembers && p.id !== c.user?.id}
                       onDragStart={(event) => {
                         event.dataTransfer.effectAllowed = 'move';
@@ -563,7 +604,14 @@ export function MinimalSidebar({
                       <VoiceAvatar id={p.id} name={p.name} />
                       <span title={p.name}>{p.name}</span>
                       {'screen' in p && p.screen === true && (
-                        <MonitorUp size={13} aria-label={t('Ekran paylaşıyor')} />
+                        <span
+                          className="minimal-occupant-live"
+                          data-live-badge=""
+                          title={t('Yayını izle')}
+                        >
+                          <MonitorUp size={11} aria-hidden="true" />
+                          {t('CANLI')}
+                        </span>
                       )}
                       {silenced && (
                         <VolumeX size={12} aria-label={t('Sesini kapattın, yalnızca sende')} />

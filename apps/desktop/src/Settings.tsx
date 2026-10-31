@@ -1495,6 +1495,18 @@ export default function Settings({
                       />
                     </Row>
                     <Row
+                      title={t('Mikrofon, sağırlaştırma ve yayın sesleri')}
+                      description={t(
+                        'Mikrofonunu veya sesini açıp kapattığında ve odanda bir yayın başlayıp bittiğinde kısa bir ses.',
+                      )}
+                    >
+                      <Toggle
+                        label={t('Mikrofon, sağırlaştırma ve yayın sesleri')}
+                        value={p.voiceCues}
+                        onChange={(value) => setPreference('voiceCues', value)}
+                      />
+                    </Row>
+                    <Row
                       title={t('Kişisel giriş sesleri')}
                       description={
                         p.roomEventSounds
