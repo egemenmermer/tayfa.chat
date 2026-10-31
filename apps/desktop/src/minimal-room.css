@@ -451,6 +451,11 @@
   z-index: 100;
   box-shadow: -12px 0 30px #0003;
 }
+/* Docked beside a channel on wide windows: part of the row, the conversation narrows. */
+.minimal-room-ui.members-docked .room-members-panel {
+  position: static;
+  box-shadow: none;
+}
 .minimal-room-ui .workspace {
   position: relative;
 }

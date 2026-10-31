@@ -573,7 +573,7 @@ export default function Settings({
     deafen: p.deafenKey === savedPreferences.deafenKey ? registered?.deafen : null,
   };
   // What the draft started from. Other writers change the store while Settings is open
-  // (the microphone keeps microphoneOn, a narrow window keeps showFriends); comparing with
+  // (the microphone keeps microphoneOn, the members panel keeps memberPanel); comparing with
   // this instead of the live store keeps their changes out of "unsaved" and out of Save.
   const baseline = useRef({ ...savedPreferences });
   const setPreference = <K extends keyof typeof p>(key: K, value: (typeof p)[K]) =>
@@ -1350,8 +1350,8 @@ export default function Settings({
                 >
                   <Toggle
                     label={t('Üye panelini göster')}
-                    value={p.showFriends}
-                    onChange={(v) => setPreference('showFriends', v)}
+                    value={p.memberPanel}
+                    onChange={(v) => setPreference('memberPanel', v)}
                   />
                 </Row>
                 <div className="ref-settings-bottom">

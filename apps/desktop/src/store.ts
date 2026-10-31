@@ -25,7 +25,8 @@ export interface Preferences {
   reduceMotion: boolean;
   reduceTransparency: boolean;
   compact: boolean;
-  showFriends: boolean;
+  /** Members docked beside channels on wide windows, open until closed (rc.36; replaces showFriends). */
+  memberPanel: boolean;
   serverUrl: string;
   inputId: string;
   outputId: string;
@@ -59,7 +60,7 @@ const defaults: Preferences = {
   reduceMotion: false,
   reduceTransparency: false,
   compact: false,
-  showFriends: true,
+  memberPanel: true,
   serverUrl: '',
   inputId: '',
   outputId: '',
