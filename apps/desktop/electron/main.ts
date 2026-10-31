@@ -26,6 +26,7 @@ import { createStudioHttp } from './studio-http';
 import { studioExportFileName, validateStudioExport } from './studio-export';
 import { setupNotifications } from './notifications';
 import { trayImage, windowsLightTaskbar } from './tray-icon';
+import { WINDOWS_APP_ID } from './windows-app-id';
 import { setupWindowPolicy } from './window-policy';
 import { readWindowState, showRestored, showWindow, trackWindowState } from './window-state';
 import {
@@ -96,6 +97,7 @@ const devUrl =
 // `pnpm dev` serves the renderer from Vite and never builds dist/, so read static images from public/.
 const appImage = (name: string) =>
   nativeImage.createFromPath(join(__dirname, devUrl ? '../apps/desktop/public' : '../dist', name));
+if (process.platform === 'win32') app.setAppUserModelId(WINDOWS_APP_ID);
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'rooms-provider',
@@ -157,6 +159,8 @@ function createWindow() {
     backgroundColor: '#141518',
     show: false,
     title: 'Tayfa',
+    // macOS takes the bundle icon; elsewhere the window would show Electron's.
+    ...(process.platform === 'darwin' ? {} : { icon: appImage('icon.png') }),
     ...windowFrameOptions(process.platform),
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),

@@ -125,9 +125,12 @@
     },
     "win": {
       "target": "nsis",
+      "icon": "apps/desktop/public/icon.png",
       "artifactName": "ROOMS-${version}-windows-${arch}-setup.${ext}"
     },
     "nsis": {
+      "shortcutName": "Tayfa",
+      "uninstallDisplayName": "Tayfa",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "include": "infra/release/installer.nsh"
