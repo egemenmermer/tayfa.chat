@@ -17,7 +17,7 @@ import {
   UserProfileDialog,
 } from './SocialSurfaces';
 import { RoomMembers } from './RoomMembers';
-import { memberPanel } from './member-panel';
+import { docksMembers, memberPanel } from './member-panel';
 import { prefetchRoomMembers } from './room-members';
 import { FriendsPage } from './FriendsPage';
 import { FriendRequiredDialog } from './FriendRequiredDialog';
@@ -340,7 +340,7 @@ export default function App() {
     community.dms.some((dm) => dm.id === community.activeChannelId);
   const members = memberPanel({
     narrow: narrowContext,
-    channel: (visiblePath === '/chat' && !dmView) || voiceView,
+    channel: docksMembers(visiblePath, dmView),
     settings: settingsPage,
     docked: p.memberPanel,
     drawerOpen: contextDrawerOpen,

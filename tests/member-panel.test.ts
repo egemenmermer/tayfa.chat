@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { memberPanel } from '../apps/desktop/src/member-panel';
+import { docksMembers, memberPanel } from '../apps/desktop/src/member-panel';
 
 const wide = { narrow: false, channel: true, settings: false, docked: true, drawerOpen: false };
 
@@ -39,5 +39,12 @@ describe('members panel placement', () => {
       docked: false,
       visible: false,
     });
+  });
+
+  it('docks only beside text channels; voice rooms and streams keep their width (H11)', () => {
+    expect(docksMembers('/chat', false)).toBe(true);
+    expect(docksMembers('/chat', true)).toBe(false);
+    expect(docksMembers('/voice', false)).toBe(false);
+    expect(docksMembers('/cinema', false)).toBe(false);
   });
 });
