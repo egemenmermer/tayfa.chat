@@ -65,8 +65,14 @@ export interface ScreenLayer {
   width: number;
   height: number;
 }
-/** 'auto' takes the top layer the network carries; a number caps it at that many lines. */
-export type ScreenViewQuality = 'auto' | number;
+/**
+ * 'source' (the default) asks for the top layer at full size; 'auto' sizes the stream to the
+ * viewer's window, which saves bandwidth on a weak link; a number caps it at that many lines.
+ */
+export type ScreenViewQuality = 'source' | 'auto' | number;
+/** Choices that are not a line cap. */
+export const isScreenQualityMode = (choice: ScreenViewQuality): choice is 'source' | 'auto' =>
+  choice === 'source' || choice === 'auto';
 const rank = { low: 0, medium: 1, high: 2 } as const;
 /** Lines of a layer as people name them (1080p), also for a portrait window. */
 export const screenLayerLines = (layer: ScreenLayer) => Math.min(layer.width, layer.height);
@@ -80,9 +86,10 @@ export function screenQualityChoices(layers: readonly ScreenLayer[]): number[] {
 }
 /**
  * The layer to subscribe to for a choice: the largest one not above the cap, or the smallest one
- * when every layer is above it. 'auto' asks for the stream's own top layer, which leaves the
- * server's bandwidth estimate in charge (screen shares ask adaptive stream for 4x). A publisher whose
- * layers are q/h only (rc.34) has no 'high' layer, so the answer is always a layer it really sends.
+ * when every layer is above it. 'source' and 'auto' ask for the stream's own top layer; adaptive
+ * stream then sizes 'auto' to the window, and the server's bandwidth estimate still has the last
+ * word. A publisher whose layers are q/h only (rc.34) has no 'high' layer, so the answer is always
+ * a layer it really sends.
  */
 export function screenSubscriptionQuality(
   layers: readonly ScreenLayer[],
@@ -90,16 +97,16 @@ export function screenSubscriptionQuality(
 ): ScreenLayer['quality'] | undefined {
   const sorted = ordered(layers);
   if (!sorted.length) return undefined;
-  if (choice === 'auto') return sorted[sorted.length - 1]!.quality;
+  if (isScreenQualityMode(choice)) return sorted[sorted.length - 1]!.quality;
   const fit = sorted.filter((layer) => screenLayerLines(layer) <= choice);
   return (fit[fit.length - 1] ?? sorted[0]!).quality;
 }
-/** The option a picker shows as selected: 'auto', or the line count the cap lands on. */
+/** The option a picker shows as selected: a mode, or the line count the cap lands on. */
 export function screenQualitySelection(
   layers: readonly ScreenLayer[],
   choice: ScreenViewQuality,
-): 'auto' | number {
-  if (choice === 'auto') return 'auto';
+): ScreenViewQuality {
+  if (isScreenQualityMode(choice)) return choice;
   const choices = screenQualityChoices(layers);
-  return choices.find((lines) => lines <= choice) ?? choices[choices.length - 1] ?? 'auto';
+  return choices.find((lines) => lines <= choice) ?? choices[choices.length - 1] ?? 'source';
 }

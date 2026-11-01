@@ -677,9 +677,9 @@ it('caps watched screen video at the viewer choice, for a restarted share too', 
   };
   room.remoteParticipants.set('bob', bob);
   provider.watchScreen('bob');
-  // Until the viewer picks, LiveKit's default (the top layer the network carries) applies.
-  expect(video.setVideoQuality).not.toHaveBeenCalled();
-  expect(provider.snapshot().screenQuality).toBe('auto');
+  // Until the viewer picks, Kaynak applies: the top layer is requested explicitly.
+  expect(video.setVideoQuality).toHaveBeenLastCalledWith(VideoQuality.HIGH);
+  expect(provider.snapshot().screenQuality).toBe('source');
   expect(provider.snapshot().tracks).toContainEqual(
     expect.objectContaining({
       id: 'screen-video',
@@ -1409,7 +1409,7 @@ describe('changing a running screen share in place', () => {
     await provider.disconnect();
   });
 });
-it('asks for a watched screen at four times its size; cameras keep 1x', async () => {
+it('asks for a watched screen at four times its size unless Otomatik; cameras keep 1x', async () => {
   const { provider, room, emit } = fixture();
   await provider.connectRoom('room', 'token', 'ws://localhost:7880');
   const video = Object.assign(screenPublication('screen-video', Track.Source.ScreenShare), {
@@ -1431,6 +1431,18 @@ it('asks for a watched screen at four times its size; cameras keep 1x', async ()
     pauseVideoInBackground: true,
     pixelDensity: 4,
   });
+  // Otomatik goes back to fitting the window and recomputes the size at once; Kaynak returns to 4x.
+  const sized = Object.assign(screenTrack, { updateDimensions: vi.fn() });
+  Object.assign(video, { track: sized, isDesired: true });
+  provider.setScreenQuality('auto');
+  expect(sized.adaptiveStreamSettings).toEqual({ pauseVideoInBackground: true });
+  expect(sized.updateDimensions).toHaveBeenCalledTimes(1);
+  provider.setScreenQuality('source');
+  expect(sized.adaptiveStreamSettings).toEqual({ pauseVideoInBackground: true, pixelDensity: 4 });
+  provider.setScreenQuality(720);
+  expect(sized.adaptiveStreamSettings).toEqual({ pauseVideoInBackground: true, pixelDensity: 4 });
+  expect(sized.updateDimensions).toHaveBeenCalledTimes(2);
+  expect(provider.snapshot().screenQuality).toBe(720);
   const camera = Object.assign(screenPublication('camera', Track.Source.Camera), {
     setVideoQuality: vi.fn(),
   });

@@ -186,6 +186,13 @@
   width: clamp(60px, 12vw, 150px);
   accent-color: #9c8bff;
 }
+.room-screen-overlay .room-screen-volume button {
+  padding: 4px;
+  background: none;
+}
+.room-screen-overlay .room-screen-volume button.muted {
+  color: #f0545f;
+}
 .room-screen-volume.no-sound {
   font-size: 12px;
   opacity: 0.75;
@@ -224,7 +231,7 @@
 }
 .room-screen-quality select {
   min-width: 0;
-  max-width: 12ch;
+  max-width: 22ch;
   padding: 8px 6px;
   background: #101116c9;
   border: 0;
@@ -248,5 +255,11 @@
   height: 1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.room-screen-overlay .room-screen-received {
+  margin-left: 6px;
+  color: #c9cbd6;
+  font-size: 11px;
   white-space: nowrap;
 }

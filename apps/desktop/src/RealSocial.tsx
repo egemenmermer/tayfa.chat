@@ -1987,7 +1987,7 @@ export function CommunityVoice({
               <ScreenShareGallery
                 onWatch={watchScreen}
                 onVolume={setScreenVolume}
-                quality={r.screenQuality ?? 'auto'}
+                quality={r.screenQuality ?? 'source'}
                 onQuality={setScreenQuality}
                 onClose={() => {
                   watchScreen(null);
