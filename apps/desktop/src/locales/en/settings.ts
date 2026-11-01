@@ -113,8 +113,8 @@ export const settings: Catalog = {
   'Ses çıkışı': 'Audio output',
   'Oda giriş ve çıkış sesleri': 'Room join and leave sounds',
   'Mikrofon, sağırlaştırma ve yayın sesleri': 'Microphone, deafen and stream sounds',
-  'Mikrofonunu veya sesini açıp kapattığında ve odanda bir yayın başlayıp bittiğinde kısa bir ses.':
-    'A short sound when you turn your microphone or sound on or off, and when a stream starts or ends in your room.',
+  'Mikrofonunu veya sesini açıp kapattığında, odanda bir yayın başlayıp bittiğinde ve biri yayınını izlemeye başlayıp bıraktığında kısa bir ses.':
+    'A short sound when you turn your microphone or sound on or off, when a stream starts or ends in your room, and when someone starts or stops watching your stream.',
   'Yalnızca bulunduğun odadaki hareketler.': 'Only for activity in the room you’re in.',
   'Kişisel giriş sesleri': 'Personal entrance sounds',
   'Kapalıyken herkes için klasik ses çalar.': 'When off, everyone hears the classic sound.',

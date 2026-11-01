@@ -1532,7 +1532,7 @@ export default function Settings({
                     <Row
                       title={t('Mikrofon, sağırlaştırma ve yayın sesleri')}
                       description={t(
-                        'Mikrofonunu veya sesini açıp kapattığında ve odanda bir yayın başlayıp bittiğinde kısa bir ses.',
+                        'Mikrofonunu veya sesini açıp kapattığında, odanda bir yayın başlayıp bittiğinde ve biri yayınını izlemeye başlayıp bıraktığında kısa bir ses.',
                       )}
                     >
                       <Toggle
