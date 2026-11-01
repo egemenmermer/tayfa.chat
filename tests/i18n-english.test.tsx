@@ -21,8 +21,10 @@ it('renders the language picker in English when English is chosen', async () => 
 });
 
 it('translates server error codes for English readers', async () => {
-  const { uiError, locale } = await import('../apps/desktop/src/i18n');
-  expect(locale).toBe('en-US');
+  const { uiError, locale, localeLanguage } = await import('../apps/desktop/src/i18n');
+  // The Intl tag carries the clock (H12); without a system region English uses 12 hours.
+  expect(locale).toBe('en-US-u-hc-h12');
+  expect(localeLanguage).toBe('en');
   expect(uiError(new Error('SOME_UNKNOWN_CODE'))).toBe(
     'The action could not be completed. Try again.',
   );
