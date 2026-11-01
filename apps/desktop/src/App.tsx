@@ -36,7 +36,7 @@ import { InviteLanding } from './Invite';
 import { SignupPendingScreen } from './SignupPending';
 import { signupScreenVisible, useSignup } from './signup-state';
 import { CommandPalette } from './CommandPalette';
-import { friendlyActionError, shortcutRoutes } from './shell-commands';
+import { friendlyActionError, isRoomMuteShortcut, shortcutRoutes } from './shell-commands';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, LayoutGrid, Menu, Music2, Search, Users, X } from 'lucide-react';
@@ -431,7 +431,7 @@ export default function App() {
         }
         if (document.fullscreenElement) void document.exitFullscreen();
       }
-      if (!editing && (e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'm') {
+      if (isRoomMuteShortcut(e)) {
         e.preventDefault();
         if (realtime.channelId)
           void toggleMic().catch((error) =>

@@ -285,7 +285,7 @@ export function MinimalSidebar({
   // Right-click on the microphone or deafen button leads to their shortcuts.
   const openShortcuts = (event: MouseEvent) => {
     event.preventDefault();
-    navigate('/settings?tab=audio');
+    navigate('/settings?tab=shortcuts');
   };
 
   const [person, setPerson] = useState<SocialUser | null>(null);

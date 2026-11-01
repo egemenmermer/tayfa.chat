@@ -573,6 +573,39 @@ export default function Settings({
     mute: p.muteKey === savedPreferences.muteKey ? registered?.mute : null,
     deafen: p.deafenKey === savedPreferences.deafenKey ? registered?.deafen : null,
   };
+  // Mute and deafen shortcuts, editable both under Voice and under Keyboard.
+  const voiceShortcutRows = (
+    <>
+      <Row
+        title={t('Mikrofonu aç / kapat')}
+        description={
+          globalShortcutsAvailable
+            ? t('Başka bir uygulamadayken de çalışır.')
+            : t('Sistem genelinde kısayollar yalnızca masaüstü uygulamasında çalışır.')
+        }
+      >
+        <ShortcutKeyField
+          label={t('Mikrofonu aç / kapat')}
+          value={p.muteKey}
+          onChange={(value) => setPreference('muteKey', value)}
+          others={[p.deafenKey, ...(p.pushToTalk ? [p.pushToTalkKey] : [])]}
+          status={shortcutStatus?.mute}
+        />
+      </Row>
+      <Row
+        title={t('Sesi kapat')}
+        description={t('Hoparlörü kapatır ve açar; başka bir uygulamadayken de çalışır.')}
+      >
+        <ShortcutKeyField
+          label={t('Sesi kapat')}
+          value={p.deafenKey}
+          onChange={(value) => setPreference('deafenKey', value)}
+          others={[p.muteKey, ...(p.pushToTalk ? [p.pushToTalkKey] : [])]}
+          status={shortcutStatus?.deafen}
+        />
+      </Row>
+    </>
+  );
   // What the draft started from. Other writers change the store while Settings is open
   // (the microphone keeps microphoneOn, the members panel keeps memberPanel); comparing with
   // this instead of the live store keeps their changes out of "unsaved" and out of Save.
@@ -1607,38 +1640,7 @@ export default function Settings({
                         'Bas konuş, başka bir uygulamadayken çalışmaz: sistem tuşun bırakıldığını bildirmiyor. Başka uygulamadayken konuşmak için aşağıdaki mikrofon kısayolunu kullan.',
                       )}
                     </p>
-                    <Row
-                      title={t('Mikrofonu aç / kapat')}
-                      description={
-                        globalShortcutsAvailable
-                          ? t('Başka bir uygulamadayken de çalışır.')
-                          : t(
-                              'Sistem genelinde kısayollar yalnızca masaüstü uygulamasında çalışır.',
-                            )
-                      }
-                    >
-                      <ShortcutKeyField
-                        label={t('Mikrofonu aç / kapat')}
-                        value={p.muteKey}
-                        onChange={(value) => setPreference('muteKey', value)}
-                        others={[p.deafenKey, ...(p.pushToTalk ? [p.pushToTalkKey] : [])]}
-                        status={shortcutStatus?.mute}
-                      />
-                    </Row>
-                    <Row
-                      title={t('Sesi kapat')}
-                      description={t(
-                        'Hoparlörü kapatır ve açar; başka bir uygulamadayken de çalışır.',
-                      )}
-                    >
-                      <ShortcutKeyField
-                        label={t('Sesi kapat')}
-                        value={p.deafenKey}
-                        onChange={(value) => setPreference('deafenKey', value)}
-                        others={[p.muteKey, ...(p.pushToTalk ? [p.pushToTalkKey] : [])]}
-                        status={shortcutStatus?.deafen}
-                      />
-                    </Row>
+                    {voiceShortcutRows}
                     <p className="ref-settings-note">
                       {t('Ses odalarına katılırken mikrofon her zaman kapalı başlar.')}
                     </p>
@@ -1845,31 +1847,25 @@ export default function Settings({
             {tab === 'shortcuts' && (
               <>
                 <Heading title={t('Klavye')} />
+                <section className="ref-settings-section">
+                  <h2>{t('Ses kısayolları')}</h2>
+                  {voiceShortcutRows}
+                  <Row
+                    title={t('Bas konuş tuşu')}
+                    description={t('Basılı tuttuğun sürece mikrofonun açık kalır.')}
+                  >
+                    <PushToTalkKeyField
+                      value={p.pushToTalkKey}
+                      onChange={(value) => setPreference('pushToTalkKey', value)}
+                    />
+                  </Row>
+                </section>
+                <h2>{t('Uygulama kısayolları')}</h2>
                 {[
                   [tr('Find a room or command'), '⌘ / Ctrl K'],
                   [tr('Home / Spaces / Chat / Voice / Cinema'), '⌘ / Ctrl 1–5'],
                   [tr('Open settings'), '⌘ / Ctrl ,'],
                   [t('Mikrofonu aç / kapat'), '⌘ / Ctrl Shift M'],
-                  ...(p.muteKey
-                    ? [
-                        [
-                          t('Mikrofonu aç / kapat (sistem genelinde)'),
-                          formatPushToTalkKey(pushToTalkKey(p.muteKey)),
-                        ],
-                      ]
-                    : []),
-                  ...(p.deafenKey
-                    ? [
-                        [
-                          t('Sesi kapat (sistem genelinde)'),
-                          formatPushToTalkKey(pushToTalkKey(p.deafenKey)),
-                        ],
-                      ]
-                    : []),
-                  [
-                    tr('Push to talk (when enabled)'),
-                    formatPushToTalkKey(pushToTalkKey(p.pushToTalkKey)),
-                  ],
                   [tr('Play / pause local media'), 'Space'],
                   [tr('Seek local media 5 seconds'), '← / →'],
                   [tr('Close topmost dialog'), 'Esc'],

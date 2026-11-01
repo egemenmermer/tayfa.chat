@@ -140,8 +140,8 @@ export const settings: Catalog = {
     'System-wide shortcuts work only in the desktop app.',
   'Hoparlörü kapatır ve açar; başka bir uygulamadayken de çalışır.':
     'Turns your speakers off and on. Also works while another app is focused.',
-  'Mikrofonu aç / kapat (sistem genelinde)': 'Mute / unmute (system-wide)',
-  'Sesi kapat (sistem genelinde)': 'Turn sound off (system-wide)',
+  'Ses kısayolları': 'Voice shortcuts',
+  'Uygulama kısayolları': 'App shortcuts',
   Atanmadı: 'Not set',
   Ata: 'Set',
   Temizle: 'Clear',

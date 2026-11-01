@@ -120,6 +120,22 @@ describe('Settings navigation (UI-44)', () => {
     expect(screen.queryByRole('button', { name: 'Diğer ayarlar' })).toBeNull();
   });
 
+  it('lets the keyboard tab rebind the mute and deafen shortcuts (H04)', async () => {
+    renderSettings(none, 'shortcuts');
+    await act(async () => {});
+    const voice = within(screen.getByRole('heading', { name: 'Ses kısayolları' }).parentElement!);
+    expect(voice.getByText('Mikrofonu aç / kapat')).toBeTruthy();
+    expect(voice.getByText('Sesi kapat')).toBeTruthy();
+    expect(voice.getByText('Bas konuş tuşu')).toBeTruthy();
+    // Unset system-wide shortcuts offer "Ata"; push-to-talk always has a key.
+    expect(voice.getAllByRole('button', { name: 'Ata' })).toHaveLength(2);
+    act(() => voice.getAllByRole('button', { name: 'Ata' })[0]!.click());
+    expect(voice.getByRole('button', { name: 'Vazgeç' })).toBeTruthy();
+    // The built-in app shortcut is still listed below.
+    expect(screen.getByRole('heading', { name: 'Uygulama kısayolları' })).toBeTruthy();
+    expect(screen.getByText('⌘ / Ctrl Shift M')).toBeTruthy();
+  });
+
   it('shows the admin tabs to a community admin', async () => {
     const { nav } = renderSettings({ ...none, communityAdmin: true });
     for (const name of adminTabs) expect(await nav().findByRole('button', { name })).toBeTruthy();
