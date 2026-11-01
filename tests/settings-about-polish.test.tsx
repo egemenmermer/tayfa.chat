@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { DesktopBridge } from '@rooms/contracts';
 
@@ -134,6 +134,32 @@ describe('Settings navigation (UI-44)', () => {
     // The built-in app shortcut is still listed below.
     expect(screen.getByRole('heading', { name: 'Uygulama kısayolları' })).toBeTruthy();
     expect(screen.getByText('⌘ / Ctrl Shift M')).toBeTruthy();
+  });
+
+  it('searches settings by tab name and by the rows on each tab (H07)', async () => {
+    const { nav } = renderSettings(none);
+    await act(async () => {});
+    const search = screen.getByRole('searchbox', { name: 'Ayarlarda ara' });
+    act(() => {
+      fireEvent.change(search, { target: { value: 'saat bicimi' } });
+    });
+    // Accent-insensitive; the matching row shows under its tab.
+    expect(nav().getByRole('button', { name: /Görünüm/ }).textContent).toContain('Saat biçimi');
+    expect(nav().queryByRole('button', { name: 'Ses ve video' })).toBeNull();
+    act(() => {
+      fireEvent.change(search, { target: { value: 'bas konus' } });
+    });
+    expect(nav().getByRole('button', { name: /Klavye/ })).toBeTruthy();
+    expect(nav().getByRole('button', { name: /Ses ve video/ })).toBeTruthy();
+    act(() => {
+      fireEvent.change(search, { target: { value: 'zzzz' } });
+    });
+    expect(screen.getByText('Bu aramayla eşleşen ayar yok.')).toBeTruthy();
+    act(() => {
+      fireEvent.change(search, { target: { value: 'gürültü' } });
+      fireEvent.keyDown(search, { key: 'Enter' });
+    });
+    expect(screen.getByRole('heading', { level: 1, name: 'Ses ve video' })).toBeTruthy();
   });
 
   it('shows the admin tabs to a community admin', async () => {

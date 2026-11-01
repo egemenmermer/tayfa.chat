@@ -141,6 +141,8 @@ export const settings: Catalog = {
   'Hoparlörü kapatır ve açar; başka bir uygulamadayken de çalışır.':
     'Turns your speakers off and on. Also works while another app is focused.',
   'Ses kısayolları': 'Voice shortcuts',
+  'Ayarlarda ara': 'Search settings',
+  'Bu aramayla eşleşen ayar yok.': 'No setting matches this search.',
   'Uygulama kısayolları': 'App shortcuts',
   Atanmadı: 'Not set',
   Ata: 'Set',

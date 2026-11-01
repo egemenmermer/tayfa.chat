@@ -1,3 +1,4 @@
+import { foldSearch } from './shell-commands';
 import { HostOperations } from './HostOperations';
 import { HallKeySettings } from './cinema/CinemaViewerSettings';
 import { setWindowOnTop, useWindowOnTop } from './window-on-top';
@@ -107,6 +108,75 @@ const tabs = [
   { id: 'automation', label: t('Otomasyon modu'), icon: Sparkles },
   { id: 'about', label: t('Güncelleme ve hakkında'), icon: Info },
 ];
+const userTabIds = [
+  'profile',
+  'audio',
+  'appearance',
+  'desktop',
+  'agent',
+  'connections',
+  'room-memory',
+  'schedules',
+  'services',
+];
+/**
+ * What the settings search matches besides each tab's name: the rows on that tab, in their own
+ * words (H07). Keep in step with the rows.
+ */
+const tabKeywords: Partial<Record<string, string[]>> = {
+  profile: [t('Görünen ad'), t('Hakkında'), t('Fotoğraf'), t('Durum'), t('Şifre'), t('Çıkış yap')],
+  audio: [
+    t('Ses girişi'),
+    t('Mikrofon seviyesi'),
+    t('Ses çıkışı'),
+    t('Oda giriş ve çıkış sesleri'),
+    t('Mikrofon, sağırlaştırma ve yayın sesleri'),
+    t('Kişisel giriş sesleri'),
+    t('Efekt ses düzeyi'),
+    t('Bas konuş'),
+    t('Bas konuş tuşu'),
+    t('Mikrofonu aç / kapat'),
+    t('Sesi kapat'),
+    t('Gürültü azaltma'),
+    t('Ses seviyesini dengele'),
+    t('Kamera'),
+  ],
+  appearance: [
+    t('Dil / Language'),
+    t('Saat biçimi'),
+    t('Yoğunluk'),
+    t('Metin boyutu'),
+    t('Hareketi azalt'),
+    t('Şeffaflığı azalt'),
+    t('Vurgu'),
+    t('Üye paneli'),
+  ],
+  desktop: [
+    t('Masaüstü bildirimleri'),
+    t('Özel mesajlar ve etiketlenmeler'),
+    t('Bildirim sesleri'),
+    t('Görüşmedeyken bildirimleri duraklat'),
+    t('Oturum açınca başlat'),
+    t('Pencereyi üstte tut'),
+    t('Tam ekran'),
+  ],
+  shortcuts: [
+    t('Ses kısayolları'),
+    t('Mikrofonu aç / kapat'),
+    t('Sesi kapat'),
+    t('Bas konuş tuşu'),
+    t('Uygulama kısayolları'),
+  ],
+  about: [t('Güncellemeleri denetle')],
+};
+/** The tab's name or the first row that matches a folded query; null when nothing does. */
+export function settingsMatch(id: string, query: string): string | null {
+  const wanted = foldSearch(query.trim());
+  if (!wanted) return null;
+  const entry = tabs.find((item) => item.id === id);
+  if (entry && foldSearch(entry.label).includes(wanted)) return entry.label;
+  return tabKeywords[id]?.find((keyword) => foldSearch(keyword).includes(wanted)) ?? null;
+}
 function Heading({ title }: { title: string }) {
   return (
     <div className="ref-settings-heading">
@@ -704,6 +774,7 @@ export default function Settings({
     () => window.matchMedia('(max-width: 959px)').matches,
   );
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const navigationRef = useRef<HTMLElement | null>(null),
     navigationButton = useRef<HTMLButtonElement | null>(null);
   const closeNavigation = () => {
@@ -1140,21 +1211,26 @@ export default function Settings({
           <div className="ref-nav-title">
             <strong>{t('Ayarlar')}</strong>
           </div>
+          <input
+            type="search"
+            className="ref-settings-search"
+            placeholder={t('Ayarlarda ara')}
+            aria-label={t('Ayarlarda ara')}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return;
+              const first = navigationRef.current?.querySelector<HTMLButtonElement>(
+                '.ref-settings-nav-group button[data-tab]',
+              );
+              first?.click();
+            }}
+          />
           <div className="ref-settings-nav-scroll">
             {[
               {
                 label: t('KULLANICI AYARLARI'),
-                ids: [
-                  'profile',
-                  'audio',
-                  'appearance',
-                  'desktop',
-                  'agent',
-                  'connections',
-                  'room-memory',
-                  'schedules',
-                  'services',
-                ],
+                ids: userTabIds,
               },
               {
                 label:
@@ -1165,15 +1241,23 @@ export default function Settings({
               },
               { label: 'Tayfa', ids: ['shortcuts', 'diagnostics', 'about'] },
             ]
+              .map((group) => ({
+                ...group,
+                ids: search.trim()
+                  ? group.ids.filter((id) => settingsMatch(id, search))
+                  : group.ids,
+              }))
               .filter((group) => group.ids.length)
               .map((group) => (
                 <div className="ref-settings-nav-group" key={group.label}>
                   <span className="ref-nav-group">{group.label}</span>
                   {group.ids.map((id) => {
                     const entry = tabs.find((item) => item.id === id)!;
+                    const matched = search.trim() ? settingsMatch(id, search) : null;
                     return (
                       <button
                         key={entry.id}
+                        data-tab={entry.id}
                         className={tab === entry.id ? 'selected' : ''}
                         aria-current={tab === entry.id ? 'page' : undefined}
                         onClick={() => {
@@ -1183,6 +1267,9 @@ export default function Settings({
                       >
                         <entry.icon size={17} />
                         {entry.label}
+                        {matched && matched !== entry.label && (
+                          <small className="ref-settings-search-hit">{matched}</small>
+                        )}
                       </button>
                     );
                   })}
@@ -1194,6 +1281,18 @@ export default function Settings({
                   )}
                 </div>
               ))}
+            {search.trim() &&
+              ![
+                ...userTabIds,
+                ...communityTabs(rights, communityAdmin, delegatedHosts),
+                'shortcuts',
+                'diagnostics',
+                'about',
+              ].some((id) => settingsMatch(id, search)) && (
+                <p className="ref-settings-search-empty" role="status">
+                  {t('Bu aramayla eşleşen ayar yok.')}
+                </p>
+              )}
           </div>
           <SettingsConnection notify={notify} />
         </nav>
