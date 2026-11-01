@@ -11,8 +11,8 @@ export interface Preferences {
   roomEventSounds: boolean;
   /** Short cues for this listener's microphone and deafen toggles and for streams in their room. */
   voiceCues: boolean;
-  /** This viewer's screen share quality: 'auto' (the top layer the network carries) or a line cap. */
-  screenQuality: 'auto' | number;
+  /** This viewer's screen share quality: 'source' (top layer), 'auto' (fits the window) or a cap. */
+  screenQuality: 'source' | 'auto' | number;
   /** Other people's chosen entrance and leave sounds; off plays the classic cue for everyone. */
   personalSounds: boolean;
   /** Listener-side level for room cues and personal sounds, 0–1. */
@@ -53,7 +53,7 @@ export interface Preferences {
 const defaults: Preferences = {
   roomEventSounds: true,
   voiceCues: true,
-  screenQuality: 'auto',
+  screenQuality: 'source',
   personalSounds: true,
   soundEffectsLevel: 1,
   followSystemAccessibility: true,
@@ -85,11 +85,22 @@ interface RoomsState {
   setPreferences(value: Preferences): void;
   setPreference<K extends keyof Preferences>(key: K, value: Preferences[K]): void;
 }
-/** 'auto' or a whole line count up to 8K; anything else falls back to 'auto'. */
-export function normalizeScreenQuality(value: unknown): 'auto' | number {
+/** 'source', 'auto' or a whole line count up to 8K; anything else falls back to 'source'. */
+export function normalizeScreenQuality(value: unknown): 'source' | 'auto' | number {
+  if (value === 'source' || value === 'auto') return value;
   return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 4320
     ? value
-    : 'auto';
+    : 'source';
+}
+/**
+ * Version 1 (rc.35/36) stored 'auto' as the screen quality default, and it then meant the top layer.
+ * From version 2 that is 'source', and 'auto' fits the window, so a stored 'auto' moves to 'source'.
+ */
+export function migratePreferences(previous: unknown, version: number): unknown {
+  const state = previous as { preferences?: Record<string, unknown> } | null;
+  if (version < 2 && state?.preferences?.screenQuality === 'auto')
+    return { ...state, preferences: { ...state.preferences, screenQuality: 'source' } };
+  return previous;
 }
 export function normalizeSoundEffectsLevel(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 1;
@@ -196,8 +207,10 @@ export const useRooms = create<RoomsState>()(
     }),
     {
       name: 'rooms-local-v1',
-      version: 1,
-      migrate: (previous) => ({ preferences: preferencesFrom(previous) }),
+      version: 2,
+      migrate: (previous, version) => ({
+        preferences: preferencesFrom(migratePreferences(previous, version)),
+      }),
       merge: (previous, current) => ({ ...current, preferences: preferencesFrom(previous) }),
       partialize: (state) => ({ preferences: state.preferences }),
     },

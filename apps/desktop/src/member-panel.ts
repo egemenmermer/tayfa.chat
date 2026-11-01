@@ -5,7 +5,7 @@
  */
 export function memberPanel(state: {
   narrow: boolean;
-  /** A community text channel or voice room is open. */
+  /** A community text channel is open (see `docksMembers`). */
   channel: boolean;
   settings: boolean;
   /** The remembered choice (`memberPanel` preference). */
@@ -21,3 +21,10 @@ export function memberPanel(state: {
     toggles: drawer ? ('drawer' as const) : ('docked' as const),
   };
 }
+
+/**
+ * Only a community text channel docks the panel. A voice room or a stream needs the width, so
+ * there the members button opens the drawer instead, as in Discord (H11).
+ */
+export const docksMembers = (path: string, directMessage: boolean) =>
+  path === '/chat' && !directMessage;

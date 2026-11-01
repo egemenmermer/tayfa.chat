@@ -35,6 +35,7 @@ import {
   type TrackPublication,
 } from 'livekit-client';
 import {
+  isScreenQualityMode,
   screenPublishPlan,
   screenSubscriptionQuality,
   type ScreenLayer,
@@ -43,6 +44,7 @@ import {
   type ScreenViewQuality,
 } from './screen-quality';
 export {
+  isScreenQualityMode,
   screenProfiles,
   screenPublishPlan,
   screenQualityChoices,
@@ -66,19 +68,29 @@ import {
 
 /**
  * Adaptive stream sizes a remote video to its element at 1x density, so a watched screen in a
- * normal window (or on a 150% scaled Windows display) came in at 540p or 720p. A screen share asks
- * for four times its element size instead: Otomatik gets the top layer and the server steps down
- * only when the network cannot carry it, while a hidden share still pauses. Cameras are unchanged.
+ * normal window (or on a 150% scaled Windows display) came in at 540p or 720p. Kaynak (and a line
+ * cap) asks for four times the element size instead, so the top layer is requested and the server
+ * steps down only when the network cannot carry it; Otomatik keeps the 1x window fit. A hidden
+ * share still pauses either way. Cameras are unchanged. `adaptiveStreamSettings` and
+ * `updateDimensions` are private in livekit-client 2.22.3; recheck both on an upgrade.
  */
 const SCREEN_PIXEL_DENSITY = 4;
-function fullSizeScreen(track: unknown) {
+function sizeScreen(track: unknown, full: boolean) {
   if (!track || typeof track !== 'object' || !('adaptiveStreamSettings' in track)) return;
-  const video = track as { adaptiveStreamSettings?: object };
-  if (video.adaptiveStreamSettings)
-    video.adaptiveStreamSettings = {
-      ...video.adaptiveStreamSettings,
-      pixelDensity: SCREEN_PIXEL_DENSITY,
-    };
+  const video = track as {
+    adaptiveStreamSettings?: { pixelDensity?: unknown };
+    updateDimensions?(): void;
+  };
+  const settings = video.adaptiveStreamSettings;
+  if (!settings) return;
+  if (settings.pixelDensity === (full ? SCREEN_PIXEL_DENSITY : undefined)) return;
+  const { pixelDensity: _previous, ...rest } = settings;
+  video.adaptiveStreamSettings = full ? { ...rest, pixelDensity: SCREEN_PIXEL_DENSITY } : rest;
+  try {
+    video.updateDimensions?.();
+  } catch {
+    /* The next resize or visibility change applies it. */
+  }
 }
 export interface MediaParticipant {
   id: string;
@@ -136,7 +148,7 @@ export interface MediaSnapshot {
   sharingAudio?: boolean;
   /** Quality preset this client's screen share was published with; null while not sharing. */
   sharingQuality?: ScreenShareQuality | null;
-  /** This viewer's screen share quality; 'auto' until they pick one (the desktop remembers it). */
+  /** This viewer's screen share quality; 'source' until they pick one (the desktop remembers it). */
   screenQuality?: ScreenViewQuality;
   audioBlocked: boolean;
   inputDeviceFallback?: boolean;
@@ -212,7 +224,7 @@ export interface RealtimeMediaProvider {
   setParticipantVolume(participantId: string, volume: number): void;
   setScreenVolume?(participantId: string, volume: number): void;
   watchScreen?(participantId: string | null): void;
-  /** Caps the screen shares this viewer receives ('auto' or lines such as 720) for the session. */
+  /** Caps the screen shares this viewer receives ('source', 'auto' or lines such as 720). */
   setScreenQuality?(quality: ScreenViewQuality): void;
   startAudio(): Promise<void>;
   /**
@@ -461,7 +473,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     camera: false,
     sharing: false,
     sharingAudio: false,
-    screenQuality: 'auto',
+    screenQuality: 'source',
     audioBlocked: false,
     participants: [],
     tracks: [],
@@ -996,7 +1008,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
         return;
       }
       if (publication.source === Track.Source.ScreenShare) {
-        fullSizeScreen(track);
+        sizeScreen(track, this.screenChoice() !== 'auto');
         this.applyScreenQuality();
       }
       if (track.kind === Track.Kind.Audio && typeof document !== 'undefined') {
@@ -1619,8 +1631,8 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       }
   }
   setScreenQuality(quality: ScreenViewQuality) {
-    if (quality !== 'auto' && !(Number.isInteger(quality) && quality > 0))
-      throw Error('Screen quality must be auto or a positive line count.');
+    if (!isScreenQualityMode(quality) && !(Number.isInteger(quality) && quality > 0))
+      throw Error('Screen quality must be source, auto or a positive line count.');
     this.screenQuality = quality;
     this.applyScreenQuality();
     this.patch({ screenQuality: quality });
@@ -1631,12 +1643,15 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
    * restarted share is a new publication) apply it again. Under adaptive stream a fixed choice is
    * a ceiling: a small tile can still receive a smaller layer.
    */
+  private screenChoice(): ScreenViewQuality {
+    return this.screenQuality ?? 'source';
+  }
   private applyScreenQuality() {
-    const choice = this.screenQuality;
-    if (choice === null) return;
+    const choice = this.screenChoice();
     for (const person of this.room?.remoteParticipants.values() ?? [])
       for (const pub of person.trackPublications.values()) {
         if (pub.source !== Track.Source.ScreenShare || !pub.isDesired) continue;
+        sizeScreen(pub.track, choice !== 'auto');
         const quality = screenSubscriptionQuality(screenLayers(pub), choice);
         if (quality) pub.setVideoQuality(videoQualities[quality]);
       }

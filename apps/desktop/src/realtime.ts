@@ -658,7 +658,7 @@ export function setScreenVolume(id: string, volume: number) {
   if (!provider.setScreenVolume) throw Error(t('Yayın sesi kontrolü kullanılamıyor.'));
   provider.setScreenVolume(id, volume);
 }
-/** Caps the screen shares this viewer receives ('auto' or lines, e.g. 720) and remembers it. */
+/** This viewer's screen share quality ('source', 'auto' or lines, e.g. 720), remembered. */
 export function setScreenQuality(quality: import('@rooms/media').ScreenViewQuality) {
   const provider = mediaProvider();
   if (!provider.setScreenQuality) throw Error(t('Yayın kalitesi seçimi kullanılamıyor.'));

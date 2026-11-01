@@ -1,5 +1,15 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { Maximize, Minimize, Monitor, ExternalLink, X, Volume2, VolumeX } from 'lucide-react';
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react';
+import {
+  Maximize,
+  Minimize,
+  Monitor,
+  ExternalLink,
+  PanelBottomClose,
+  PanelBottomOpen,
+  X,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 import {
   screenQualityChoices,
   screenQualitySelection,
@@ -20,7 +30,7 @@ export function ScreenShareGallery({
   initialTrackId,
   onWatch,
   onVolume,
-  quality = 'auto',
+  quality = 'source',
   onQuality,
   onClose,
 }: {
@@ -38,11 +48,15 @@ export function ScreenShareGallery({
 }) {
   const [selected, setSelected] = useState<string | null>(initialTrackId ?? null),
     [fullscreen, setFullscreen] = useState(false),
-    stage = useRef<HTMLDivElement>(null);
+    [stripHidden, setStripHidden] = useState(false),
+    stage = useRef<HTMLDivElement>(null),
+    // The level each stream had before the speaker button muted it, to give it back.
+    unmuted = useRef(new Map<string, number>());
   useEffect(() => setSelected(initialTrackId ?? null), [initialTrackId]);
   const active = tracks.find((track) => track.id === selected) ?? tracks[0];
   const participant = people.find((p) => p.id === active?.participantId);
   const watched = active && !active.local ? active.participantId : null;
+  const received = useReceivedLines(stage, active?.id);
   const notifyRef = useRef(notify);
   useEffect(() => {
     notifyRef.current = notify;
@@ -130,8 +144,27 @@ export function ScreenShareGallery({
               </span>
             )}
             {onVolume && active && !active.local && participant?.screenAudio !== false && (
-              <label className="room-screen-volume">
-                <Volume2 size={16} />
+              <div className="room-screen-volume">
+                <button
+                  className={(participant?.screenVolume ?? 1) === 0 ? 'muted' : undefined}
+                  aria-pressed={(participant?.screenVolume ?? 1) === 0}
+                  aria-label={t('{name} yayınını sessize al', { name: name(active) })}
+                  title={(participant?.screenVolume ?? 1) === 0 ? t('Sesi aç') : t('Sessize al')}
+                  onClick={() => {
+                    const id = active.participantId;
+                    const level = participant?.screenVolume ?? 1;
+                    if (level > 0) {
+                      unmuted.current.set(id, level);
+                      onVolume(id, 0);
+                    } else onVolume(id, unmuted.current.get(id) ?? 1);
+                  }}
+                >
+                  {(participant?.screenVolume ?? 1) === 0 ? (
+                    <VolumeX size={16} />
+                  ) : (
+                    <Volume2 size={16} />
+                  )}
+                </button>
                 <input
                   type="range"
                   min="0"
@@ -141,12 +174,13 @@ export function ScreenShareGallery({
                   value={participant?.screenVolume ?? 1}
                   onChange={(event) => onVolume(active.participantId, Number(event.target.value))}
                 />
-              </label>
+              </div>
             )}
             {onQuality && active && !active.local && active.subscribed !== false && (
               <ScreenQualityPicker
                 layers={active.layers ?? []}
                 quality={quality}
+                received={received}
                 onChange={(value) => {
                   try {
                     onQuality(value);
@@ -155,6 +189,16 @@ export function ScreenShareGallery({
                   }
                 }}
               />
+            )}
+            {tracks.length > 1 && (
+              <button
+                aria-pressed={stripHidden}
+                aria-label={stripHidden ? t('Diğer yayınları göster') : t('Diğer yayınları gizle')}
+                title={stripHidden ? t('Diğer yayınları göster') : t('Diğer yayınları gizle')}
+                onClick={() => setStripHidden((hidden) => !hidden)}
+              >
+                {stripHidden ? <PanelBottomOpen size={18} /> : <PanelBottomClose size={18} />}
+              </button>
             )}
             <button
               aria-label={t('Paylaşımı ayrı pencerede izle')}
@@ -181,7 +225,7 @@ export function ScreenShareGallery({
         </div>
       </div>
       <RemoteControlActions track={active} />
-      {tracks.length > 1 && (
+      {tracks.length > 1 && !stripHidden && (
         <div className="room-screen-thumbnails" aria-label={t('Paylaşılan ekranlar')}>
           {tracks.map((track) => (
             <button
@@ -213,10 +257,13 @@ export function ScreenShareGallery({
 export function ScreenQualityPicker({
   layers,
   quality,
+  received = null,
   onChange,
 }: {
   layers: readonly ScreenLayer[];
   quality: ScreenViewQuality;
+  /** Lines of the picture that actually arrives, so a viewer can report what they get. */
+  received?: number | null;
   onChange(quality: ScreenViewQuality): void;
 }) {
   const hint = useId();
@@ -233,17 +280,23 @@ export function ScreenQualityPicker({
         aria-disabled={single || undefined}
         value={single ? String(choices[0]) : String(screenQualitySelection(layers, quality))}
         onChange={(event) => {
-          if (!single)
-            onChange(event.target.value === 'auto' ? 'auto' : Number(event.target.value));
+          const value = event.target.value;
+          if (!single) onChange(value === 'auto' || value === 'source' ? value : Number(value));
         }}
       >
-        {!single && <option value="auto">{t('Otomatik (en yüksek)')}</option>}
+        {!single && <option value="auto">{t('Otomatik (pencereye göre)')}</option>}
+        {!single && <option value="source">{t('Kaynak (en yüksek)')}</option>}
         {choices.map((lines) => (
           <option key={lines} value={String(lines)}>
             {`${lines}p`}
           </option>
         ))}
       </select>
+      {received !== null && (
+        <small className="room-screen-received" role="status">
+          {t('Gelen: {lines}p', { lines: received })}
+        </small>
+      )}
       {single && (
         <span id={hint} className="room-screen-quality-hint">
           {explanation}
@@ -251,4 +304,24 @@ export function ScreenQualityPicker({
       )}
     </label>
   );
+}
+
+/**
+ * Lines of the watched stream as it is decoded here (720 for 1280×720), read from the stage's video
+ * element once a second; null until a picture arrives.
+ */
+function useReceivedLines(stage: RefObject<HTMLDivElement | null>, trackId: string | undefined) {
+  const [lines, setLines] = useState<number | null>(null);
+  useEffect(() => {
+    const read = () => {
+      const video = stage.current?.querySelector('video');
+      setLines(
+        video && video.videoWidth > 0 ? Math.min(video.videoWidth, video.videoHeight) : null,
+      );
+    };
+    read();
+    const timer = setInterval(read, 1000);
+    return () => clearInterval(timer);
+  }, [stage, trackId]);
+  return lines;
 }

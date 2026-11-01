@@ -1,3 +1,4 @@
+import { hourCycleFor, storedTimeFormat, withHourCycle } from './time-format';
 import {
   configureI18n,
   intlLocale,
@@ -785,8 +786,15 @@ const trMessages: Record<string, string> = {
     'Görünüm açılamadı. Ayarların hâlâ kayıtlı.',
   'Reload Tayfa': "Tayfa'yı yeniden yükle",
 };
-/** Intl tag of the interface language; fixed for the life of the page. */
-export const locale = intlLocale();
+/**
+ * Intl tag of the interface language with the chosen clock (`en-US-u-hc-h23`); fixed for the life
+ * of the page. Compare languages with `localeLanguage`, never with this tag.
+ */
+export const locale = withHourCycle(
+  intlLocale(),
+  hourCycleFor(storedTimeFormat(), globalThis.window?.rooms?.locale?.region, intlLocale()),
+);
+export const localeLanguage = startup.locale;
 /**
  * Legacy lookup keyed by English (or Turkish) source text. English returns the key itself unless
  * the catalog has the key, which is how Turkish keys in messages.tr.ts get their English.

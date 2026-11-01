@@ -17,7 +17,7 @@ import {
   UserProfileDialog,
 } from './SocialSurfaces';
 import { RoomMembers } from './RoomMembers';
-import { memberPanel } from './member-panel';
+import { docksMembers, memberPanel } from './member-panel';
 import { prefetchRoomMembers } from './room-members';
 import { FriendsPage } from './FriendsPage';
 import { FriendRequiredDialog } from './FriendRequiredDialog';
@@ -36,7 +36,7 @@ import { InviteLanding } from './Invite';
 import { SignupPendingScreen } from './SignupPending';
 import { signupScreenVisible, useSignup } from './signup-state';
 import { CommandPalette } from './CommandPalette';
-import { friendlyActionError, shortcutRoutes } from './shell-commands';
+import { friendlyActionError, isRoomMuteShortcut, shortcutRoutes } from './shell-commands';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, LayoutGrid, Menu, Music2, Search, Users, X } from 'lucide-react';
@@ -340,7 +340,7 @@ export default function App() {
     community.dms.some((dm) => dm.id === community.activeChannelId);
   const members = memberPanel({
     narrow: narrowContext,
-    channel: (visiblePath === '/chat' && !dmView) || voiceView,
+    channel: docksMembers(visiblePath, dmView),
     settings: settingsPage,
     docked: p.memberPanel,
     drawerOpen: contextDrawerOpen,
@@ -431,7 +431,7 @@ export default function App() {
         }
         if (document.fullscreenElement) void document.exitFullscreen();
       }
-      if (!editing && (e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'm') {
+      if (isRoomMuteShortcut(e)) {
         e.preventDefault();
         if (realtime.channelId)
           void toggleMic().catch((error) =>

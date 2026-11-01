@@ -140,3 +140,9 @@
 .minimal-sidebar .sidebar-media-actions > .icon-button:disabled {
   opacity: 0.4;
 }
+/* Camera or screen share on: lit like Discord's, so it reads as "live" at a glance (H13). */
+.minimal-sidebar .sidebar-media-actions > .icon-button.media-on,
+.minimal-sidebar .sidebar-media-actions > .icon-button.media-on:hover:not(:disabled) {
+  background: #3ba55d;
+  color: #ffffff;
+}

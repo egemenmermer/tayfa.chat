@@ -729,6 +729,11 @@
   min-width: 36px;
   display: block;
 }
+.room-member-photo.speaking img,
+.room-member-photo.speaking .avatar {
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #3ba55d;
+}
 .member-presence {
   position: absolute;
   right: -1px;

@@ -20,14 +20,29 @@ const leave = (actor: string, sound?: string): RosterCue => ({
 const plays = (decisions: { play: string }[]) => decisions.map((d) => d.play);
 
 describe('PersonalCuePolicy', () => {
-  it('plays the actor’s sound for a genuine join, and the classic cue for the listener’s own', () => {
+  it('plays the actor’s sound for a genuine join', () => {
     const policy = new PersonalCuePolicy();
-    expect(
-      policy.push({ kind: 'enter', actor: 'me', local: true, sound: 'p.fanfar' }, 0, yes),
-    ).toEqual([{ kind: 'enter', actor: 'me', play: 'classic' }]);
-    expect(policy.push(enter('a', 'p.fanfar'), 1000, yes)).toEqual([
+    expect(policy.push(enter('a', 'p.fanfar'), 0, yes)).toEqual([
       { kind: 'enter', actor: 'a', play: 'personal', sound: 'p.fanfar' },
     ]);
+  });
+  it('plays the listener’s own sound to them every time, as in Discord (H02)', () => {
+    const policy = new PersonalCuePolicy();
+    const own = (kind: 'enter' | 'leave', at: number, sound?: string) =>
+      policy.push({ kind, actor: 'me', local: true, ...(sound ? { sound } : {}) }, at, yes);
+    expect(own('enter', 0, 'p.fanfar')).toEqual([
+      { kind: 'enter', actor: 'me', play: 'personal', sound: 'p.fanfar' },
+    ]);
+    // No cooldown and no rejoin rule for your own events.
+    expect(plays(own('leave', 2000, 'p.kapi'))).toEqual(['personal']);
+    expect(plays(own('enter', 4000, 'p.fanfar'))).toEqual(['personal']);
+    // Without a sound, or when the listener turned personal sounds off, the classic cue.
+    expect(plays(own('leave', 6000))).toEqual(['classic']);
+    expect(
+      plays(
+        policy.push({ kind: 'enter', actor: 'me', local: true, sound: 'p.x' }, 8000, () => false),
+      ),
+    ).toEqual(['classic']);
   });
   it('falls back to the classic cue without a sound or when the listener does not allow it', () => {
     const policy = new PersonalCuePolicy();

@@ -145,3 +145,16 @@ it('account rotation cannot compare private rosters', () => {
     }),
   ).toEqual(rebase);
 });
+it('own join and leave cues carry the listener’s own sounds (H02)', () => {
+  const t = new RoomCueTracker();
+  const me = { id: 'self', local: true, sounds: { enter: 'p.fanfar', leave: 'p.kapi' } };
+  const inRoom = { ...base, participants: [me, { id: 'friend', local: false }] };
+  expect(t.update(inRoom)).toEqual({
+    cues: [{ kind: 'enter', actor: 'self', local: true, sound: 'p.fanfar' }],
+    rebased: true,
+  });
+  expect(t.update({ ...inRoom, channel: null, participants: [] })).toEqual({
+    cues: [{ kind: 'leave', actor: 'self', local: true, sound: 'p.kapi' }],
+    rebased: true,
+  });
+});

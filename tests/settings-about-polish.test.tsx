@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { DesktopBridge } from '@rooms/contracts';
 
@@ -118,6 +118,48 @@ describe('Settings navigation (UI-44)', () => {
     expect(nav().getByRole('button', { name: 'Klavye' })).toBeTruthy();
     expect(nav().getByRole('button', { name: 'Tanılama' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Diğer ayarlar' })).toBeNull();
+  });
+
+  it('lets the keyboard tab rebind the mute and deafen shortcuts (H04)', async () => {
+    renderSettings(none, 'shortcuts');
+    await act(async () => {});
+    const voice = within(screen.getByRole('heading', { name: 'Ses kısayolları' }).parentElement!);
+    expect(voice.getByText('Mikrofonu aç / kapat')).toBeTruthy();
+    expect(voice.getByText('Sesi kapat')).toBeTruthy();
+    expect(voice.getByText('Bas konuş tuşu')).toBeTruthy();
+    // Unset system-wide shortcuts offer "Ata"; push-to-talk always has a key.
+    expect(voice.getAllByRole('button', { name: 'Ata' })).toHaveLength(2);
+    act(() => voice.getAllByRole('button', { name: 'Ata' })[0]!.click());
+    expect(voice.getByRole('button', { name: 'Vazgeç' })).toBeTruthy();
+    // The built-in app shortcut is still listed below.
+    expect(screen.getByRole('heading', { name: 'Uygulama kısayolları' })).toBeTruthy();
+    expect(screen.getByText('⌘ / Ctrl Shift M')).toBeTruthy();
+  });
+
+  it('searches settings by tab name and by the rows on each tab (H07)', async () => {
+    const { nav } = renderSettings(none);
+    await act(async () => {});
+    const search = screen.getByRole('searchbox', { name: 'Ayarlarda ara' });
+    act(() => {
+      fireEvent.change(search, { target: { value: 'saat bicimi' } });
+    });
+    // Accent-insensitive; the matching row shows under its tab.
+    expect(nav().getByRole('button', { name: /Görünüm/ }).textContent).toContain('Saat biçimi');
+    expect(nav().queryByRole('button', { name: 'Ses ve video' })).toBeNull();
+    act(() => {
+      fireEvent.change(search, { target: { value: 'bas konus' } });
+    });
+    expect(nav().getByRole('button', { name: /Klavye/ })).toBeTruthy();
+    expect(nav().getByRole('button', { name: /Ses ve video/ })).toBeTruthy();
+    act(() => {
+      fireEvent.change(search, { target: { value: 'zzzz' } });
+    });
+    expect(screen.getByText('Bu aramayla eşleşen ayar yok.')).toBeTruthy();
+    act(() => {
+      fireEvent.change(search, { target: { value: 'gürültü' } });
+      fireEvent.keyDown(search, { key: 'Enter' });
+    });
+    expect(screen.getByRole('heading', { level: 1, name: 'Ses ve video' })).toBeTruthy();
   });
 
   it('shows the admin tabs to a community admin', async () => {

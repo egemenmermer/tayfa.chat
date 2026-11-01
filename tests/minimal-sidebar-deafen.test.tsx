@@ -34,6 +34,8 @@ import { useCommunity } from '../apps/desktop/src/community';
 afterEach(cleanup);
 beforeEach(() => {
   f.snapshot.deafened = false;
+  f.snapshot.camera = false;
+  f.snapshot.sharing = false;
   useCommunity.setState({
     user: { id: 'me', username: 'me', displayName: 'Me', avatar: null },
     serverUrl: 'https://local.example',
@@ -71,4 +73,25 @@ it('deafen control reflects the deafened state in its icon, class and pressed st
   expect(active.getAttribute('aria-pressed')).toBe('true');
   expect(active.className).toContain('muted-control');
   expect(active.querySelector('.lucide-headphone-off')).not.toBeNull();
+});
+
+it('camera and screen buttons light up with their own state while on (H13)', () => {
+  f.snapshot.camera = true;
+  f.snapshot.sharing = true;
+  mount();
+  const camera = screen.getByRole('button', { name: 'Kamerayı kapat' });
+  const share = screen.getByRole('button', { name: 'Paylaşımı durdur' });
+  for (const button of [camera, share]) {
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+    expect(button.className).toContain('media-on');
+  }
+  expect(share.querySelector('.lucide-monitor-dot')).not.toBeNull();
+  cleanup();
+  f.snapshot.camera = false;
+  f.snapshot.sharing = false;
+  mount();
+  const off = screen.getByRole('button', { name: 'Ekran paylaş' });
+  expect(off.getAttribute('aria-pressed')).toBe('false');
+  expect(off.className).not.toContain('media-on');
+  expect(off.querySelector('.lucide-monitor-up')).not.toBeNull();
 });

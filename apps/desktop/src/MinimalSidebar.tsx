@@ -20,6 +20,7 @@ import {
   Volume2,
   Search,
   Video,
+  MonitorDot,
   MonitorUp,
   Gamepad2,
   PartyPopper,
@@ -285,7 +286,7 @@ export function MinimalSidebar({
   // Right-click on the microphone or deafen button leads to their shortcuts.
   const openShortcuts = (event: MouseEvent) => {
     event.preventDefault();
-    navigate('/settings?tab=audio');
+    navigate('/settings?tab=shortcuts');
   };
 
   const [person, setPerson] = useState<SocialUser | null>(null);
@@ -339,10 +340,23 @@ export function MinimalSidebar({
     );
   };
   const run = (task: Promise<unknown>) => void task.catch((e) => notify(uiError(e)));
-  const enter = (id: string, name: string) => {
-    navigate('/voice');
-    run(c.openChannel(id));
-    run(joinVoice(id, name));
+  /**
+   * Joining a voice room keeps the page you are on, as in Discord (H09); clicking the room you are
+   * already in opens it. `open` is for callers that want the room at once (the live badge), and a
+   * switch made from the voice page follows the new room.
+   */
+  const enter = (id: string, name: string, open = false) => {
+    const inRoom =
+      r.channelId === id &&
+      (r.busy ||
+        r.status === 'connected' ||
+        r.status === 'connecting' ||
+        r.status === 'reconnecting');
+    if (open || inRoom || location.pathname === '/voice') {
+      navigate('/voice');
+      run(c.openChannel(id));
+    }
+    if (!inRoom) run(joinVoice(id, name));
   };
   // The live badge on a member opens their stream, like Discord. Outside that room it joins first
   // and opens the stream as soon as the room lists it.
@@ -361,7 +375,7 @@ export function MinimalSidebar({
     }
     setPendingStream({ room, person });
     if (r.channelId === room) navigate('/voice');
-    else enter(room, roomName);
+    else enter(room, roomName, true);
   };
   useEffect(() => {
     if (!pendingStream) return;
@@ -667,6 +681,9 @@ export function MinimalSidebar({
               <IconButton
                 disabled={r.status !== 'connected' || r.busy}
                 label={r.camera ? t('Kamerayı kapat') : t('Kamerayı aç')}
+                // On shows as a lit button with its own icon, as in Discord (H13).
+                aria-pressed={r.camera}
+                className={r.camera ? 'media-on' : ''}
                 onClick={() => run(toggleCamera().then(() => navigate('/voice')))}
               >
                 <Video size={17} />
@@ -674,13 +691,15 @@ export function MinimalSidebar({
               <IconButton
                 disabled={r.status !== 'connected' || r.busy}
                 label={r.sharing ? t('Paylaşımı durdur') : t('Ekran paylaş')}
+                aria-pressed={r.sharing}
+                className={r.sharing ? 'media-on' : ''}
                 onClick={() =>
                   r.sharing
                     ? run(stopScreen())
                     : window.dispatchEvent(new Event('rooms:choose-capture'))
                 }
               >
-                <MonitorUp size={17} />
+                {r.sharing ? <MonitorDot size={17} /> : <MonitorUp size={17} />}
               </IconButton>
               <IconButton
                 label={t('Etkinlikler')}

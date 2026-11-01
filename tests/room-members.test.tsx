@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { SocialMember } from '@rooms/social';
+const media = vi.hoisted(() => ({
+  state: { participants: [] as object[], roomName: null as string | null },
+}));
+vi.mock('../apps/desktop/src/realtime', () => ({ useRealtime: () => media.state }));
 import { RoomMembers } from '../apps/desktop/src/RoomMembers';
 import { useCommunity } from '../apps/desktop/src/community';
 import { queryClient } from '../apps/desktop/src/query-client';
@@ -64,6 +68,23 @@ describe('room members panel', () => {
     expect(members).not.toHaveBeenCalled();
   });
 
+  it('shows speaking as an avatar ring, not as flickering text (H01)', () => {
+    install(() => new Promise<SocialMember[]>(() => {}));
+    queryClient.setQueryData(key, [member('ayse', 'Ayşe'), member('can', 'Can')]);
+    media.state = {
+      roomName: 'Sohbet',
+      participants: [
+        { id: 'ayse', name: 'Ayşe', speaking: true, muted: false },
+        { id: 'can', name: 'Can', speaking: false, muted: true },
+      ],
+    };
+    const view = render(panel());
+    expect(screen.queryByText('Konuşuyor')).toBeNull();
+    expect(screen.getByText('Sohbet')).toBeTruthy();
+    expect(screen.getByText('Mikrofon kapalı')).toBeTruthy();
+    expect(view.container.querySelectorAll('.room-member-photo.speaking')).toHaveLength(1);
+    media.state = { participants: [], roomName: null };
+  });
   it('shows the loading state first, then members, and a second open reuses them', async () => {
     let resolve!: (rows: SocialMember[]) => void;
     const members = install(() => new Promise<SocialMember[]>((r) => (resolve = r)));

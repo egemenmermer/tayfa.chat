@@ -86,6 +86,7 @@ describe('viewer quality choice', () => {
   it('offers every layer of a three-layer share and maps each to its own layer', () => {
     expect(screenQualityChoices(current)).toEqual([1080, 720, 360]);
     expect(screenSubscriptionQuality(current, 'auto')).toBe('high');
+    expect(screenSubscriptionQuality(current, 'source')).toBe('high');
     expect(screenSubscriptionQuality(current, 1080)).toBe('high');
     expect(screenSubscriptionQuality(current, 720)).toBe('medium');
     expect(screenSubscriptionQuality(current, 360)).toBe('low');
@@ -117,6 +118,6 @@ describe('viewer quality choice', () => {
   it('requests nothing before the publication announced its layers', () => {
     expect(screenQualityChoices([])).toEqual([]);
     expect(screenSubscriptionQuality([], 720)).toBeUndefined();
-    expect(screenQualitySelection([], 720)).toBe('auto');
+    expect(screenQualitySelection([], 720)).toBe('source');
   });
 });

@@ -80,12 +80,13 @@ describe('viewer quality picker', () => {
   const description = (element: HTMLElement) =>
     document.getElementById(element.getAttribute('aria-describedby') ?? '')?.textContent;
   afterEach(() => configureI18n({ locale: 'tr', catalog: {} }));
-  it('offers Otomatik and every layer the publisher sends, and reports the pick', () => {
+  it('offers Otomatik, Kaynak and every layer the publisher sends, and reports the pick', () => {
     const picks: unknown[] = [];
     show({ quality: 'auto', onQuality: (value) => picks.push(value) });
     const picker = screen.getByRole('combobox', { name: 'Görüntü kalitesi' });
     expect([...(picker as HTMLSelectElement).options].map((option) => option.text)).toEqual([
-      'Otomatik (en yüksek)',
+      'Otomatik (pencereye göre)',
+      'Kaynak (en yüksek)',
       '1080p',
       '720p',
       '360p',
@@ -98,7 +99,8 @@ describe('viewer quality picker', () => {
     expect(document.activeElement).toBe(picker);
     fireEvent.change(picker, { target: { value: '720' } });
     fireEvent.change(picker, { target: { value: 'auto' } });
-    expect(picks).toEqual([720, 'auto']);
+    fireEvent.change(picker, { target: { value: 'source' } });
+    expect(picks).toEqual([720, 'auto', 'source']);
   });
   it('shows a remembered cap on the layer it lands on for an rc.34 two-layer stream', () => {
     show({
@@ -110,7 +112,12 @@ describe('viewer quality picker', () => {
       onQuality: () => {},
     });
     const picker = screen.getByRole('combobox', { name: 'Görüntü kalitesi' }) as HTMLSelectElement;
-    expect([...picker.options].map((option) => option.value)).toEqual(['auto', '1080', '540']);
+    expect([...picker.options].map((option) => option.value)).toEqual([
+      'auto',
+      'source',
+      '1080',
+      '540',
+    ]);
     expect(picker.value).toBe('540');
   });
   it('explains a single-layer stream instead of offering a choice', () => {
@@ -159,7 +166,8 @@ describe('viewer quality picker', () => {
     );
     cleanup();
     show({ onQuality: () => {} });
-    expect(screen.getByRole('option', { name: 'Auto (highest)' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Auto (fits the window)' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Source (highest)' })).toBeTruthy();
   });
 });
 describe('viewer stream sound', () => {
@@ -180,9 +188,90 @@ describe('viewer stream sound', () => {
     expect((slider as HTMLInputElement).value).toBe('0.4');
     expect(screen.queryByText('Bu yayında ses yok')).toBeNull();
   });
+  it('mutes the stream from the speaker button and gives the level back (H06)', () => {
+    const levels: number[] = [];
+    const props = {
+      tracks: remote,
+      notify: () => {},
+      onVolume: (_id: string, volume: number) => levels.push(volume),
+      renderTrack: (id: string) => <video data-testid={id} />,
+    };
+    const bob = (screenVolume: number) => [
+      people[0],
+      { ...people[1], screen: true, screenAudio: true, screenVolume },
+    ];
+    const view = render(<ScreenShareGallery {...props} people={bob(0.4)} />);
+    const button = () => screen.getByRole('button', { name: 'DEMO Bob yayınını sessize al' });
+    expect(button().getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(button());
+    view.rerender(<ScreenShareGallery {...props} people={bob(0)} />);
+    expect(button().getAttribute('aria-pressed')).toBe('true');
+    expect(button().className).toBe('muted');
+    fireEvent.click(button());
+    expect(levels).toEqual([0, 0.4]);
+  });
   it('says the share has no sound instead of offering a dead slider', () => {
     show({ screen: true, screenAudio: false });
     expect(screen.getByText('Bu yayında ses yok')).toBeTruthy();
     expect(screen.queryByRole('slider')).toBeNull();
   });
+});
+
+it('hides the other streams so the selected one fills the stage (H08)', () => {
+  const view = render(
+    <ScreenShareGallery
+      tracks={tracks}
+      people={people}
+      notify={() => {}}
+      renderTrack={(id: string) => <video data-testid={id} />}
+    />,
+  );
+  const strip = () => view.container.querySelector('.room-screen-thumbnails');
+  expect(strip()).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Diğer yayınları gizle' }));
+  expect(strip()).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Diğer yayınları göster' }));
+  expect(strip()).not.toBeNull();
+  cleanup();
+  // A single stream has nothing to hide.
+  render(
+    <ScreenShareGallery
+      tracks={[tracks[1]]}
+      people={people}
+      notify={() => {}}
+      renderTrack={(id: string) => <video data-testid={id} />}
+    />,
+  );
+  expect(screen.queryByRole('button', { name: 'Diğer yayınları gizle' })).toBeNull();
+});
+it('shows the lines that actually arrive next to the quality picker (H10)', () => {
+  const layered = [
+    {
+      ...tracks[1],
+      layers: [
+        { quality: 'low', width: 640, height: 360 },
+        { quality: 'high', width: 1920, height: 1080 },
+      ],
+    },
+  ] as MediaTrack[];
+  render(
+    <ScreenShareGallery
+      tracks={layered}
+      people={people}
+      notify={() => {}}
+      onQuality={() => {}}
+      renderTrack={(id: string) => {
+        const video = document.createElement('video');
+        Object.defineProperty(video, 'videoWidth', { value: 1280 });
+        Object.defineProperty(video, 'videoHeight', { value: 720 });
+        return <span ref={(node) => node?.replaceChildren(video)} data-testid={id} />;
+      }}
+    />,
+  );
+  return new Promise<void>((resolve) =>
+    setTimeout(() => {
+      expect(screen.getByText('Gelen: 720p')).toBeTruthy();
+      resolve();
+    }, 1100),
+  );
 });

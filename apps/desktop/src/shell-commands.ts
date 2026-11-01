@@ -25,3 +25,19 @@ export function friendlyActionError(error: unknown, fallback: string) {
   const generic = [uiError(''), uiError('X')];
   return !raw || raw.includes(message) || generic.includes(message) ? fallback : message;
 }
+
+type ShortcutEvent = Pick<
+  KeyboardEvent,
+  'key' | 'code' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey' | 'repeat' | 'defaultPrevented'
+>;
+
+/**
+ * The built-in room mute shortcut, ⌘/Ctrl Shift M. It also works while typing, as in Discord:
+ * the combination means nothing to a text field, and text channels keep the composer focused.
+ * Shortcut recorders swallow the event first, so recording a key never toggles the mic.
+ */
+export function isRoomMuteShortcut(event: ShortcutEvent) {
+  if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.altKey) return false;
+  if (event.repeat || event.defaultPrevented) return false;
+  return event.key.toLowerCase() === 'm' || event.code === 'KeyM';
+}

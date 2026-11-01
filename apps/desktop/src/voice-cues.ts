@@ -6,11 +6,19 @@ import { PERSONAL_SOUND_LIMITS } from '../../../packages/shared-contracts/src/pe
 import type { MediaParticipant } from '@rooms/media';
 
 /**
- * Short confirmation cues: this listener's own microphone and deafen toggles, and a screen share
- * that starts or stops in their room (their own share included).
+ * Short confirmation cues: this listener's own microphone and deafen toggles, a screen share that
+ * starts or stops in their room (their own share included), and someone starting or stopping to
+ * watch their own share.
  */
 export type VoiceCue =
-  'mic-on' | 'mic-off' | 'deafen-on' | 'deafen-off' | 'stream-start' | 'stream-stop';
+  | 'mic-on'
+  | 'mic-off'
+  | 'deafen-on'
+  | 'deafen-off'
+  | 'stream-start'
+  | 'stream-stop'
+  | 'viewer-join'
+  | 'viewer-leave';
 
 const RATE = PERSONAL_SOUND_LIMITS.sampleRate;
 const tone = (frequency: number, t: number) =>
@@ -39,6 +47,9 @@ const recipes: Record<VoiceCue, { seconds: number; sample(t: number): number }> 
     seconds: 0.42,
     sample: (t) => notes(t, [1047, 784, 523], 0.08, 0.26, 0.12),
   },
+  // A viewer is a smaller event than a stream: two high, quiet notes.
+  'viewer-join': { seconds: 0.18, sample: (t) => notes(t, [988, 1319], 0.05, 0.11, 0.1) },
+  'viewer-leave': { seconds: 0.18, sample: (t) => notes(t, [1319, 988], 0.05, 0.11, 0.1) },
 };
 
 const sources = new Map<VoiceCue, string>();
@@ -56,14 +67,14 @@ export function voiceCueSource(cue: VoiceCue): string {
 }
 
 /**
- * Own toggles always confirm, even when the listener just deafened. A stream cue is a room event,
- * so a deafened listener does not hear it.
+ * Own toggles always confirm, even when the listener just deafened. Stream and viewer cues are
+ * room events, so a deafened listener does not hear them.
  */
 export function voiceCueAudible(cue: VoiceCue) {
   const prefs = useRooms.getState().preferences;
   if (!prefs.voiceCues || prefs.soundEffectsLevel <= 0 || !useCommunity.getState().user)
     return false;
-  if (!cue.startsWith('stream-')) return true;
+  if (!cue.startsWith('stream-') && !cue.startsWith('viewer-')) return true;
   try {
     return !mediaProvider().snapshot().deafened;
   } catch {
@@ -129,5 +140,46 @@ export class StreamCueTracker {
       if (was === undefined || was === !!p.screen) return [];
       return [{ kind: p.screen ? 'stream-start' : 'stream-stop', actor: p.id, local: p.local }];
     });
+  }
+}
+
+export interface ViewerCue {
+  kind: 'viewer-join' | 'viewer-leave';
+  viewer: string;
+}
+/**
+ * Who watches this listener's own screen share (H03). A new share, room or reconnect starts a new
+ * baseline; a viewer who leaves the room while watching counts as leaving the stream.
+ */
+export class ViewerCueTracker {
+  private key: string | null = null;
+  private viewers = new Set<string>();
+  /** `room` is null while the listener is not connected. */
+  update(
+    room: string | null,
+    participants: Pick<MediaParticipant, 'id' | 'local' | 'screen' | 'watching'>[],
+  ): ViewerCue[] {
+    const me = participants.find((p) => p.local);
+    const key = room !== null && me?.screen ? JSON.stringify([room, me.id]) : null;
+    const next = new Set(
+      key && me
+        ? participants
+            .filter((p) => !p.local && p.watching === me.id && !p.id.startsWith('rooms-music-'))
+            .map((p) => p.id)
+        : [],
+    );
+    const before = this.viewers,
+      same = key !== null && key === this.key;
+    this.key = key;
+    this.viewers = next;
+    if (!same) return [];
+    return [
+      ...[...next]
+        .filter((id) => !before.has(id))
+        .map((viewer) => ({ kind: 'viewer-join' as const, viewer })),
+      ...[...before]
+        .filter((id) => !next.has(id))
+        .map((viewer) => ({ kind: 'viewer-leave' as const, viewer })),
+    ];
   }
 }

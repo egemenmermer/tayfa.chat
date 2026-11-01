@@ -936,3 +936,32 @@
   color: var(--danger, #f08a8a);
   overflow-wrap: anywhere;
 }
+/* Settings search (H07): filters the tabs by name and by the rows on them. */
+.ref-settings-search {
+  flex-shrink: 0;
+  margin: 0 0 10px;
+  padding: 7px 10px;
+  border: 1px solid #ffffff14;
+  border-radius: 7px;
+  background: #ffffff08;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+}
+.ref-settings-search:focus-visible {
+  outline: 2px solid #9c8bff;
+  outline-offset: 1px;
+}
+.ref-settings-nav-group > button .ref-settings-search-hit {
+  margin-left: auto;
+  overflow: hidden;
+  color: #9197a7;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ref-settings-search-empty {
+  margin: 8px 4px;
+  color: #9197a7;
+  font-size: 12px;
+}

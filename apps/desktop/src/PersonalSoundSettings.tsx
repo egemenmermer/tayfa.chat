@@ -20,7 +20,7 @@ import {
 } from '../../../packages/shared-contracts/src/personal-sound-audio';
 import { useCommunity } from './community';
 import { roomCueSource } from './room-event-sounds';
-import { locale, t, uiError } from './i18n';
+import { locale, localeLanguage, t, uiError } from './i18n';
 import './personal-sounds.css';
 
 type Slot = PersonalSoundEvent;
@@ -43,14 +43,14 @@ const MAX_SEC = PERSONAL_SOUND_LIMITS.maxDurationSec,
 const copy = {
   enter: {
     title: t('Odaya girince'),
-    description: t('İçerideki herkes duyar.'),
+    description: t('Sen ve içerideki herkes duyar.'),
     picker: t('Giriş sesi seç'),
     change: t('Giriş sesini değiştir'),
     saved: t('Giriş sesin kaydedildi'),
   },
   leave: {
     title: t('Odadan çıkınca'),
-    description: t('Kalanlar duyar.'),
+    description: t('Sen ve kalanlar duyar.'),
     picker: t('Çıkış sesi seç'),
     change: t('Çıkış sesini değiştir'),
     saved: t('Çıkış sesin kaydedildi'),
@@ -63,7 +63,7 @@ const unreadable = t('Bu dosya okunamadı. MP3, WAV, M4A, OGG veya FLAC dene.'),
   silent = t('Seçtiğin kesit neredeyse sessiz. Başka bir bölüm seç.');
 const seconds = (value: number) =>
   t('{value} sn', {
-    value: locale === 'tr-TR' ? value.toFixed(1).replace('.', ',') : value.toFixed(1),
+    value: localeLanguage === 'tr' ? value.toFixed(1).replace('.', ',') : value.toFixed(1),
   });
 const same = (a: PersonalSoundAssign, b: PersonalSoundAssign) =>
   a.enter === b.enter && a.leave === b.leave;
@@ -863,6 +863,11 @@ export function PersonalSoundSettings({ outputId, level }: { outputId: string; l
           </div>
           <p className="ref-settings-note">
             {t('Seçimin hemen kaydedilir ve tüm cihazlarında geçerli olur.')}
+          </p>
+          <p className="ref-settings-note">
+            {t(
+              'Oda dolmasın diye başkalarının sesi kişi başına iki dakikada bir çalar. Hemen çıkıp girene ya da birkaç saniyede çıkana varsayılan ses çalar.',
+            )}
           </p>
           <p className="ref-settings-note">
             {t(

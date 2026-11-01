@@ -12,7 +12,7 @@ import {
   type RosterCue,
 } from '../../../packages/shared-contracts/src/personal-sound-policy';
 import type { MediaSnapshot } from '@rooms/media';
-import { StreamCueTracker, playVoiceCue } from './voice-cues';
+import { StreamCueTracker, ViewerCueTracker, playVoiceCue } from './voice-cues';
 export type RoomCue = 'enter' | 'leave';
 type CueState = {
   scope: string;
@@ -38,10 +38,14 @@ export class RoomCueTracker {
   update(next: CueState): RosterUpdate {
     const before = this.previous;
     this.previous = next;
-    const own = (kind: RoomCue, state: CueState): RosterUpdate => ({
-      cues: [{ kind, actor: state.participants.find((p) => p.local)?.id ?? 'self', local: true }],
-      rebased: true,
-    });
+    const own = (kind: RoomCue, state: CueState): RosterUpdate => {
+      const me = state.participants.find((p) => p.local);
+      const sound = me?.sounds?.[kind];
+      return {
+        cues: [{ kind, actor: me?.id ?? 'self', local: true, ...(sound ? { sound } : {}) }],
+        rebased: true,
+      };
+    };
     const rebase: RosterUpdate = { cues: [], rebased: true };
     if (!before || before.scope !== next.scope) {
       this.established = false;
@@ -129,6 +133,7 @@ export function roomCueSource(kind: RoomCue): string {
 export function RoomEventSounds() {
   const tracker = useRef(new RoomCueTracker());
   const streams = useRef(new StreamCueTracker());
+  const viewers = useRef(new ViewerCueTracker());
   useEffect(() => {
     const provider = mediaProvider(),
       policy = new PersonalCuePolicy(),
@@ -281,12 +286,13 @@ export function RoomEventSounds() {
         status,
         participants: snapshot.participants,
       });
-      // Streams have their own switch, so they are compared even while room cues are off.
-      const streamCue = streams.current.update(
-        status === 'connected' && snapshot.roomId ? JSON.stringify([scope, snapshot.roomId]) : null,
-        snapshot.participants,
-      )[0];
+      // Streams and viewers have their own switch, so they are compared even while room cues are off.
+      const streamRoom =
+        status === 'connected' && snapshot.roomId ? JSON.stringify([scope, snapshot.roomId]) : null;
+      const streamCue = streams.current.update(streamRoom, snapshot.participants)[0];
       if (streamCue) playVoiceCue(streamCue.kind);
+      const viewerCue = viewers.current.update(streamRoom, snapshot.participants)[0];
+      if (viewerCue) playVoiceCue(viewerCue.kind);
       // A disconnect (kick or loss) keeps the room id but ends the room for this listener. A
       // reconnect inside the room keeps the policy, so held departures and cooldowns survive it.
       const nextRoom = JSON.stringify([
@@ -323,10 +329,11 @@ export function RoomEventSounds() {
       }
       arm();
       // Departures should play at once, so the sounds of the people present are warmed up early.
+      // The listener's own leave sound plays after the room is gone, so it must be cached by then.
       cache.prefetch(
         channelId && !voice.busy && snapshot.status === 'connected'
           ? snapshot.participants.flatMap((p) =>
-              !p.local && human(p.id) && p.sounds?.leave && allow(p.id)
+              (p.local || human(p.id)) && p.sounds?.leave && allow(p.id)
                 ? [{ channelId, userId: p.id, sound: p.sounds.leave }]
                 : [],
             )
