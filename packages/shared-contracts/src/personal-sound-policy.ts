@@ -16,7 +16,8 @@ export type CueDecision =
  * Decides what one listener hears for roster changes, so a room never becomes a queue of clips.
  * Pure and clock-injected; the desktop and iPhone runtimes own timers and playback.
  *
- * - The listener's own events always play the classic cue.
+ * - The listener's own events play their own sound, as in Discord: only they hear it, so no
+ *   cooldown applies. Without a sound, or when it is not allowed, the classic cue plays.
  * - A departure is held for `leaveHoldMs`; a return inside the hold silences both (reconnects).
  * - Returning soon after leaving, or leaving soon after joining, plays the classic cue.
  * - At most one personal sound per person and event per `perPersonCooldownMs`.
@@ -39,7 +40,7 @@ export class PersonalCuePolicy {
     this.config = { ...PERSONAL_SOUND_POLICY, ...config };
   }
   push(cue: RosterCue, now: number, allow: (actor: string) => boolean): CueDecision[] {
-    if (cue.local) return this.classic(cue, now);
+    if (cue.local) return this.own(cue, now, allow);
     if (cue.kind === 'enter') {
       const returning = this.held.get(cue.actor);
       if (returning) {
@@ -102,6 +103,12 @@ export class PersonalCuePolicy {
     this.personal.set(key, now);
     this.roomPersonalAt = now;
     // The clip itself announces the event; a classic cue right on top of it adds nothing.
+    this.classicAt = now;
+    return [{ kind: cue.kind, actor: cue.actor, play: 'personal', sound: cue.sound }];
+  }
+  private own(cue: RosterCue, now: number, allow: (actor: string) => boolean): CueDecision[] {
+    if (!cue.sound || !allow(cue.actor)) return this.classic(cue, now);
+    this.roomPersonalAt = now;
     this.classicAt = now;
     return [{ kind: cue.kind, actor: cue.actor, play: 'personal', sound: cue.sound }];
   }

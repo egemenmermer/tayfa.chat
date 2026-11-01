@@ -547,12 +547,12 @@ export const media: Catalog = {
   'Harici oynatıcı': 'External player',
   'Tercihleri uygula': 'Apply preferences',
   'Odaya girince': 'When you join a room',
-  'İçerideki herkes duyar.': 'Everyone inside hears it.',
+  'Sen ve içerideki herkes duyar.': 'You and everyone inside hear it.',
   'Giriş sesi seç': 'Choose entrance sound',
   'Giriş sesini değiştir': 'Change entrance sound',
   'Giriş sesin kaydedildi': 'Your entrance sound was saved',
   'Odadan çıkınca': 'When you leave a room',
-  'Kalanlar duyar.': 'Those who stay hear it.',
+  'Sen ve kalanlar duyar.': 'You and those who stay hear it.',
   'Çıkış sesi seç': 'Choose leave sound',
   'Çıkış sesini değiştir': 'Change leave sound',
   'Çıkış sesin kaydedildi': 'Your leave sound was saved',
@@ -603,6 +603,8 @@ export const media: Catalog = {
   'Giriş sesini seçmek için önce bir sunucuya giriş yap.':
     'Sign in to a server first to choose an entrance sound.',
   'Giriş seslerin yükleniyor…': 'Loading your entrance sounds…',
+  'Oda dolmasın diye başkalarının sesi kişi başına iki dakikada bir çalar. Hemen çıkıp girene ya da birkaç saniyede çıkana varsayılan ses çalar.':
+    'So the room does not fill up, each other person’s sound plays at most once every two minutes. Someone who rejoins right away or leaves within a few seconds gets the default sound.',
   'Seçimin hemen kaydedilir ve tüm cihazlarında geçerli olur.':
     'Your choice is saved right away and applies on all your devices.',
   'En fazla 4 saniye. Herkesin sesi aynı seviyede duyulsun diye ses düzeyi otomatik ayarlanır.':

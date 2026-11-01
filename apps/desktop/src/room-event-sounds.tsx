@@ -38,10 +38,14 @@ export class RoomCueTracker {
   update(next: CueState): RosterUpdate {
     const before = this.previous;
     this.previous = next;
-    const own = (kind: RoomCue, state: CueState): RosterUpdate => ({
-      cues: [{ kind, actor: state.participants.find((p) => p.local)?.id ?? 'self', local: true }],
-      rebased: true,
-    });
+    const own = (kind: RoomCue, state: CueState): RosterUpdate => {
+      const me = state.participants.find((p) => p.local);
+      const sound = me?.sounds?.[kind];
+      return {
+        cues: [{ kind, actor: me?.id ?? 'self', local: true, ...(sound ? { sound } : {}) }],
+        rebased: true,
+      };
+    };
     const rebase: RosterUpdate = { cues: [], rebased: true };
     if (!before || before.scope !== next.scope) {
       this.established = false;
@@ -323,10 +327,11 @@ export function RoomEventSounds() {
       }
       arm();
       // Departures should play at once, so the sounds of the people present are warmed up early.
+      // The listener's own leave sound plays after the room is gone, so it must be cached by then.
       cache.prefetch(
         channelId && !voice.busy && snapshot.status === 'connected'
           ? snapshot.participants.flatMap((p) =>
-              !p.local && human(p.id) && p.sounds?.leave && allow(p.id)
+              (p.local || human(p.id)) && p.sounds?.leave && allow(p.id)
                 ? [{ channelId, userId: p.id, sound: p.sounds.leave }]
                 : [],
             )

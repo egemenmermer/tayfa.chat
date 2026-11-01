@@ -43,14 +43,14 @@ const MAX_SEC = PERSONAL_SOUND_LIMITS.maxDurationSec,
 const copy = {
   enter: {
     title: t('Odaya girince'),
-    description: t('İçerideki herkes duyar.'),
+    description: t('Sen ve içerideki herkes duyar.'),
     picker: t('Giriş sesi seç'),
     change: t('Giriş sesini değiştir'),
     saved: t('Giriş sesin kaydedildi'),
   },
   leave: {
     title: t('Odadan çıkınca'),
-    description: t('Kalanlar duyar.'),
+    description: t('Sen ve kalanlar duyar.'),
     picker: t('Çıkış sesi seç'),
     change: t('Çıkış sesini değiştir'),
     saved: t('Çıkış sesin kaydedildi'),
@@ -863,6 +863,11 @@ export function PersonalSoundSettings({ outputId, level }: { outputId: string; l
           </div>
           <p className="ref-settings-note">
             {t('Seçimin hemen kaydedilir ve tüm cihazlarında geçerli olur.')}
+          </p>
+          <p className="ref-settings-note">
+            {t(
+              'Oda dolmasın diye başkalarının sesi kişi başına iki dakikada bir çalar. Hemen çıkıp girene ya da birkaç saniyede çıkana varsayılan ses çalar.',
+            )}
           </p>
           <p className="ref-settings-note">
             {t(
