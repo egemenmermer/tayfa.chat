@@ -21,7 +21,7 @@ import './discord-room.css';
 import { ReferenceIcon } from './ReferenceIcon';
 import { mediaBridge } from './runtime-sources';
 import { SoundboardButton } from './Soundboard';
-import { locale, t, tr, uiError } from './i18n';
+import { locale, localeLanguage, t, tr, uiError } from './i18n';
 import { MESSAGE_MAX, messageLength } from './message-limit';
 
 const tooLong = (count: number) =>
@@ -143,7 +143,7 @@ const clockText = (timestamp: string) => {
     hour: '2-digit',
     minute: '2-digit',
   });
-  return locale === 'tr-TR' ? time.replace(':', '.') : time;
+  return localeLanguage === 'tr' ? time.replace(':', '.') : time;
 };
 /**
  * Replies travel as a quote until native replies land: the first lines quote the original

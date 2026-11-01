@@ -14,7 +14,7 @@ import { ChannelPermissionsSurface } from './ChannelPermissionsSurface';
 import { CommunityManagementEntry } from './CommunityManagementEntry';
 import { About, platformName } from './About';
 import { queryClient } from './query-client';
-import { LanguageSetting } from './LanguageSetting';
+import { LanguageSetting, TimeFormatSetting } from './LanguageSetting';
 import { ServerProfile } from './ServerProfile';
 import { CinemaSettings } from './cinema/CinemaSettings';
 import { SettingsConnection } from './SettingsConnection';
@@ -1239,6 +1239,7 @@ export default function Settings({
               <>
                 <Heading title={t('Görünüm ve erişilebilirlik')} />
                 <LanguageSetting />
+                <TimeFormatSetting />
                 <div className="ref-settings-grid">
                   <section>
                     <h2>{t('Yoğunluk')}</h2>

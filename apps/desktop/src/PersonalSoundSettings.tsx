@@ -20,7 +20,7 @@ import {
 } from '../../../packages/shared-contracts/src/personal-sound-audio';
 import { useCommunity } from './community';
 import { roomCueSource } from './room-event-sounds';
-import { locale, t, uiError } from './i18n';
+import { locale, localeLanguage, t, uiError } from './i18n';
 import './personal-sounds.css';
 
 type Slot = PersonalSoundEvent;
@@ -63,7 +63,7 @@ const unreadable = t('Bu dosya okunamadı. MP3, WAV, M4A, OGG veya FLAC dene.'),
   silent = t('Seçtiğin kesit neredeyse sessiz. Başka bir bölüm seç.');
 const seconds = (value: number) =>
   t('{value} sn', {
-    value: locale === 'tr-TR' ? value.toFixed(1).replace('.', ',') : value.toFixed(1),
+    value: localeLanguage === 'tr' ? value.toFixed(1).replace('.', ',') : value.toFixed(1),
   });
 const same = (a: PersonalSoundAssign, b: PersonalSoundAssign) =>
   a.enter === b.enter && a.leave === b.leave;

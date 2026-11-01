@@ -41,6 +41,15 @@ export function currentLocale(
   };
 }
 
+/** The region format (Windows "Regional format", macOS Region), which decides the clock. */
+function systemRegion(): string | undefined {
+  try {
+    return app.getSystemLocale() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function systemLanguages(): string[] {
   const preferred = app.getPreferredSystemLanguages();
   return preferred.length ? preferred : [app.getLocale()];
@@ -58,7 +67,7 @@ export function setupLocale(
   configureI18n({ locale: state.resolved, catalog: en });
   // Read synchronously by the preload so the first render is already in the right language.
   ipcMain.on('rooms:locale', (event) => {
-    event.returnValue = state;
+    event.returnValue = { ...state, region: systemRegion() };
   });
   ipcMain.handle('rooms:set-locale', (event, preference: unknown) => {
     assertSender(event);
