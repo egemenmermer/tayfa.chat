@@ -340,10 +340,23 @@ export function MinimalSidebar({
     );
   };
   const run = (task: Promise<unknown>) => void task.catch((e) => notify(uiError(e)));
-  const enter = (id: string, name: string) => {
-    navigate('/voice');
-    run(c.openChannel(id));
-    run(joinVoice(id, name));
+  /**
+   * Joining a voice room keeps the page you are on, as in Discord (H09); clicking the room you are
+   * already in opens it. `open` is for callers that want the room at once (the live badge), and a
+   * switch made from the voice page follows the new room.
+   */
+  const enter = (id: string, name: string, open = false) => {
+    const inRoom =
+      r.channelId === id &&
+      (r.busy ||
+        r.status === 'connected' ||
+        r.status === 'connecting' ||
+        r.status === 'reconnecting');
+    if (open || inRoom || location.pathname === '/voice') {
+      navigate('/voice');
+      run(c.openChannel(id));
+    }
+    if (!inRoom) run(joinVoice(id, name));
   };
   // The live badge on a member opens their stream, like Discord. Outside that room it joins first
   // and opens the stream as soon as the room lists it.
@@ -362,7 +375,7 @@ export function MinimalSidebar({
     }
     setPendingStream({ room, person });
     if (r.channelId === room) navigate('/voice');
-    else enter(room, roomName);
+    else enter(room, roomName, true);
   };
   useEffect(() => {
     if (!pendingStream) return;

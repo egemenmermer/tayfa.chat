@@ -101,8 +101,8 @@ function Where() {
   where = location.pathname + location.search;
   return null;
 }
-const tree = () => (
-  <MemoryRouter initialEntries={['/voice']}>
+const tree = (path = '/voice') => (
+  <MemoryRouter initialEntries={[path]}>
     <Where />
     <MinimalSidebar
       notify={notify}
@@ -114,8 +114,8 @@ const tree = () => (
     />
   </MemoryRouter>
 );
-async function mount() {
-  const view = render(tree());
+async function mount(path?: string) {
+  const view = render(tree(path));
   await waitFor(() => expect(bridge.capabilities).toHaveBeenCalledWith('server'));
   await act(async () => {});
   return view;
@@ -185,4 +185,17 @@ it('joins another room from its live badge and opens the stream once it is liste
   };
   view.rerender(tree());
   await waitFor(() => expect(where).toBe('/voice?view=share&screen=TR_ece'));
+});
+it('joins a voice room without leaving the open text channel; a second click opens it (H09)', async () => {
+  f.snapshot = { ...f.snapshot, status: 'disconnected', channelId: null, participants: [] };
+  const view = await mount('/chat');
+  const room = () => document.querySelector('[data-channel-id="lounge"]') as HTMLElement;
+  fireEvent.click(room());
+  expect(f.join).toHaveBeenCalledWith('lounge', 'Bahçe');
+  expect(where).toBe('/chat');
+  f.snapshot = { ...f.snapshot, status: 'connected', channelId: 'lounge' };
+  view.rerender(tree('/chat'));
+  fireEvent.click(room());
+  expect(f.join).toHaveBeenCalledTimes(1);
+  expect(where).toBe('/voice');
 });
