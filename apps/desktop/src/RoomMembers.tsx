@@ -96,7 +96,11 @@ export function RoomMembers({
                     .catch((e) => directMessageFailed(e, member.user, notify));
               }}
             >
-              <span className="room-member-photo">
+              {/* Speaking shows as a ring, never as text: a label that flickers on every word
+                  pulls the eye (H01). */}
+              <span
+                className={`room-member-photo${participant?.speaking && !participant.muted ? ' speaking' : ''}`}
+              >
                 <VoiceAvatar id={member.user.id} name={member.user.displayName} />
                 <i
                   className={`member-presence ${member.status}`}
@@ -121,9 +125,7 @@ export function RoomMembers({
                     (participant
                       ? participant.muted
                         ? t('Mikrofon kapalı')
-                        : participant.speaking
-                          ? t('Konuşuyor')
-                          : media.roomName
+                        : media.roomName
                       : member.statusText ||
                         (member.status === 'invisible'
                           ? t('Çevrimdışı')
