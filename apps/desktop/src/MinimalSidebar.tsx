@@ -20,6 +20,7 @@ import {
   Volume2,
   Search,
   Video,
+  MonitorDot,
   MonitorUp,
   Gamepad2,
   PartyPopper,
@@ -667,6 +668,9 @@ export function MinimalSidebar({
               <IconButton
                 disabled={r.status !== 'connected' || r.busy}
                 label={r.camera ? t('Kamerayı kapat') : t('Kamerayı aç')}
+                // On shows as a lit button with its own icon, as in Discord (H13).
+                aria-pressed={r.camera}
+                className={r.camera ? 'media-on' : ''}
                 onClick={() => run(toggleCamera().then(() => navigate('/voice')))}
               >
                 <Video size={17} />
@@ -674,13 +678,15 @@ export function MinimalSidebar({
               <IconButton
                 disabled={r.status !== 'connected' || r.busy}
                 label={r.sharing ? t('Paylaşımı durdur') : t('Ekran paylaş')}
+                aria-pressed={r.sharing}
+                className={r.sharing ? 'media-on' : ''}
                 onClick={() =>
                   r.sharing
                     ? run(stopScreen())
                     : window.dispatchEvent(new Event('rooms:choose-capture'))
                 }
               >
-                <MonitorUp size={17} />
+                {r.sharing ? <MonitorDot size={17} /> : <MonitorUp size={17} />}
               </IconButton>
               <IconButton
                 label={t('Etkinlikler')}
