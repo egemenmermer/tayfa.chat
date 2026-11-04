@@ -36,6 +36,12 @@ type ShortcutEvent = Pick<
  * the combination means nothing to a text field, and text channels keep the composer focused.
  * Shortcut recorders swallow the event first, so recording a key never toggles the mic.
  */
+export function roomMuteShortcutLabel(
+  mac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform),
+) {
+  return `${mac ? '⌘' : 'Ctrl'} Shift M`;
+}
+
 export function isRoomMuteShortcut(event: ShortcutEvent) {
   if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.altKey) return false;
   if (event.repeat || event.defaultPrevented) return false;

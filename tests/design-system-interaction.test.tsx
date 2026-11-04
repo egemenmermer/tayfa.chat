@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { Avatar, Modal } from '../packages/design-system/src/index';
+import { Avatar, IconButton, Modal } from '../packages/design-system/src/index';
 afterEach(cleanup);
 
 describe('dialog focus ownership', () => {
@@ -95,5 +95,23 @@ describe('avatar fallback', () => {
     const { container } = render(<Avatar name={undefined} />);
     expect(container.querySelector('.avatar > span')?.textContent).toBe('?');
     expect(container.querySelector('.avatar')?.getAttribute('aria-label')).toBe('Kullanıcı');
+  });
+});
+
+describe('IconButton shortcut hint', () => {
+  it('keeps the plain native tooltip without a shortcut', () => {
+    render(<IconButton label="Mikrofonu kapat" />);
+    const button = screen.getByRole('button', { name: 'Mikrofonu kapat' });
+    expect(button.getAttribute('title')).toBe('Mikrofonu kapat');
+    expect(button.hasAttribute('data-shortcut')).toBe(false);
+    expect(button.hasAttribute('aria-keyshortcuts')).toBe(false);
+  });
+  it('shows the key combination through the in-page tooltip and keeps the accessible name', () => {
+    render(<IconButton label="Mikrofonu kapat" shortcut="⌘ Shift M" />);
+    const button = screen.getByRole('button', { name: 'Mikrofonu kapat' });
+    expect(button.hasAttribute('title')).toBe(false);
+    expect(button.getAttribute('data-tip')).toBe('Mikrofonu kapat');
+    expect(button.getAttribute('data-shortcut')).toBe('⌘ Shift M');
+    expect(button.getAttribute('aria-keyshortcuts')).toBe('Meta+Shift+M');
   });
 });

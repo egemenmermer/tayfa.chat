@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { isRoomMuteShortcut } from '../apps/desktop/src/shell-commands';
+import { isRoomMuteShortcut, roomMuteShortcutLabel } from '../apps/desktop/src/shell-commands';
 
 const key = (overrides: Partial<KeyboardEvent> = {}) =>
   ({
@@ -52,5 +52,12 @@ describe('room mute shortcut', () => {
     expect(isRoomMuteShortcut(key({ ctrlKey: false }))).toBe(false);
     expect(isRoomMuteShortcut(key({ defaultPrevented: true }))).toBe(false);
     expect(isRoomMuteShortcut(key({ key: 'K', code: 'KeyK' }))).toBe(false);
+  });
+});
+
+describe('room mute shortcut label', () => {
+  it('names the modifier for the platform', () => {
+    expect(roomMuteShortcutLabel(true)).toBe('⌘ Shift M');
+    expect(roomMuteShortcutLabel(false)).toBe('Ctrl Shift M');
   });
 });
