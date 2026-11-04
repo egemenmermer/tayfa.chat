@@ -546,6 +546,40 @@ kbd {
 .icon-button:active:not(:disabled) {
   background: var(--color-background-primary-active);
 }
+/* Name and key combination in one in-page tooltip (IconButton `shortcut`). */
+.icon-button[data-shortcut] {
+  position: relative;
+}
+.icon-button[data-shortcut]::after {
+  content: attr(data-tip) '  ' attr(data-shortcut);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  translate: -50% 4px;
+  padding: 5px 9px;
+  border: 1px solid var(--color-border-button-default, #ffffff1a);
+  border-radius: 8px;
+  background: var(--color-background-primary-default, #151b23);
+  color: var(--color-text-primary, #e8edf3);
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 0.12s ease-out,
+    translate 0.12s ease-out;
+  z-index: 60;
+}
+.icon-button[data-shortcut]:is(:hover, :focus-visible)::after {
+  opacity: 1;
+  translate: -50% 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .icon-button[data-shortcut]::after {
+    transition: none;
+  }
+}
 .hero {
   height: 396px;
   border-radius: 17px;

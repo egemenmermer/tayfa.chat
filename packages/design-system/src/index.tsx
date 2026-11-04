@@ -7,19 +7,28 @@ import {
 } from 'react';
 import { CircleAlert, CircleCheck, Info, TriangleAlert, X } from 'lucide-react';
 import { getLocale, t } from '@rooms/i18n';
+/**
+ * Icon-only button. `label` is the accessible name and the native tooltip. With `shortcut`, the
+ * native tooltip is replaced by an in-page one that shows the key combination next to the name
+ * (styles.css, `.icon-button[data-shortcut]`), and `aria-keyshortcuts` is set for assistive tech.
+ */
 export function IconButton({
   label,
+  shortcut,
   children,
   className = '',
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; shortcut?: string }) {
   return (
     <button
       type="button"
       {...props}
       className={`icon-button ${className}`}
       aria-label={label}
-      title={label}
+      title={shortcut ? undefined : label}
+      data-tip={shortcut ? label : undefined}
+      data-shortcut={shortcut}
+      aria-keyshortcuts={shortcut ? shortcut.replace(/\s+/g, '+').replace('⌘', 'Meta') : undefined}
     >
       {children}
     </button>

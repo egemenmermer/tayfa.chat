@@ -124,6 +124,7 @@ import {
 } from './realtime';
 import { silencedHere } from './participant-audio';
 import { VoiceRejoinNotice } from './VoiceRejoinNotice';
+import { roomMuteShortcutLabel } from './shell-commands';
 /** Who watches a screen share, from each viewer's own announcement. */
 export function viewerSummary(
   people: { id: string; name: string; local: boolean; watching?: string | null }[],
@@ -2463,6 +2464,7 @@ export function RealVoiceDock({
               // While reconnecting the microphone can still be muted (not unmuted).
               disabled={!connected && !(r.status === 'reconnecting' && !r.muted)}
               label={r.muted ? t('Mikrofonu aç') : t('Mikrofonu kapat')}
+              shortcut={roomMuteShortcutLabel()}
               className={r.muted ? 'muted-control' : ''}
               onClick={() => report(toggleMic(), notify)}
             >

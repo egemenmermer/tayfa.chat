@@ -27,6 +27,7 @@ import { useRealtime, joinVoice, leaveVoice, toggleMic, toggleDeafen } from './r
 import { useVoiceDirectory } from './voice-directory';
 import { VoiceAvatar } from './VoiceAvatar';
 import { t, uiError } from './i18n';
+import { roomMuteShortcutLabel } from './shell-commands';
 import { useModerationRights } from './VoiceModeration';
 import { places } from './dev/sample';
 // Name of the dev fixture's empty voice room.
@@ -366,6 +367,7 @@ export function VoiceSidebar({
           </button>
           <IconButton
             label={r.muted ? t('Mikrofonu aç') : t('Mikrofonu kapat')}
+            shortcut={roomMuteShortcutLabel()}
             aria-pressed={!r.muted}
             disabled={r.status !== 'connected'}
             onClick={() => run(toggleMic())}
