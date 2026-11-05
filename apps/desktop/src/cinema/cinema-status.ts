@@ -28,44 +28,59 @@ const useStatusStore = create<StatusStore>((set) => ({
 }));
 
 const inflight = new Map<string, Promise<CinemaStatus | null>>();
+const cacheKey = (communityId: string) => {
+  const { serverUrl, user } = useCommunity.getState();
+  return JSON.stringify([serverUrl, user?.id ?? null, communityId]);
+};
 
 /** Reads the community's cinema status once; concurrent callers share the request. */
-export function refreshCinemaStatus(communityId: string): Promise<CinemaStatus | null> {
+export function refreshCinemaStatus(
+  communityId: string,
+  maxAgeMs = 0,
+): Promise<CinemaStatus | null> {
+  const key = cacheKey(communityId);
   const bridge = getCinemaBridge();
   const store = useStatusStore.getState();
   if (!bridge) {
-    store.put(communityId, { status: null, error: null, loading: false, fetchedAt: Date.now() });
+    store.put(key, { status: null, error: null, loading: false, fetchedAt: Date.now() });
     return Promise.resolve(null);
   }
-  const running = inflight.get(communityId);
+  const cached = store.entries[key];
+  if (maxAgeMs > 0 && cached?.fetchedAt && Date.now() - cached.fetchedAt < maxAgeMs)
+    return Promise.resolve(cached.status);
+  const running = inflight.get(key);
   if (running) return running;
-  store.put(communityId, { loading: true });
+  store.put(key, { loading: true });
+  const requestedAt = Date.now();
   const task = bridge
     .status(communityId)
     .then((status) => {
       useStatusStore
         .getState()
-        .put(communityId, { status, error: null, loading: false, fetchedAt: Date.now() });
+        .put(key, { status, error: null, loading: false, fetchedAt: requestedAt });
       return status;
     })
     .catch((error) => {
-      useStatusStore.getState().put(communityId, {
+      useStatusStore.getState().put(key, {
         error: cinemaErrorText(error),
         loading: false,
-        fetchedAt: Date.now(),
+        fetchedAt: requestedAt,
       });
       return null;
     })
-    .finally(() => inflight.delete(communityId));
-  inflight.set(communityId, task);
+    .finally(() => inflight.delete(key));
+  inflight.set(key, task);
   return task;
 }
 
 /** Applies a status a mutation returned, so every view updates at once. */
 export function acceptCinemaStatus(status: CinemaStatus) {
-  useStatusStore
-    .getState()
-    .put(status.communityId, { status, error: null, loading: false, fetchedAt: Date.now() });
+  useStatusStore.getState().put(cacheKey(status.communityId), {
+    status,
+    error: null,
+    loading: false,
+    fetchedAt: Date.now(),
+  });
 }
 
 /**
@@ -74,17 +89,29 @@ export function acceptCinemaStatus(status: CinemaStatus) {
  */
 export function useCommunityCinema(everyMs = 60_000) {
   const communityId = useCommunity((s) => s.activeSpaceId);
-  const entry = useStatusStore((s) => (communityId ? s.entries[communityId] : undefined)) ?? blank;
+  const account = useCommunity((s) => JSON.stringify([s.serverUrl, s.user?.id ?? null]));
+  const key = communityId ? cacheKey(communityId) : null;
+  const entry = useStatusStore((s) => (key ? s.entries[key] : undefined)) ?? blank;
   const importing = !!entry.status?.importing && !entry.status.importing.finishedAt;
   useEffect(() => {
     if (!communityId) return;
-    void refreshCinemaStatus(communityId);
-    const timer = setInterval(
-      () => void refreshCinemaStatus(communityId),
-      importing ? 2000 : everyMs,
-    );
-    return () => clearInterval(timer);
-  }, [communityId, everyMs, importing]);
+    const interval = importing ? 2000 : everyMs;
+    const poll = () =>
+      void refreshCinemaStatus(
+        communityId,
+        document.hidden ? Math.max(interval, 60_000) : interval,
+      );
+    const visible = () => {
+      if (!document.hidden) poll();
+    };
+    poll();
+    const timer = setInterval(poll, interval);
+    document.addEventListener('visibilitychange', visible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', visible);
+    };
+  }, [communityId, account, everyMs, importing]);
   return {
     communityId,
     hallId: entry.status?.hallChannelId ?? null,

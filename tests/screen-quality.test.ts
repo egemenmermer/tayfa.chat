@@ -12,7 +12,7 @@ import {
 
 // rc.34 published the profile plus LiveKit's default half-size layer at the same frame rate:
 // bitrate / (2² × fps/fps), never below 150 kbps.
-const rc34Uplink: Record<ScreenShareQuality, number> = {
+const rc34Uplink: Record<Exclude<ScreenShareQuality, '480p15'>, number> = {
   '720p30': 3_000_000 + 750_000,
   '1080p30': 6_000_000 + 1_500_000,
   '1080p60': 10_000_000 + 2_500_000,
@@ -52,11 +52,11 @@ describe('screen share encodings', () => {
         expect(layer.frameRate).toBeLessThanOrEqual(top.frameRate);
         expect(layer.bitrate).toBeLessThan(top.bitrate);
       }
-      expect(layers[0]!.bitrate).toBeLessThanOrEqual(600_000);
+      if (layers.length) expect(layers[0]!.bitrate).toBeLessThanOrEqual(600_000);
     }
   });
   it('stays within 0.1 Mbps of the uplink rc.34 asked for at every profile', () => {
-    for (const quality of Object.keys(screenProfiles) as ScreenShareQuality[])
+    for (const quality of Object.keys(rc34Uplink) as (keyof typeof rc34Uplink)[])
       expect(uplink(quality), quality).toBeLessThanOrEqual(rc34Uplink[quality] + 100_000);
     expect(uplink('1080p60')).toBe(12_100_000);
   });
@@ -120,4 +120,11 @@ describe('viewer quality choice', () => {
     expect(screenSubscriptionQuality([], 720)).toBeUndefined();
     expect(screenQualitySelection([], 720)).toBe('source');
   });
+});
+
+it('offers a low-traffic video profile without extra simulcast layers', () => {
+  const plan = screenPublishPlan('480p15');
+  expect(plan.capture).toEqual({ width: 854, height: 480, frameRate: 15 });
+  expect(uplink('480p15')).toBe(450_000);
+  expect(plan.layers).toEqual([]);
 });

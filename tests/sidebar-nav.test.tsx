@@ -328,3 +328,21 @@ it('hides the join entry when the app gives it nowhere to go', async () => {
   await mount();
   expect(screen.queryByRole('button', { name: 'Davet bağlantısıyla katıl' })).toBeNull();
 });
+
+it('opens own status choices from the sidebar without leaving the channel', async () => {
+  const presence = vi.fn(async () => {});
+  Object.assign(window.rooms!.social, {
+    presence,
+    ownProfile: async () => ({ bio: '', statusText: '', presence: 'online' }),
+  });
+  useCommunity.setState({ presence: { me: 'online' } });
+  await mount('/chat');
+  fireEvent.click(screen.getByRole('button', { name: 'Durumunu seç' }));
+  const dialog = screen.getByRole('dialog');
+  for (const label of ['Çevrimiçi', 'Uzakta', 'Rahatsız etmeyin', 'Görünmez'])
+    expect(within(dialog).getByRole('button', { name: new RegExp(label) })).toBeTruthy();
+  fireEvent.click(within(dialog).getByRole('button', { name: /Görünmez/ }));
+  await waitFor(() => expect(presence).toHaveBeenCalledWith('invisible'));
+  await waitFor(() => expect(useCommunity.getState().presence.me).toBe('invisible'));
+  expect(screen.getByTestId('path').textContent).toBe('/chat');
+});

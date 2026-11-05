@@ -88,7 +88,7 @@ it('offers an invite for the new community once its own text channel has loaded'
       ],
     }),
   );
-  fireEvent.click(screen.getByRole('button', { name: 'Davet oluştur' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Davet oluştur' }));
   await waitFor(() => expect(createInvite).toHaveBeenCalledWith('general'));
   expect(await screen.findByDisplayValue(/code-general/)).toBeTruthy();
 });

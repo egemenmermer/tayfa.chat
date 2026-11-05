@@ -2,6 +2,7 @@ import type { Catalog } from '@rooms/i18n';
 
 /** English for the settings group. Keys are the Turkish source text exactly as written in the code. */
 export const settings: Catalog = {
+  'WebRTC gönderimi': 'WebRTC upload',
   'Hesap ve profil': 'Account and profile',
   'Ses ve video': 'Voice and video',
   Görünüm: 'Appearance',

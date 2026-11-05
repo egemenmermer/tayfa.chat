@@ -51,6 +51,7 @@ function fixture() {
     'AudioContext',
     class {
       resume = vi.fn(async () => {});
+      suspend = vi.fn(async () => {});
       close = vi.fn(async () => {});
     },
   );
@@ -79,7 +80,7 @@ function fixture() {
       local.isScreenShareEnabled = enabled;
     }),
   };
-  Object.assign(local, {
+  const publicationMethods = {
     publishTrack: vi.fn(async (track: LocalAudioTrack) => {
       local.isMicrophoneEnabled = true;
       local.getTrackPublication.mockReturnValue({ track });
@@ -89,9 +90,10 @@ function fixture() {
       local.getTrackPublication.mockReturnValue(undefined);
       local.isMicrophoneEnabled = false;
     }),
-  });
+  };
+  const participant = Object.assign(local, publicationMethods);
   const room = {
-    localParticipant: local,
+    localParticipant: participant,
     remoteParticipants: new Map(),
     on: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
       listeners.set(event, [...(listeners.get(event) ?? []), cb]);
@@ -107,7 +109,7 @@ function fixture() {
     startAudio: vi.fn(async () => {}),
   };
   const provider = new LiveKitMediaProvider(() => room as unknown as Room);
-  return { provider, room, local, emit };
+  return { provider, room, local: participant, emit };
 }
 describe('LiveKit adapter lifecycle', () => {
   it('requires TLS for remote media and rejects credential-bearing URLs before constructing a room', async () => {
@@ -440,6 +442,7 @@ it('reports observed encoder dimensions and codec instead of the requested profi
           frameWidth: 1280,
           frameHeight: 720,
           framesPerSecond: 28,
+          bytesSent: 1000,
           codecId: 'codec',
         },
       ],
@@ -1449,5 +1452,163 @@ it('asks for a watched screen at four times its size unless Otomatik; cameras ke
   const cameraTrack = { kind: 'video', adaptiveStreamSettings: {} };
   emit(RoomEvent.TrackSubscribed, cameraTrack, camera, bob);
   expect(cameraTrack.adaptiveStreamSettings).toEqual({});
+  await provider.disconnect();
+});
+
+it('suspends microphone DSP while muted and resumes the same graph on explicit unmute', async () => {
+  const { provider, local } = fixture();
+  await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+  await provider.publishMic();
+  const context = (provider as unknown as { soundContext: AudioContext }).soundContext;
+  await provider.mute(true);
+  expect(local.isMicrophoneEnabled).toBe(false);
+  expect(context.suspend).toHaveBeenCalledTimes(1);
+  await provider.mute(false);
+  expect(context.resume).toHaveBeenCalledTimes(2);
+  expect(local.getTrackPublication().track.unmute).toHaveBeenCalled();
+  expect(createLocalAudioTrack).toHaveBeenCalledTimes(1);
+  await provider.disconnect();
+});
+
+it.each([true, false])(
+  'stops only the screen tracks while preserving microphone state %s',
+  async (enabled) => {
+    const { provider, local } = fixture();
+    await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    local.isMicrophoneEnabled = enabled;
+    local.isScreenShareEnabled = true;
+    const microphone = { stop: vi.fn(), mute: vi.fn(), mediaStreamTrack: { readyState: 'live' } };
+    const screen = { stop: vi.fn() };
+    const loopback = { stop: vi.fn() };
+    local.getTrackPublication.mockImplementation((source) => ({
+      track:
+        source === Track.Source.Microphone
+          ? microphone
+          : source === Track.Source.ScreenShare
+            ? screen
+            : loopback,
+    }));
+    await provider.stopScreen();
+    expect(screen.stop).toHaveBeenCalled();
+    expect(loopback.stop).toHaveBeenCalled();
+    expect(microphone.stop).not.toHaveBeenCalled();
+    expect(microphone.mute).not.toHaveBeenCalled();
+    expect(local.setMicrophoneEnabled).not.toHaveBeenCalled();
+    expect(provider.snapshot().muted).toBe(!enabled);
+    await provider.disconnect();
+  },
+);
+
+it.each(['start', 'stop'] as const)(
+  'recovers an ended microphone capture during screen %s without overriding a live mute',
+  async (action) => {
+    const { provider, local } = fixture();
+    await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    await provider.publishMic();
+    let current = local.getTrackPublication().track;
+    const initial = current;
+    local.getTrackPublication.mockImplementation((source) =>
+      source === Track.Source.Microphone ? { track: current } : undefined,
+    );
+    local.publishTrack.mockImplementation(async (track) => {
+      current = track;
+      local.isMicrophoneEnabled = true;
+    });
+    local.unpublishTrack.mockImplementation(async () => {
+      local.isMicrophoneEnabled = false;
+    });
+    local.setScreenShareEnabled.mockImplementation(async (enabled) => {
+      initial.stop();
+      local.isMicrophoneEnabled = false;
+      local.isScreenShareEnabled = enabled;
+    });
+    if (action === 'start') await provider.publishScreen();
+    else await provider.stopScreen();
+    expect(createLocalAudioTrack).toHaveBeenCalledTimes(2);
+    expect(provider.snapshot().muted).toBe(false);
+    // A server-side mute leaves the capture alive and must never be undone by screen changes.
+    local.setScreenShareEnabled.mockImplementation(async () => {
+      local.isMicrophoneEnabled = false;
+    });
+    await provider.publishScreen();
+    expect(createLocalAudioTrack).toHaveBeenCalledTimes(2);
+    expect(current.unmute).not.toHaveBeenCalled();
+    expect(provider.snapshot().muted).toBe(true);
+    await provider.disconnect();
+  },
+);
+
+it('keeps an explicit mute made during a pending screen capture', async () => {
+  const { provider, local } = fixture();
+  await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+  await provider.publishMic();
+  const mic = local.getTrackPublication().track;
+  local.getTrackPublication.mockImplementation((source) =>
+    source === Track.Source.Microphone ? { track: mic } : undefined,
+  );
+  let complete!: () => void;
+  local.setScreenShareEnabled.mockImplementation(
+    () =>
+      new Promise<void>((resolve) => {
+        complete = resolve;
+      }),
+  );
+  const sharing = provider.publishScreen();
+  await provider.mute(true);
+  mic.stop();
+  complete();
+  await sharing;
+  expect(createLocalAudioTrack).toHaveBeenCalledTimes(1);
+  expect(mic.unmute).not.toHaveBeenCalled();
+  expect(provider.snapshot().muted).toBe(true);
+  await provider.disconnect();
+});
+
+it('wakes a muted DSP graph for filter changes and suspends it again afterwards', async () => {
+  const { provider } = fixture();
+  await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+  await provider.publishMic();
+  await provider.mute(true);
+  const internals = provider as unknown as { soundContext: AudioContext; mixer: SoundboardMixer };
+  const context = internals.soundContext;
+  let state: AudioContextState = 'suspended';
+  Object.defineProperty(context, 'state', { get: () => state });
+  vi.mocked(context.resume).mockImplementation(async () => {
+    state = 'running';
+  });
+  vi.mocked(context.suspend).mockImplementation(async () => {
+    state = 'suspended';
+  });
+  vi.mocked(internals.mixer.setNoiseSuppression).mockImplementation(async () => {
+    expect(context.state).toBe('running');
+  });
+  await provider.setNoiseSuppression(false);
+  expect(internals.mixer.setNoiseSuppression).toHaveBeenCalledWith(false, 'strong');
+  expect(context.state).toBe('suspended');
+  expect(provider.snapshot().muted).toBe(true);
+  await provider.disconnect();
+});
+
+it('checks the raw microphone capture instead of the still-live DSP output after a screen change', async () => {
+  const { provider, local } = fixture();
+  await provider.connectRoom('room', 'token', 'ws://localhost:7880');
+  await provider.publishMic();
+  const mic = local.getTrackPublication().track;
+  const capture = mic.mediaStreamTrack;
+  mic.mediaStream = { getAudioTracks: () => [capture] };
+  Object.defineProperty(mic, 'mediaStreamTrack', { value: { readyState: 'live' } });
+  local.getTrackPublication.mockImplementation((source) =>
+    source === Track.Source.Microphone ? { track: mic } : undefined,
+  );
+  // LiveKit's unmute is a no-op if it still considers a processed track logically unmuted.
+  mic.unmute.mockResolvedValue(mic);
+  local.setScreenShareEnabled.mockImplementation(async () => {
+    capture.readyState = 'ended';
+    local.isMicrophoneEnabled = false;
+  });
+  await provider.publishScreen();
+  expect(mic.unmute).not.toHaveBeenCalled();
+  expect(createLocalAudioTrack).toHaveBeenCalledTimes(2);
+  expect(provider.snapshot().muted).toBe(false);
   await provider.disconnect();
 });

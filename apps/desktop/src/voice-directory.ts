@@ -20,6 +20,7 @@ export function useVoiceDirectory(channelIds: string[]) {
     // Fixtures must not query live services with synthetic IDs.
     if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('fixture')) return;
     let active = true,
+      running = false,
       epoch = 0,
       timer: ReturnType<typeof setTimeout>;
     const invalidate = (event: Event) => {
@@ -34,6 +35,8 @@ export function useVoiceDirectory(channelIds: string[]) {
     };
     window.addEventListener('rooms:channel-access-invalidated', invalidate);
     const read = async () => {
+      if (!active || running) return;
+      running = true;
       const requestEpoch = epoch;
       try {
         const result = await window.rooms!.media.directory!(ids.split(','));
@@ -42,14 +45,23 @@ export function useVoiceDirectory(channelIds: string[]) {
       } catch {
         if (active && requestEpoch === epoch) setSnapshot({ scope, rooms: [], error: true });
       } finally {
-        if (active) timer = setTimeout(() => void read(), 5000);
+        running = false;
+        if (active) timer = setTimeout(() => void read(), document.hidden ? 30_000 : 5000);
       }
     };
+    const visible = () => {
+      if (!document.hidden) {
+        clearTimeout(timer);
+        void read();
+      }
+    };
+    document.addEventListener('visibilitychange', visible);
     void read();
     return () => {
       active = false;
       clearTimeout(timer);
       window.removeEventListener('rooms:channel-access-invalidated', invalidate);
+      document.removeEventListener('visibilitychange', visible);
     };
   }, [scope, userId, ids]);
   return snapshot.scope === scope

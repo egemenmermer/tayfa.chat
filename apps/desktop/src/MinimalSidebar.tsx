@@ -731,9 +731,27 @@ export function MinimalSidebar({
             </button>
           )}
           <div className="minimal-self-row">
-            <button className="minimal-profile" onClick={() => navigate('/settings?tab=profile')}>
+            <button
+              className="minimal-profile"
+              aria-label={t('Durumunu seç')}
+              onClick={() => (c.user ? setPerson(c.user) : navigate('/settings?tab=profile'))}
+            >
               {c.user && <VoiceAvatar id={c.user.id} name={c.user.displayName} />}
-              <span title={c.user?.displayName}>{c.user?.displayName ?? t('Profil')}</span>
+              <span className="minimal-self-identity" title={c.user?.displayName}>
+                <span>{c.user?.displayName ?? t('Profil')}</span>
+                {c.user && (
+                  <small>
+                    {(
+                      {
+                        online: t('Çevrimiçi'),
+                        idle: t('Uzakta'),
+                        dnd: t('Rahatsız etmeyin'),
+                        invisible: t('Görünmez'),
+                      } as Record<string, string>
+                    )[c.presence[c.user.id]] ?? t('Durumunu seç')}
+                  </small>
+                )}
+              </span>
             </button>
             <UpdateNotice />
             <IconButton label={t('Ayarlar')} onClick={() => navigate('/settings')}>
@@ -796,6 +814,7 @@ export function MinimalSidebar({
         <UserProfileDialog
           key={`${c.serverUrl}:${c.user?.id}:${person.id}`}
           user={person}
+          initialView={person.id === c.user?.id ? 'status' : 'profile'}
           onClose={() => setPerson(null)}
         />
       )}

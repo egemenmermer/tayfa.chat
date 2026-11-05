@@ -287,5 +287,5 @@ it('a friend’s profile sends a quick message in your DM with them and opens it
   expect(social.send).toHaveBeenCalledWith('dm-ada', 'selam');
   // The open channel never changed before the message was delivered; then the DM opens.
   expect(createDM).toHaveBeenCalledWith(ada.id);
-  expect(screen.getByTestId('where').textContent).toBe('/chat');
+  await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/chat'));
 });

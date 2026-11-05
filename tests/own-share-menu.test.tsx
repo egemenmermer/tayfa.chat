@@ -100,19 +100,16 @@ it('opens on right-click of your own share with every item, the current quality 
   ).toBeTruthy();
   const radios = within(menu).getAllByRole('menuitemradio');
   expect(radios.map((r) => r.textContent)).toEqual([
+    'Düşük trafik · 480p / 15 fps',
     '720p30',
     '1080p30',
     '1080p60',
     '1440p60',
     '4k30',
   ]);
-  expect(radios.map((r) => r.getAttribute('aria-checked'))).toEqual([
-    'false',
-    'false',
-    'true',
-    'false',
-    'false',
-  ]);
+  expect(
+    radios.filter((r) => r.getAttribute('aria-checked') === 'true').map((r) => r.textContent),
+  ).toEqual(['1080p60']);
   const sound = await within(menu).findByRole('menuitemcheckbox', { name: 'Sesi de paylaş' });
   expect(sound.getAttribute('aria-checked')).toBe('true');
   expect(within(menu).getByRole('menuitem', { name: 'Yayını durdur' })).toBeTruthy();

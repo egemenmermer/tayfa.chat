@@ -61,6 +61,7 @@ function fixture() {
     'AudioContext',
     class {
       resume = vi.fn(async () => {});
+      suspend = vi.fn(async () => {});
       close = vi.fn(async () => {});
     },
   );
