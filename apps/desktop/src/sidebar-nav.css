@@ -146,3 +146,20 @@
   background: #3ba55d;
   color: #ffffff;
 }
+
+/* The own profile opens the status picker directly, without leaving the current channel. */
+.minimal-self-identity {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.minimal-self-identity > span,
+.minimal-self-identity > small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.minimal-self-identity > small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+}

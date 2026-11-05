@@ -2221,6 +2221,12 @@ export default function Settings({
                         : tr('Unavailable \u2014 no active transport'),
                     ],
                     [
+                      t('WebRTC gönderimi'),
+                      realtime.status === 'connected' && realtime.diagnostics.sendBitrate != null
+                        ? `${Math.round(realtime.diagnostics.sendBitrate / 1000)} kbps`
+                        : '—',
+                    ],
+                    [
                       t('Video / codec'),
                       realtime.diagnostics.video
                         ? `${realtime.diagnostics.video.width} × ${realtime.diagnostics.video.height} / ${realtime.diagnostics.video.framesPerSecond ?? '—'} fps / ${realtime.diagnostics.video.codec ?? '—'} / ${realtime.diagnostics.video.direction === 'sent' ? t('gönderilen') : t('alınan')}`

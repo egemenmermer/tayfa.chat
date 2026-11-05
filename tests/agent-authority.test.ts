@@ -29,6 +29,7 @@ async function fixture() {
     secret: 'do-not-expose-token',
   });
   let policyWait: Promise<void> | undefined;
+  let policyEntered: (() => void) | undefined;
   const app = await createAgentServer({
     repository,
     authorize: async (token) => {
@@ -38,6 +39,7 @@ async function fixture() {
     reauthorize: async (user) => grants[user],
     executor: async () => ({ result: 'Local fixture executor', artifacts: [] }),
     authority: async () => {
+      policyEntered?.();
       if (policyWait) await policyWait;
       return {
         principals: Object.values(grants),
@@ -82,7 +84,10 @@ async function fixture() {
       policyWait = new Promise<void>((resolve) => {
         release = resolve;
       });
-      return release;
+      const entered = new Promise<void>((resolve) => {
+        policyEntered = resolve;
+      });
+      return { release, entered };
     },
     close: async () => {
       await app.server.close();
@@ -188,11 +193,11 @@ it('filters room and own audit histories, including deleted memory scope, withou
 it('reauthorizes after asynchronous policy read and rejects a management downgrade', async () => {
   const f = await fixture();
   try {
-    const release = f.hold();
+    const held = f.hold();
     const pending = f.request('/v1/authority?roomId=room');
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    await held.entered;
     f.grants.manager.canManage = false;
-    release();
+    held.release();
     expect((await pending).status).toBe(403);
   } finally {
     await f.close();

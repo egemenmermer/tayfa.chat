@@ -5,6 +5,7 @@ import {
   OWN_SHARE_ATTRIBUTE,
   OwnShareMenu,
   SHARE_QUALITIES,
+  shareQualityLabel,
   readShareAudioChoice,
   rememberShareAudioChoice,
 } from './ShareMenu';
@@ -2666,7 +2667,7 @@ export function RealVoiceDock({
               >
                 {SHARE_QUALITIES.map((quality) => (
                   <option key={quality} value={quality}>
-                    {quality}
+                    {shareQualityLabel(quality)}
                   </option>
                 ))}
               </select>

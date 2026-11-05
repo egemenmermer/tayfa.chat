@@ -125,7 +125,10 @@ export interface MediaTrack {
   layers?: ScreenLayer[];
 }
 export interface MediaDiagnostics {
+  /** Received RTP bitrate; excludes downloads such as DJ sources and update installers. */
   bitrate: number | null;
+  /** Sent RTP bitrate; excludes HTTPS and signaling overhead. */
+  sendBitrate?: number | null;
   packetLoss: number | null;
   rtt: number | null;
   video?: {
@@ -257,7 +260,7 @@ function screenPublishOptions(plan: ReturnType<typeof screenPublishPlan>) {
   return {
     videoCodec: 'h264' as const,
     screenShareEncoding: plan.encoding,
-    simulcast: true,
+    simulcast: plan.layers.length > 0,
     screenShareSimulcastLayers: plan.layers.map(
       (layer) => new VideoPreset(layer.width, layer.height, layer.bitrate, layer.frameRate),
     ),
@@ -506,7 +509,19 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   private prepared = new Map<string, number>();
   private microphoneWork: Promise<void> = Promise.resolve();
   private microphoneTask<T>(operation: () => Promise<T>): Promise<T> {
-    const task = this.microphoneWork.then(operation);
+    const task = this.microphoneWork.then(async () => {
+      // Filter/device changes may initialize worklets even while muted; they need a live clock.
+      if (this.soundContext?.state === 'suspended') await this.soundContext.resume();
+      try {
+        return await operation();
+      } finally {
+        if (
+          this.soundContext?.state === 'running' &&
+          !this.room?.localParticipant.isMicrophoneEnabled
+        )
+          await this.suspendMicrophoneProcessing();
+      }
+    });
     this.microphoneWork = task.then(
       () => {},
       () => {},
@@ -703,7 +718,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     if (this.room !== room || !room.localParticipant.isMicrophoneEnabled || this.state.deafened)
       this.stopSoundboard();
   }
-  private priorStats: { time: number; bytes: number } | null = null;
+  private priorStats: { time: number; bytes: number; sentBytes: number } | null = null;
   constructor(
     private readonly createRoom: () => Room = () =>
       new Room({
@@ -1167,13 +1182,16 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       let created: LocalAudioTrack | undefined;
       try {
         const existing = room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track;
+        const capture = existing?.mediaStream?.getAudioTracks()[0] ?? existing?.mediaStreamTrack;
         if (
           existing instanceof LocalAudioTrack &&
+          capture?.readyState === 'live' &&
           existing.mediaStreamTrack.readyState === 'live'
         ) {
           await this.ensureMixer(existing);
           if (this.room !== room || this.state.deafened || serial !== this.microphoneSerial)
             throw new Error('Voice room changed while opening the microphone.');
+          await this.soundContext?.resume();
           await existing.unmute();
         } else {
           if (existing instanceof LocalAudioTrack) {
@@ -1241,16 +1259,24 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
           // Reconnecting: muting is a local capture change and must not wait for the
           // transport, or a hot microphone stays live when the room comes back.
           await room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track?.mute();
+          await this.suspendMicrophoneProcessing();
           this.patch({ muted: true });
           return;
         }
         await this.requireRoom().localParticipant.setMicrophoneEnabled(false);
+        await this.suspendMicrophoneProcessing();
         this.sync();
       } catch (error) {
         this.fail(error);
         throw new Error(this.state.error ?? 'Media operation failed.');
       }
     });
+  }
+  /** A muted mic needs no denoising, gate or leveler work until the next explicit unmute. */
+  private async suspendMicrophoneProcessing() {
+    const context = this.soundContext;
+    if (context && context.state !== 'closed' && !this.room?.localParticipant.isMicrophoneEnabled)
+      await context.suspend().catch(() => {});
   }
   async publishCamera(enabled: boolean, deviceId?: string) {
     const options = (id?: string) => ({
@@ -1282,6 +1308,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   }
   async publishScreen(options: ScreenShareOptions = {}) {
     const room = this.requireRoom();
+    const microphone = this.screenMicrophone(room);
     const quality = options.quality ?? '1080p60';
     const plan = screenPublishPlan(quality, options.content);
     try {
@@ -1303,11 +1330,41 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
         room,
         room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track,
       );
+      await this.restoreScreenMicrophone(room, microphone);
       this.sync();
     } catch (error) {
       this.fail(error);
       throw new Error(this.state.error ?? 'Media operation failed.');
     }
+  }
+  private screenMicrophone(room: Room) {
+    const track = room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track;
+    return {
+      enabled: room.localParticipant.isMicrophoneEnabled,
+      serial: this.microphoneSerial,
+      // LiveKit's mediaStreamTrack getter returns the DSP output; mediaStream holds the capture.
+      capture: track?.mediaStream?.getAudioTracks()[0] ?? track?.mediaStreamTrack,
+    };
+  }
+  /** Screen renegotiation must preserve the mic, unless the user muted or deafened meanwhile. */
+  private async restoreScreenMicrophone(
+    room: Room,
+    prior: {
+      enabled: boolean;
+      serial: number;
+      capture?: MediaStreamTrack;
+    },
+  ) {
+    if (
+      prior.enabled &&
+      prior.capture?.readyState === 'ended' &&
+      this.room === room &&
+      this.status === 'connected' &&
+      prior.serial === this.microphoneSerial &&
+      !this.state.deafened &&
+      this.state.noiseProcessing?.status !== 'failed'
+    )
+      await this.publishMic();
   }
   /** Ends the share when the OS or the shared window closes the capture. */
   private endShareWithCapture(
@@ -1449,12 +1506,14 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   async stopScreen() {
     const room = this.room;
     if (!room) return;
+    const microphone = this.screenMicrophone(room);
     room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track?.stop();
     room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio)?.track?.stop();
     this.shareOptions = null;
     this.patch({ sharing: false, sharingAudio: false, sharingQuality: null });
     try {
       await room.localParticipant.setScreenShareEnabled(false);
+      await this.restoreScreenMicrophone(room, microphone);
       this.sync();
     } catch (error) {
       this.fail(error);
@@ -1477,6 +1536,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       void this.pendingMixer?.destroy();
       this.stopSoundboard();
       await room.localParticipant.setMicrophoneEnabled(false);
+      await this.suspendMicrophoneProcessing();
     }
     this.sync();
   }
@@ -1801,6 +1861,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     const room = this.room;
     if (!room || this.status !== 'connected') return;
     let bytes = 0,
+      sentBytes = 0,
       lost = 0,
       received = 0,
       rtt: number | null = null;
@@ -1831,6 +1892,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
               direction: stat.type === 'outbound-rtp' ? 'sent' : 'received',
             };
           }
+          if (stat.type === 'outbound-rtp') sentBytes += stat.bytesSent ?? 0;
           if (stat.type === 'inbound-rtp') {
             bytes += stat.bytesReceived ?? 0;
             received += stat.packetsReceived ?? 0;
@@ -1849,12 +1911,16 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     if (this.room !== room) return;
     const time = performance.now();
     const prior = this.priorStats;
-    this.priorStats = { time, bytes };
+    this.priorStats = { time, bytes, sentBytes };
     this.patch({
       diagnostics: {
         bitrate:
           prior && bytes >= prior.bytes
             ? ((bytes - prior.bytes) * 8000) / (time - prior.time)
+            : null,
+        sendBitrate:
+          prior && sentBytes >= prior.sentBytes && time > prior.time
+            ? ((sentBytes - prior.sentBytes) * 8000) / (time - prior.time)
             : null,
         packetLoss: received + lost ? lost / (received + lost) : null,
         rtt,

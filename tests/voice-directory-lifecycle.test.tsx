@@ -100,3 +100,36 @@ it('removes stale own presence from the previous room while preserving friends',
   hook.rerender();
   expect(hook.result.current.rooms[1].participants).toEqual([]);
 });
+
+it('polls hidden voice directories less often and refreshes on returning to the app', async () => {
+  vi.useFakeTimers();
+  const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+  try {
+    const directory = vi.fn(async () => ({ rooms: [] }));
+    window.rooms = { media: { directory } } as unknown as DesktopBridge;
+    useCommunity.setState({
+      serverUrl: 'https://background.test',
+      user: {
+        id: 'owner',
+        username: 'Owner',
+        displayName: 'Owner',
+        avatar: null,
+      },
+    });
+    renderHook(() => useVoiceDirectory(['room']));
+    await act(async () => {});
+    await act(async () => vi.advanceTimersByTimeAsync(29_000));
+    expect(directory).toHaveBeenCalledTimes(1);
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    expect(directory).toHaveBeenCalledTimes(2);
+    hidden.mockReturnValue(false);
+    await act(async () => document.dispatchEvent(new Event('visibilitychange')));
+    expect(directory).toHaveBeenCalledTimes(3);
+    await act(async () => vi.advanceTimersByTimeAsync(5000));
+    expect(directory).toHaveBeenCalledTimes(4);
+  } finally {
+    cleanup();
+    hidden.mockRestore();
+    vi.useRealTimers();
+  }
+});

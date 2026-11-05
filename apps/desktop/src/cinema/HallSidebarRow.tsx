@@ -5,6 +5,7 @@ import { VoiceAvatar } from '../VoiceAvatar';
 import { useCommunityCinema } from './cinema-status';
 import { useGuides, useNow } from './guide-cache';
 import { hallProgress, isHallItem, programmeAt } from './hall-model';
+import './hall-sidebar.css';
 
 /**
  * The permanent "Sinema" entry under the community header. While the hall plays, it shows

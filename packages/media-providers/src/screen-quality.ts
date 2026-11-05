@@ -2,13 +2,14 @@
  * Screen share encodings (what a publisher sends) and the viewer's quality choice (which of those
  * layers a listener receives). Kept free of LiveKit types so the desktop UI and tests can use it.
  */
-export type ScreenShareQuality = '720p30' | '1080p30' | '1080p60' | '1440p60' | '4k30';
+export type ScreenShareQuality = '480p15' | '720p30' | '1080p30' | '1080p60' | '1440p60' | '4k30';
 export type ScreenShareContent = 'motion' | 'detail';
 /**
  * The top layer of each publish profile. 1080p30 and 1080p60 sit 1–2 Mbps below their rc.34 caps
  * so that, with the smaller layers below them, no profile asks for more uplink than rc.34 did.
  */
 export const screenProfiles = {
+  '480p15': { width: 854, height: 480, frameRate: 15, bitrate: 450_000 },
   '720p30': { width: 1280, height: 720, frameRate: 30, bitrate: 3_000_000 },
   '1080p30': { width: 1920, height: 1080, frameRate: 30, bitrate: 5_000_000 },
   '1080p60': { width: 1920, height: 1080, frameRate: 60, bitrate: 8_000_000 },
@@ -28,6 +29,7 @@ export interface ScreenLayerPlan {
  */
 export function screenSimulcastLayers(quality: ScreenShareQuality): ScreenLayerPlan[] {
   const top = screenProfiles[quality];
+  if (quality === '480p15') return [];
   const layers: ScreenLayerPlan[] = [
     { width: 640, height: 360, frameRate: Math.min(top.frameRate, 30), bitrate: 600_000 },
   ];

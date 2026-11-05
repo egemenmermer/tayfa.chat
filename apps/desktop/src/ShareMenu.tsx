@@ -26,12 +26,15 @@ export function rememberShareAudioChoice(value: boolean) {
 }
 /** The presets of the share picker, in the same order. */
 export const SHARE_QUALITIES: readonly ScreenShareQuality[] = [
+  '480p15',
   '720p30',
   '1080p30',
   '1080p60',
   '1440p60',
   '4k30',
 ];
+export const shareQualityLabel = (quality: ScreenShareQuality) =>
+  quality === '480p15' ? t('Düşük trafik · 480p / 15 fps') : quality;
 /** Elements that open the menu: the sharer's own tile and the dock's share controls. */
 export const OWN_SHARE_ATTRIBUTE = 'data-own-share-menu';
 const SELECTOR = `[${OWN_SHARE_ATTRIBUTE}]`;
@@ -200,7 +203,7 @@ export function OwnShareMenu({ notify }: { notify(message: string): void }) {
             <span className="own-share-menu-check">
               {r.sharingQuality === quality && <ReferenceIcon name="check" size={14} />}
             </span>
-            {quality}
+            {shareQualityLabel(quality)}
           </button>
         ))}
       </div>

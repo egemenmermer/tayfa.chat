@@ -16,6 +16,7 @@ const files = [
   'reference-inset-player.css',
   'reference-mini-playback.css',
   'cinema/community-cinema.css',
+  'cinema/hall-sidebar.css',
   'cinema/hall-background.css',
   'cinema/cinema-reminders.css',
   'cozy-cinema.css',
@@ -54,7 +55,7 @@ describe('type floor and accent tokens in media, agent and cinema CSS', () => {
   });
 
   it('derives the cinema accent tints from the accent token', () => {
-    const css = read('cinema/community-cinema.css');
+    const css = read('cinema/hall-sidebar.css');
     for (const name of ['soft', 'cell'])
       expect(css).toMatch(
         new RegExp(`--cinema-accent-${name}:\\s*color-mix\\([^;]*var\\(--color-action-primary\\)`),

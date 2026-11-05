@@ -2,6 +2,7 @@ import type { Catalog } from '@rooms/i18n';
 
 /** English for the media group. Keys are the Turkish source text exactly as written in the code. */
 export const media: Catalog = {
+  'Düşük trafik · 480p / 15 fps': 'Low traffic · 480p / 15 fps',
   'Masaüstü uygulaması gerekiyor.': 'The desktop app is required.',
   'Sesten çıkar': 'Remove from voice',
   'ses odasından çıkarılacak. İsterse yeniden katılabilir.':

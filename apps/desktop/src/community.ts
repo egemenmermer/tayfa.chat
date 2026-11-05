@@ -618,7 +618,13 @@ export const useCommunity = create<CommunityState>((set, get) => ({
       /* A failed acknowledgement never clears the unread indicator. */
     }
   },
-  setPresence: (status) => bridge().presence(status),
+  setPresence: async (status) => {
+    const session = captureSession();
+    const userId = get().user?.id;
+    await bridge().presence(status);
+    if (userId && session.valid())
+      set((state) => ({ presence: { ...state.presence, [userId]: status } }));
+  },
   clearError: () => set({ error: null }),
 }));
 useCommunity.subscribe((state, previous) => {

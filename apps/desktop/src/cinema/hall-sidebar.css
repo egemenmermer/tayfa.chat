@@ -1,0 +1,111 @@
+/* Shared cinema tokens used by the sidebar row and the lazy-loaded cinema surfaces. */
+:root {
+  --cinema-ground: #17181d;
+  --cinema-screen: #050507;
+  --cinema-line: rgb(255 255 255 / 0.06);
+  --cinema-line-strong: rgb(255 255 255 / 0.1);
+  --cinema-fill: rgb(255 255 255 / 0.04);
+  --cinema-fill-hover: rgb(255 255 255 / 0.065);
+  --cinema-accent-soft: color-mix(in srgb, var(--color-action-primary) 14%, transparent);
+  --cinema-accent-cell: color-mix(in srgb, var(--color-action-primary) 22%, transparent);
+  --cinema-live: #ff4f60;
+  --cinema-live-soft: rgb(255 79 96 / 0.16);
+  --cinema-scrim: rgb(8 8 12 / 0.72);
+  --cinema-on-video: #fff;
+  --cinema-fixture-sun: #fff3d6;
+}
+
+.hall-nav-viewers > :is(span, div, img) {
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  margin-left: -7px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 2px var(--cinema-ground);
+  font-size: var(--font-size-micro);
+}
+.hall-nav-viewers > :first-child {
+  margin-left: 0;
+}
+
+.hall-live-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cinema-live);
+  box-shadow: 0 0 0 3px var(--cinema-live-soft);
+}
+
+/* Sidebar entry. */
+.hall-nav {
+  align-items: center;
+}
+.hall-nav.playing {
+  min-height: 46px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.minimal-nav.hall-nav > .hall-nav-icon {
+  position: relative;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+}
+.minimal-nav.hall-nav > .hall-nav-text {
+  flex: 1;
+  text-align: left;
+}
+.hall-nav-icon .hall-live-dot {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  width: 6px;
+  height: 6px;
+  box-shadow: 0 0 0 2px var(--color-background-sidebar);
+}
+.hall-nav-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.hall-nav-text > span,
+.hall-nav-text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hall-nav-text small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  line-height: 15px;
+}
+.hall-nav.selected .hall-nav-text small {
+  color: inherit;
+  opacity: 0.75;
+}
+.hall-nav-hint {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+}
+.minimal-nav.hall-nav > .hall-nav-viewers {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+/* No ring: the row's own background changes on hover and selection, a ring never matches. */
+.minimal-nav.hall-nav > .hall-nav-viewers > :is(span, div, img) {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 3px;
+  box-shadow: none;
+  font-size: var(--font-size-micro);
+}
+.hall-nav-viewers small {
+  margin-left: 4px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+}
