@@ -13,3 +13,26 @@ services:
     tmpfs:
       - /tmp:size=805306368,mode=1777
     # 2h sets: <=180MiB each; one source operation at a time,384MiB global cache.
+  # Private YouTube player parser for the DJ source bridge (reached as http://music-cipher:8001/).
+  music-cipher:
+    # Pin by digest and bump it only after a real add-song check.
+    image: ghcr.io/kikkia/yt-cipher@sha256:4c5ec381ff57336cfc24822d2b526a5ad7cd0171f61065a1bbc87bb736842449
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 768m
+    cpus: 1
+    pids_limit: 128
+    tmpfs:
+      - /tmp:size=67108864,mode=1777
+      # One ~3 MB player script is saved per YouTube player release (about one a day) and only
+      # a restart removes old ones. 64 MB filled after five weeks, and every new player then
+      # failed with ENOSPC, so adding songs stopped. 256 MB lasts about a year; the pages count
+      # toward mem_limit only while used. Restart the service to clear it sooner.
+      - /home/nonroot/.cache:size=268435456,mode=1777,uid=65532,gid=65532
+    environment:
+      MAX_THREADS: '1'
+      PREPROCESSED_CACHE_SIZE: '3'
