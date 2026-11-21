@@ -29,6 +29,14 @@ export function platformName(platform: string | undefined) {
         ? 'Linux'
         : (platform ?? '—');
 }
+/** The one-line build summary users paste into bug reports. */
+export function versionSummary(
+  info: { version: string; platform?: string; arch?: string } | null,
+): string {
+  if (!info) return '';
+  const arch = info.arch === 'arm64' ? 'Apple Silicon' : info.arch;
+  return ['Tayfa ' + info.version, platformName(info.platform), arch].filter(Boolean).join(' · ');
+}
 /** States in which `status.version` names a newer build than the one running. */
 const newerStates: UpdateStatus['state'][] = ['available', 'downloading', 'verifying', 'ready'];
 
@@ -37,7 +45,8 @@ export function About({ notify }: { notify(message: string): void }) {
   const [status, setStatus] = useState<UpdateStatus | null>(null),
     [info, setInfo] = useState<ApplicationInfo | null>(null),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState('');
+    [error, setError] = useState(''),
+    [copied, setCopied] = useState(false);
   const [modal, setModal] = useState<'logs' | 'licenses' | 'restart' | null>(null),
     [content, setContent] = useState(''),
     [contentBusy, setContentBusy] = useState(false);
@@ -45,12 +54,14 @@ export function About({ notify }: { notify(message: string): void }) {
   const voice = useRealtime();
   const [params, setParams] = useSearchParams();
   const contentEpoch = useRef(0),
-    mounted = useRef(true);
+    mounted = useRef(true),
+    copiedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
       contentEpoch.current++;
+      clearTimeout(copiedTimer.current);
     };
   }, []);
   const closeModal = () => {
@@ -172,6 +183,21 @@ export function About({ notify }: { notify(message: string): void }) {
     } finally {
       if (mounted.current && contentEpoch.current === ticket) setContentBusy(false);
     }
+  };
+  const summary = versionSummary(info);
+  const copyVersion = () => {
+    setError('');
+    void navigator.clipboard
+      .writeText(summary)
+      .then(() => {
+        if (!mounted.current) return;
+        setCopied(true);
+        clearTimeout(copiedTimer.current);
+        copiedTimer.current = setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        if (mounted.current) setError(t('Panoya erişilemiyor.'));
+      });
   };
   const working = busy || ['checking', 'downloading', 'verifying'].includes(status?.state ?? '');
   const platform = platformName(info?.platform);
@@ -329,6 +355,16 @@ export function About({ notify }: { notify(message: string): void }) {
       </section>
       <section className="about-support">
         <h2>{t('Destek ve gizlilik')}</h2>
+        <div className="about-setting">
+          <div>
+            <strong>{t('Sürüm bilgisi')}</strong>
+            <p>{t('Hata bildirirken ekle: {info}', { info: summary || '—' })}</p>
+          </div>
+          <button className="button secondary" disabled={!summary} onClick={copyVersion}>
+            <ReferenceIcon name={copied ? 'check' : 'copy'} size={18} />
+            {copied ? t('Kopyalandı') : t('Kopyala')}
+          </button>
+        </div>
         <div className="about-setting">
           <div>
             <strong>{t('Destek kaydı')}</strong>

@@ -24,7 +24,7 @@ vi.mock('@rooms/media', () => ({
 }));
 vi.mock('../apps/desktop/src/NoiseComparison', () => ({ NoiseComparison: () => null }));
 import Settings, { communityTabs } from '../apps/desktop/src/Settings';
-import { About, platformName } from '../apps/desktop/src/About';
+import { About, platformName, versionSummary } from '../apps/desktop/src/About';
 import { StartupSplash } from '../apps/desktop/src/SystemState';
 import { useCommunity } from '../apps/desktop/src/community';
 import { queryClient } from '../apps/desktop/src/query-client';
@@ -273,6 +273,40 @@ describe('About and splash (UI-33, UI-47, UI-48)', () => {
   it('shows the splash headline in production', () => {
     render(<StartupSplash />);
     expect(screen.getByRole('heading', { name: 'Aynı yere dönmek güzel.' })).toBeTruthy();
+  });
+
+  it('copies a one-line version summary for bug reports', async () => {
+    const writeText = vi.fn(async () => {});
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    renderAbout('idle');
+    const copy = await screen.findByRole('button', { name: 'Kopyala' });
+    await waitFor(() => expect((copy as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(copy);
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith('Tayfa 0.1.18 · macOS · Apple Silicon'),
+    );
+    expect(await screen.findByRole('button', { name: 'Kopyalandı' })).toBeTruthy();
+  });
+
+  it('says so when the clipboard is unavailable', async () => {
+    const writeText = vi.fn(async () => {
+      throw new Error('denied');
+    });
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    renderAbout('idle');
+    const copy = await screen.findByRole('button', { name: 'Kopyala' });
+    await waitFor(() => expect((copy as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(copy);
+    expect(await screen.findByText('Panoya erişilemiyor.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Kopyalandı' })).toBeNull();
+  });
+
+  it('summarises the build', () => {
+    expect(versionSummary(null)).toBe('');
+    expect(versionSummary({ version: '1.2.3', platform: 'win32', arch: 'x64' })).toBe(
+      'Tayfa 1.2.3 · Windows · x64',
+    );
+    expect(versionSummary({ version: '1.2.3' })).toBe('Tayfa 1.2.3 · —');
   });
 
   it('names the operating systems', () => {
