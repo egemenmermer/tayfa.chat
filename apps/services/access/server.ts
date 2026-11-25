@@ -43,6 +43,7 @@ import {
   type StoatMember,
 } from './stoat-permissions';
 import { ingressLimit, TRUSTED_PROXIES } from '../shared/ingress';
+import { identityCache } from '../shared/identity-cache';
 
 export interface AccessConfig {
   soundboardDirectory?: string;
@@ -188,6 +189,15 @@ export async function createAccessServer(config: AccessConfig) {
   server.addHook('onClose', async () => {
     await reader?.close();
   });
+  /** Who a session belongs to, asked of Stoat at most once per token every 30 s (see identityCache). */
+  const identify = identityCache((token: string) =>
+    new StoatClient(
+      config.stoatUrl ?? 'http://127.0.0.1:3022',
+      token,
+      socialOptions,
+    ).getCurrentUser(),
+  );
+  server.addHook('onClose', async () => identify.clear());
   const roomName = (id: string) => `stoat-channel-${id}`;
   /**
    * Grants live in memory, so a restart forgets everyone already in a room. A caller whose
@@ -214,12 +224,7 @@ export async function createAccessServer(config: AccessConfig) {
     apiSecret: config.apiSecret,
     publicLivekitUrl: config.publicLivekitUrl,
     roomService,
-    identify: (token) =>
-      new StoatClient(
-        config.stoatUrl ?? 'http://127.0.0.1:3022',
-        token,
-        socialOptions,
-      ).getCurrentUser(),
+    identify,
     authorize: (token, dmId) =>
       new StoatClient(config.stoatUrl ?? 'http://127.0.0.1:3022', token, socialOptions).getCallPeer(
         dmId,
@@ -238,7 +243,7 @@ export async function createAccessServer(config: AccessConfig) {
       token,
       socialOptions,
     );
-    const user = await client.getCurrentUser();
+    const user = await identify(token);
     const context = reader ? await reader.read(channelId, user.id) : null;
     const channel = context?.channel ?? (await client.getChannel(channelId));
     if (
@@ -288,12 +293,7 @@ export async function createAccessServer(config: AccessConfig) {
     directory: config.personalSoundsDirectory,
     uploads: config.personalSoundUploads ?? true,
     maxBytes: config.personalSoundsMaxBytes ?? 512 * 1024 * 1024,
-    currentUser: (token) =>
-      new StoatClient(
-        config.stoatUrl ?? 'http://127.0.0.1:3022',
-        token,
-        socialOptions,
-      ).getCurrentUser(),
+    currentUser: identify,
     authorize: async (token, channelId) => ({
       userId: (await authorize(token, channelId)).user.id,
     }),
@@ -486,16 +486,13 @@ export async function createAccessServer(config: AccessConfig) {
   ];
   registerGifs(server, {
     key: config.klipyKey,
-    user: async (authorization) =>
-      (
-        await new StoatClient(
-          config.stoatUrl ?? 'http://127.0.0.1:3022',
-          tokenOf(authorization),
-          socialOptions,
-        ).getCurrentUser()
-      ).id,
+    user: async (authorization) => (await identify(tokenOf(authorization))).id,
   });
   server.setErrorHandler((error, request, reply) => {
+    // A session Stoat no longer accepts must not keep passing the identity step from the cache.
+    const authorization = request.headers.authorization;
+    if (error instanceof StoatError && error.status === 401 && authorization)
+      identify.forget(authorization.replace(/^Bearer /, ''));
     if (error instanceof StoatError)
       return reply.code(error.status).send({ error: error.code, message: error.message });
     if (error instanceof z.ZodError)
@@ -885,7 +882,7 @@ export async function createAccessServer(config: AccessConfig) {
         token,
         socialOptions,
       );
-      const user = await client.getCurrentUser();
+      const user = await identify(token);
       const permitted: string[] = [];
       for (const channelId of new Set(channelIds)) {
         try {
@@ -1323,13 +1320,7 @@ export async function createAccessServer(config: AccessConfig) {
   });
   server.post('/v1/media/leave', async (request) => {
     const { channelId } = channelBody.parse(request.body);
-    const token = tokenOf(request.headers.authorization);
-    const client = new StoatClient(
-      config.stoatUrl ?? 'http://127.0.0.1:3022',
-      token,
-      socialOptions,
-    );
-    const user = await client.getCurrentUser();
+    const user = await identify(tokenOf(request.headers.authorization));
     grants.delete(`${channelId}:${user.id}`);
     invalidateScreenUser(channelId, user.id);
     await roomService.removeParticipant(roomName(channelId), user.id).catch(() => {});
@@ -1409,6 +1400,7 @@ export async function createAccessServer(config: AccessConfig) {
             error instanceof StoatError &&
             (error.status === 401 || error.status === 403 || error.status === 404)
           ) {
+            if (error.status === 401) identify.forget(grant.token);
             await roomService
               .removeParticipant(roomName(grant.channelId), grant.userId)
               .catch(() => {});
