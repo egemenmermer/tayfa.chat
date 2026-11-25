@@ -337,6 +337,20 @@ function isMissingDevice(error: unknown) {
       (!failure.constraint || failure.constraint === 'deviceId'))
   );
 }
+/**
+ * resume() can wait for a whole OS interruption (a device that is gone); never let that hold
+ * the microphone queue. The caller reads `state` afterwards.
+ */
+async function resumeWithin(context: AudioContext, ms = 1500) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    context.resume().catch(() => {}),
+    new Promise((resolve) => (timer = setTimeout(resolve, ms))),
+  ]);
+  clearTimeout(timer);
+}
+/** Waits before reopening a microphone that refused to start; then the microphone goes off. */
+const INPUT_RETRY_DELAYS_MS = [400, 1200];
 /** The system's devices, or null when it cannot list them (then every id counts as listed). */
 async function listDevices(): Promise<readonly MediaDeviceInfo[] | null> {
   try {
@@ -488,6 +502,10 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   private noiseMode: NoiseSuppressionMode = 'strong';
   private inputDeviceId: string | undefined;
   private microphoneSerial = 0;
+  /** Serial at the last successful open: an SDK mute under the same serial was not asked for. */
+  private liveMicrophoneSerial: number | null = null;
+  /** When the SDK muted the microphone on its own lately; recovery is bounded per minute. */
+  private unexpectedMutes: number[] = [];
   private pendingMic: LocalAudioTrack | null = null;
   private pendingMixer: SoundboardMixer | null = null;
   private mixer: SoundboardMixer | null = null;
@@ -511,7 +529,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
   private microphoneTask<T>(operation: () => Promise<T>): Promise<T> {
     const task = this.microphoneWork.then(async () => {
       // Filter/device changes may initialize worklets even while muted; they need a live clock.
-      if (this.soundContext?.state === 'suspended') await this.soundContext.resume();
+      if (this.soundContext?.state === 'suspended') await resumeWithin(this.soundContext);
       try {
         return await operation();
       } finally {
@@ -613,6 +631,10 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     this.mixerTrack = null;
     const context = new AudioContext({ sampleRate: 48_000 });
     this.soundContext = context;
+    // macOS can stop this context when a headset leaves or returns; see reviveMicrophoneProcessing.
+    context.addEventListener?.('statechange', () => {
+      if (this.soundContext === context) void this.reviveMicrophoneProcessing().catch(() => {});
+    });
     track.setAudioContext(context);
     this.patch({
       noiseProcessing: { status: this.noiseSuppression ? 'starting' : 'off', mode: this.noiseMode },
@@ -972,7 +994,17 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       if (this.room === room) this.applyScreenSubscriptions();
     });
     room.on(RoomEvent.MediaDevicesChanged, () => {
-      if (this.room === room) void this.followInput(room).catch(() => {});
+      if (this.room !== room) return;
+      void this.followInput(room).catch(() => {});
+      void this.reviveMicrophoneProcessing().catch(() => {});
+    });
+    room.on(RoomEvent.TrackMuted, (publication, participant) => {
+      if (
+        this.room === room &&
+        participant === room.localParticipant &&
+        publication.source === Track.Source.Microphone
+      )
+        this.recoverUnexpectedMute(room);
     });
     room.on(RoomEvent.ParticipantConnected, (participant) => {
       if (this.room === room) this.announceWatch(participant.identity);
@@ -1107,7 +1139,8 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
    */
   private followInput(room: Room) {
     return this.microphoneTask(async () => {
-      const selected = this.inputDeviceId || 'default';
+      const selected = this.inputDeviceId || 'default',
+        serial = this.microphoneSerial;
       const track = room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track;
       if (
         this.room !== room ||
@@ -1119,16 +1152,34 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
       const devices = await navigator.mediaDevices.enumerateDevices();
       if (this.room !== room || (this.inputDeviceId || 'default') !== selected) return;
       if (captureMissesInput(devices, selected, track.getSourceTrackSettings())) {
-        try {
-          // Mute state survives the restart, and the noise filter restarts on the new input.
-          await track.restartTrack(this.captureOptions({ exact: selected }));
-        } catch (error) {
-          if (this.room !== room) return;
-          // The old capture is already closed: leave the microphone off and say why.
-          await room.localParticipant.setMicrophoneEnabled(false).catch(() => {});
-          this.fail(error);
-          this.sync();
-          return;
+        // A headset that just came back often refuses to open for a moment (NotReadableError
+        // while macOS or Windows is still starting it), so try again before giving up.
+        for (let attempt = 0; ; attempt++) {
+          try {
+            // Mute state survives the restart, and the noise filter restarts on the new input.
+            await track.restartTrack(this.captureOptions({ exact: selected }));
+            break;
+          } catch (error) {
+            if (this.room !== room) return;
+            const wait = INPUT_RETRY_DELAYS_MS[attempt];
+            if (wait !== undefined) {
+              await new Promise((resolve) => setTimeout(resolve, wait));
+              if (
+                this.room !== room ||
+                serial !== this.microphoneSerial ||
+                (this.inputDeviceId || 'default') !== selected
+              )
+                return;
+              continue;
+            }
+            // The old capture is already closed: leave the microphone off and say why. This off
+            // is a decision, so the unexpected-mute recovery must not reopen it.
+            ++this.microphoneSerial;
+            await room.localParticipant.setMicrophoneEnabled(false).catch(() => {});
+            this.fail(error);
+            this.sync();
+            return;
+          }
         }
         if (this.room !== room) return;
         this.sync();
@@ -1153,6 +1204,76 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
     } catch {
       /* Device names may be unavailable; capture itself is unaffected. */
     }
+  }
+  /**
+   * LiveKit mutes the microphone itself when its capture ends and reopening the device fails.
+   * macOS reconfigures audio when a share with system sound starts or stops and when a headset
+   * leaves or returns, so that reopen can fail for a moment and leave the person muted. They
+   * never asked for it: open the microphone again, unless they muted, deafened or left since,
+   * the noise filter failed, or this already happened three times in the last minute.
+   */
+  private recoverUnexpectedMute(room: Room) {
+    const serial = this.microphoneSerial;
+    if (serial !== this.liveMicrophoneSerial) return;
+    const now = Date.now();
+    this.unexpectedMutes = this.unexpectedMutes.filter((at) => now - at < 60_000);
+    if (this.unexpectedMutes.length >= 3) return;
+    this.unexpectedMutes.push(now);
+    setTimeout(() => {
+      if (
+        this.room !== room ||
+        serial !== this.microphoneSerial ||
+        this.status !== 'connected' ||
+        this.state.deafened ||
+        this.state.noiseProcessing?.status === 'failed' ||
+        room.localParticipant.isMicrophoneEnabled
+      )
+        return;
+      void this.publishMic().catch(() => {});
+    }, 500 * this.unexpectedMutes.length);
+  }
+  /**
+   * The noise filter, gate and leveler run in their own AudioContext, which renders through an
+   * output device. macOS can stop that context when a headset leaves or returns; the room then
+   * hears silence from a microphone that still shows as on, until the person rejoins. While the
+   * microphone is meant to be live, start it again (on the default output when the chosen one is
+   * gone) and, if it stays stopped, rebuild the chain on a fresh context as a rejoin would.
+   */
+  private async reviveMicrophoneProcessing() {
+    const room = this.room,
+      context = this.soundContext;
+    // Checked before queueing: every microphone task briefly wakes a parked context, and that
+    // state change must not queue another revive while the person is muted.
+    const wanted = () =>
+      !!room &&
+      !!context &&
+      this.room === room &&
+      this.soundContext === context &&
+      context.state !== 'running' &&
+      context.state !== 'closed' &&
+      room.localParticipant.isMicrophoneEnabled &&
+      !this.state.deafened;
+    if (!wanted()) return;
+    const devices = await listDevices();
+    if (!wanted()) return;
+    if (
+      this.outputDeviceId &&
+      devices &&
+      !deviceListed(devices, 'audiooutput', this.outputDeviceId)
+    )
+      await (context as AudioContext & { setSinkId?(id: string): Promise<void> })
+        .setSinkId?.('')
+        ?.catch(() => {});
+    await resumeWithin(context!);
+    if (!wanted()) return;
+    // Still stopped: a fresh context and chain, as a rejoin would build.
+    await this.microphoneTask(async () => {
+      if (!wanted()) return;
+      const track = room!.localParticipant.getTrackPublication(Track.Source.Microphone)?.track;
+      if (!(track instanceof LocalAudioTrack)) return;
+      this.mixerTrack = null;
+      await this.ensureMixer(track);
+    });
   }
   private async captureMicrophone(room: Room, serial: number, deviceId?: string) {
     const options = this.captureOptions(deviceId ?? this.inputDeviceId);
@@ -1225,6 +1346,7 @@ export class LiveKitMediaProvider implements RealtimeMediaProvider {
               },
             });
         }
+        this.liveMicrophoneSerial = serial;
         this.patch({ error: null });
         this.sync();
         void this.describeCurrentInput(room);

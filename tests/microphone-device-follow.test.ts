@@ -105,14 +105,40 @@ function capture(groupId: string) {
   return { track: track as LocalAudioTrack, source };
 }
 
+/** The microphone chain's AudioContext; tests stop it the way macOS does on a device change. */
+class FakeContext {
+  static instances: FakeContext[] = [];
+  state: 'running' | 'suspended' | 'interrupted' | 'closed' = 'running';
+  private listeners: (() => void)[] = [];
+  /** What resume() does; a stopped device can keep the context from running again. */
+  resumes = true;
+  constructor() {
+    FakeContext.instances.push(this);
+  }
+  addEventListener = (_type: string, listener: () => void) => this.listeners.push(listener);
+  // Like a browser, every transition fires statechange, so a revive loop would show up here.
+  private set(state: FakeContext['state']) {
+    if (this.state === state) return;
+    this.state = state;
+    this.listeners.forEach((listener) => listener());
+  }
+  resume = vi.fn(async () => {
+    if (this.resumes && this.state !== 'closed') this.set('running');
+  });
+  suspend = vi.fn(async () => {
+    if (this.state !== 'closed') this.set('suspended');
+  });
+  close = vi.fn(async () => {
+    this.set('closed');
+  });
+  stop(state: 'suspended' | 'interrupted') {
+    this.set(state);
+  }
+}
+
 function fixture(devices: { current: InputDeviceEntry[] }) {
-  vi.stubGlobal(
-    'AudioContext',
-    class {
-      resume = vi.fn(async () => {});
-      close = vi.fn(async () => {});
-    },
-  );
+  vi.stubGlobal('AudioContext', FakeContext);
+  FakeContext.instances = [];
   Object.defineProperty(navigator, 'mediaDevices', {
     configurable: true,
     value: { enumerateDevices: vi.fn(async () => devices.current) },
@@ -228,11 +254,15 @@ describe('a call on the system default microphone', () => {
     await provider.connectRoom('room', 'token', 'ws://localhost:7880');
     await provider.publishMic();
     devices.current = [input('default', 'g-hyperx', 'Varsayılan - HyperX'), laptop, headset];
-    vi.mocked(track.restartTrack).mockRejectedValueOnce(
+    vi.mocked(track.restartTrack).mockRejectedValue(
       new DOMException('Device in use', 'NotReadableError'),
     );
     emit(RoomEvent.MediaDevicesChanged);
-    await vi.waitFor(() => expect(local.setMicrophoneEnabled).toHaveBeenCalledWith(false));
+    // Tried again while the device may still be starting, then given up.
+    await vi.waitFor(() => expect(local.setMicrophoneEnabled).toHaveBeenCalledWith(false), {
+      timeout: 4000,
+    });
+    expect(track.restartTrack).toHaveBeenCalledTimes(3);
     await vi.waitFor(() => expect(provider.snapshot().error).toContain('Cihaz açılamadı'));
     expect(provider.snapshot().muted).toBe(true);
     await provider.disconnect();
@@ -268,6 +298,103 @@ describe('a call on a microphone the person chose', () => {
     );
     expect(local.setMicrophoneEnabled).not.toHaveBeenCalled();
     await provider.disconnect();
+  });
+});
+
+describe('a microphone the system takes away for a moment', () => {
+  async function live() {
+    const devices = { current: [input('default', 'g-laptop', 'Varsayılan - Realtek'), laptop] };
+    const env = fixture(devices);
+    const { track, source } = capture('g-laptop');
+    vi.mocked(createLocalAudioTrack).mockReset().mockResolvedValueOnce(track);
+    await env.provider.connectRoom('room', 'token', 'ws://localhost:7880');
+    await env.provider.publishMic();
+    return { ...env, track, source, devices };
+  }
+  /** The context the microphone chain runs in: the one handed to the track last. */
+  const chain = (track: LocalAudioTrack) =>
+    vi.mocked(track.setAudioContext).mock.calls.at(-1)![0] as unknown as FakeContext;
+  /** LiveKit gives up reopening an ended capture and mutes the track on its own. */
+  function sdkMutes(env: Awaited<ReturnType<typeof live>>) {
+    env.local.isMicrophoneEnabled = false;
+    env.emit(RoomEvent.TrackMuted, { source: 'microphone' }, env.local);
+  }
+
+  it('opens the microphone again after LiveKit muted it on its own', async () => {
+    const env = await live();
+    sdkMutes(env);
+    await vi.waitFor(() => expect(env.track.unmute).toHaveBeenCalledTimes(1), { timeout: 2000 });
+    await env.provider.disconnect();
+  });
+
+  it('leaves a microphone the person muted', async () => {
+    const env = await live();
+    await env.provider.mute(true);
+    env.emit(RoomEvent.TrackMuted, { source: 'microphone' }, env.local);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    expect(env.track.unmute).not.toHaveBeenCalled();
+    await env.provider.disconnect();
+  });
+
+  it('gives up after three unexpected mutes in a minute', async () => {
+    const env = await live();
+    for (let i = 0; i < 4; i++) sdkMutes(env);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    expect(env.track.unmute).toHaveBeenCalledTimes(3);
+    await env.provider.disconnect();
+  });
+
+  it('tries a headset that is still starting again instead of turning the microphone off', async () => {
+    const env = await live();
+    env.devices.current = [input('default', 'g-hyperx', 'Varsayılan - HyperX'), laptop, headset];
+    vi.mocked(env.track.restartTrack)
+      .mockRejectedValueOnce(new DOMException('Could not start audio source', 'NotReadableError'))
+      .mockImplementationOnce(async () => {
+        env.source.groupId = 'g-hyperx';
+      });
+    env.emit(RoomEvent.MediaDevicesChanged);
+    await vi.waitFor(() => expect(env.provider.snapshot().inputDevice).toBe(headset.label), {
+      timeout: 3000,
+    });
+    expect(env.track.restartTrack).toHaveBeenCalledTimes(2);
+    expect(env.local.setMicrophoneEnabled).not.toHaveBeenCalled();
+    expect(env.provider.snapshot().muted).toBe(false);
+    await env.provider.disconnect();
+  });
+
+  it('starts the stopped microphone chain again so the room hears the person', async () => {
+    const env = await live();
+    const context = chain(env.track);
+    context.stop('interrupted');
+    await vi.waitFor(() => expect(context.resume).toHaveBeenCalled());
+    await vi.waitFor(() => expect(context.state).toBe('running'));
+    expect(chain(env.track)).toBe(context);
+    await env.provider.disconnect();
+  });
+
+  it('rebuilds the chain on a fresh context when the old one will not run', async () => {
+    const env = await live();
+    const context = chain(env.track);
+    context.resumes = false;
+    context.stop('interrupted');
+    await vi.waitFor(() => expect(chain(env.track)).not.toBe(context), { timeout: 3000 });
+    expect(env.track.setProcessor).toHaveBeenCalledTimes(2);
+    expect(context.state).toBe('closed');
+    await env.provider.disconnect();
+  });
+
+  it('leaves a muted microphone chain parked', async () => {
+    const env = await live();
+    await env.provider.mute(true);
+    const context = chain(env.track);
+    const resumed = context.resume.mock.calls.length;
+    context.resume();
+    context.stop('suspended');
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    // One wake-up by the test itself, and no resume/suspend loop from the revive.
+    expect(context.resume.mock.calls.length).toBe(resumed + 1);
+    expect(context.state).toBe('suspended');
+    await env.provider.disconnect();
   });
 });
 
