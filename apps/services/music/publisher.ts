@@ -7,6 +7,7 @@ import {
   TrackPublishOptions,
   TrackSource,
 } from '@livekit/rtc-node';
+import { PCM_SAMPLE_RATE, PCM_SOURCE_QUEUE_MS, startPcmPump, type PcmPump } from './pcm-pump';
 import { openYouTubeAudio } from './youtube-source';
 export interface MusicPublisher {
   connect(url: string, token: string): Promise<void>;
@@ -30,9 +31,12 @@ export interface MusicPublisher {
 export class LiveMusicPublisher implements MusicPublisher {
   private streamClose: (() => Promise<void>) | null = null;
   private room = new Room();
-  private source = new AudioSource(48000, 2, 200);
+  // A 1 s native queue absorbs feeder scheduling jitter; the read-ahead buffer in pcm-pump covers
+  // upstream stalls. pause() clears the queue so a pause or seek does not keep playing.
+  private source = new AudioSource(PCM_SAMPLE_RATE, 2, PCM_SOURCE_QUEUE_MS);
   private track = LocalAudioTrack.createAudioTrack('DJ', this.source);
   private decoder: ReturnType<typeof spawn> | null = null;
+  private pump: PcmPump | null = null;
   private generation = 0;
   private offset = 0;
   private frames = 0;
@@ -58,12 +62,32 @@ export class LiveMusicPublisher implements MusicPublisher {
     this.frames = 0;
     this.playing = false;
     this.generation++;
+    this.pump?.cancel();
+    this.pump = null;
     this.decoder?.kill('SIGKILL');
     this.decoder = null;
     void this.streamClose?.();
     this.streamClose = null;
     this.source.clearQueue();
   }
+  /** Feeds decoder PCM through the read-ahead buffer; `frames` advances as each frame is accepted. */
+  private startPump(stream: AsyncIterable<Uint8Array>, generation: number, onFrame?: () => void) {
+    const pump = startPcmPump({
+      source: stream,
+      sink: {
+        captureFrame: (samples) =>
+          this.source.captureFrame(new AudioFrame(samples, PCM_SAMPLE_RATE, 2, 480)),
+      },
+      isCurrent: () => generation === this.generation,
+      onFrame: () => {
+        this.frames += 480;
+        onFrame?.();
+      },
+    });
+    this.pump = pump;
+    return pump;
+  }
+
   async play(
     path: string,
     position: number,
@@ -108,22 +132,10 @@ export class LiveMusicPublisher implements MusicPublisher {
       child.once('close', resolve);
     });
     void done.catch(() => {});
+    const pump = this.startPump(child.stdout!, generation);
     void (async () => {
-      let pending = Buffer.alloc(0);
       try {
-        for await (const chunk of child.stdout!) {
-          if (generation !== this.generation) return;
-          pending = Buffer.concat([pending, chunk]);
-          while (pending.length >= 1920) {
-            const bytes = pending.subarray(0, 1920);
-            pending = pending.subarray(1920);
-            const samples = new Int16Array(960);
-            for (let i = 0; i < 960; i++) samples[i] = bytes.readInt16LE(i * 2);
-            await this.source.captureFrame(new AudioFrame(samples, 48000, 2, 480));
-            this.frames += 480;
-            if (generation !== this.generation) return;
-          }
-        }
+        await pump.done;
         if ((await done) !== 0) throw new Error('Decode failed');
         await this.source.waitForPlayout();
         if (generation === this.generation) {
@@ -210,27 +222,16 @@ export class LiveMusicPublisher implements MusicPublisher {
         rejectReady(new Error('MUSIC_SOURCE_TIMEOUT'));
       }
     }, 60000);
+    const pump = this.startPump(child.stdout, generation, () => {
+      if (!started) {
+        started = true;
+        clearTimeout(startup);
+        resolveReady();
+      }
+    });
     void (async () => {
-      let pending = Buffer.alloc(0);
       try {
-        for await (const chunk of child.stdout) {
-          if (generation !== this.generation) throw new Error('Cancelled');
-          pending = Buffer.concat([pending, chunk]);
-          while (pending.length >= 1920) {
-            const bytes = pending.subarray(0, 1920);
-            pending = pending.subarray(1920);
-            const samples = new Int16Array(960);
-            for (let i = 0; i < 960; i++) samples[i] = bytes.readInt16LE(i * 2);
-            await this.source.captureFrame(new AudioFrame(samples, 48000, 2, 480));
-            this.frames += 480;
-            if (!started) {
-              started = true;
-              clearTimeout(startup);
-              resolveReady();
-            }
-            if (generation !== this.generation) throw new Error('Cancelled');
-          }
-        }
+        await pump.done;
         if ((await done) !== 0) throw new Error('Decode failed');
         await input.done;
         if (!started) throw new Error('Empty audio');
