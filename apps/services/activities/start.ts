@@ -14,6 +14,7 @@ import {
   type StoatChannel,
   type StoatMember,
 } from '../access/stoat-permissions';
+import { identityCache } from '../shared/identity-cache';
 async function main() {
   const pool = process.env.ROOMS_ACTIVITY_DATABASE_URL
     ? new Pool({ connectionString: process.env.ROOMS_ACTIVITY_DATABASE_URL })
@@ -34,21 +35,21 @@ async function main() {
   const reader = process.env.ROOMS_SOCIAL_READ_MONGO_URL
     ? new StoatAuthorizationReader(process.env.ROOMS_SOCIAL_READ_MONGO_URL)
     : null;
+  const stoatClient = (token: string) =>
+    new StoatClient(process.env.STOAT_INTERNAL_URL ?? 'http://127.0.0.1:3021/api', token, {
+      trustedInternalOrigin: true,
+      apiRoot: !new URL(
+        process.env.STOAT_INTERNAL_URL ?? 'http://127.0.0.1:3021/api',
+      ).pathname.startsWith('/api'),
+    });
+  // Games poll often; asking Stoat who the caller is on every request kept its rate limit full.
+  const identify = identityCache((token: string) => stoatClient(token).getCurrentUser());
   const server = await createActivityServer({
     repository,
     studio,
     authorize: async (token, roomId) => {
-      const client = new StoatClient(
-        process.env.STOAT_INTERNAL_URL ?? 'http://127.0.0.1:3021/api',
-        token,
-        {
-          trustedInternalOrigin: true,
-          apiRoot: !new URL(
-            process.env.STOAT_INTERNAL_URL ?? 'http://127.0.0.1:3021/api',
-          ).pathname.startsWith('/api'),
-        },
-      );
-      const user = await client.getCurrentUser();
+      const client = stoatClient(token);
+      const user = await identify(token);
       const context = reader ? await reader.read(roomId, user.id) : null;
       const channel = context?.channel ?? (await client.getChannel(roomId));
       if (typeof channel.server !== 'string') throw new StoatError(403, 'ROOM_ACCESS_DENIED');
