@@ -15,8 +15,10 @@ services:
     # 2h sets: <=180MiB each; one source operation at a time,384MiB global cache.
   # Private YouTube player parser for the DJ source bridge (reached as http://music-cipher:8001/).
   music-cipher:
-    # Pin by digest and bump it only after a real add-song check.
-    image: ghcr.io/kikkia/yt-cipher@sha256:4c5ec381ff57336cfc24822d2b526a5ad7cd0171f61065a1bbc87bb736842449
+    # Pin by digest and bump it only after a real add-song check. This is upstream d6b70bac
+    # (2026-11-24), which reads the YouTube players served since 2026-11-23; the August image
+    # failed every song with `a.addOnDisposeCallback is not a function`.
+    image: ghcr.io/kikkia/yt-cipher@sha256:c38409ee59153c9572b97e116b366f5193d0ae44a41ea6e15027ce0afcb10052
     restart: unless-stopped
     read_only: true
     cap_drop:
