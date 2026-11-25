@@ -9,3 +9,5 @@ Tayfa yalnızca iki kanallı kaynakta yayımlanan ses özelliği bildirimini de�
 Derleme ve fiziksel/sağlayıcı kabulü ayrı kontrollerdir. Önceki özel dağıtım kayıtları bu açık kaynak dağıtımına dahil değildir.
 
 YouTube ayrıştırıcısı `music-cipher` her YouTube oynatıcı sürümü için yaklaşık 3 MB'lık bir betik indirir ve çalışırken eskileri silmez; yalnızca yeniden başlatma `/home/nonroot/.cache` belleğini temizler. 64 MB, beş haftada dolup her yeni oynatıcıda `ENOSPC` hatası verdi ve şarkı eklenemedi. [Compose parçası](../music-compose.fragment.yml) bu alanı 256 MB yapar (yaklaşık bir yıl yeter). Günlükte `No space left on device` görürsen `docker compose restart music-cipher` çalıştır; önbellek yeniden dolar.
+
+YouTube oynatıcıyı değiştirdiğinde ayrıştırıcı her şarkıda hata verir; 23 Kasım 2026'da günlükte `a.addOnDisposeCallback is not a function` görüldü ve DJ şarkı ekleyemedi. Çözüm, `kikkia/yt-cipher` için yeni bir sürüm çıkmasını beklemek, imajı digest ile sabitlemek ve gerçek bir şarkı ekleyerek doğrulamaktır. Geri dönmek için compose yedeğindeki eski digest kullanılır.

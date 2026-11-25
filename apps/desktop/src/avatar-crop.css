@@ -50,3 +50,12 @@
   font-size: 12px;
   color: #ff8a8a;
 }
+
+/*
+ * The crop dialog is mounted once at the app root, outside every page. Settings is a fixed
+ * surface at z-index 100 and the shared modal layer is 60, so a photo picked in Settings
+ * opened the dialog behind it: nothing seemed to happen until the person left Settings.
+ */
+.modal-backdrop:has(> .modal.avatar-crop) {
+  z-index: calc(var(--z-popover) - 1);
+}
