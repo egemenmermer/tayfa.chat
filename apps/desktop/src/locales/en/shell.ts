@@ -522,6 +522,9 @@ export const shell: Catalog = {
   'Sunucuya ulaşılamadı. Ağ bağlantısını ve sunucu adresini kontrol et.':
     'Couldn’t reach the server. Check your network connection and the server address.',
   'Sürüm {version}': 'Version {version}',
+  'Sürüm bilgisi': 'Version info',
+  'Hata bildirirken ekle: {info}': 'Include this when you report a bug: {info}',
+  'Panoya erişilemiyor.': 'Can’t reach the clipboard.',
   'Sırada başka video yok.': 'There are no more videos in the queue.',
   'Şu an çevrimiçi arkadaşın yok.': 'None of your friends are online right now.',
   'Tayfa {version}': 'Tayfa {version}',
