@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { StoatClient, StoatError } from '@rooms/stoat';
 import { StoatAuthorizationReader } from '../access/stoat-authorization';
+import { identityCache } from '../shared/identity-cache';
 import {
   stoatChannelPermissions,
   stoatCommunityAdmin,
@@ -31,10 +32,12 @@ export function stoatAuthority(options: { stoatUrl: string; mongoUrl?: string })
       trustedInternalOrigin: true,
       apiRoot: !new URL(options.stoatUrl).pathname.startsWith('/api'),
     });
+  // Status and relay requests repeat; Stoat's `/users/@me` limit is shared by the whole container.
+  const identify = identityCache((token: string) => client(token).getCurrentUser());
   return {
     async community(token, communityId) {
       const stoat = client(token);
-      const user = await stoat.getCurrentUser();
+      const user = await identify(token);
       const context = reader ? await reader.community(communityId, user.id) : null;
       const server = (context?.server ??
         (await stoat.getServer(communityId))) as unknown as StoatServer;
@@ -48,7 +51,7 @@ export function stoatAuthority(options: { stoatUrl: string; mongoUrl?: string })
     },
     async channel(token, channelId) {
       const stoat = client(token);
-      const user = await stoat.getCurrentUser();
+      const user = await identify(token);
       const context = reader ? await reader.read(channelId, user.id) : null;
       const channel = (context?.channel ??
         (await stoat.getChannel(channelId))) as unknown as StoatChannel;
